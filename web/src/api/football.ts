@@ -1,47 +1,92 @@
 // src/api/football.ts
 import { CURRENT_SEASON } from "../config/football";
 
-export const API_BASE =
-  import.meta.env.DEV ? "/football-api" : "/football-api";
+// Use proxy only in dev (Vite dev server)
+const USE_PROXY = import.meta.env.DEV;
+
+// In dev, we call the Vite proxy at /football-api
+// In prod (GitHub Pages), we call Football-Data directly.
+export const API_BASE = USE_PROXY
+  ? "/football-api"
+  : "https://api.football-data.org/v4";
+
+const API_TOKEN = import.meta.env.VITE_FOOTBALL_DATA_TOKEN;
 
 export interface Fixture {
   id: number;
-  kickoff: string;            // ISO datetime string (UTC)
-  statusShort: string;        // "NS" | "FT" | "LIVE" etc for our UI
-  statusLong: string;         // original status from API
-  round: string;              // e.g. "Matchday 13"
-  matchday?: number;          // numeric matchday
-  season?: number;            // season year (e.g. 2025)
+  kickoff: string; // ISO datetime string (UTC)
+  statusShort: string; // "NS" | "FT" | "LIVE" etc for our UI
+  statusLong: string; // original status from API
+  round: string; // e.g. "Matchday 13"
+  matchday?: number; // numeric matchday
+  season?: number; // season year (e.g. 2025)
   homeTeam: string;
   awayTeam: string;
-  homeShort: string;          // NEW: short label (TLA or shortName)
-  awayShort: string;          // NEW: short label (TLA or shortName)
+  homeShort: string; // short label (TLA or shortName)
+  awayShort: string; // short label (TLA or shortName)
   homeLogo: string;
   awayLogo: string;
   homeGoals: number | null;
   awayGoals: number | null;
 }
 
-// ---- URL helpers -------------------------------------------------
+// ---- Helpers ------------------------------------------------------
 
 function formatDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return date.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-function makeUrl(path: string, params?: Record<string, string | number | undefined>) {
-  const cleanPath = path.replace(/\\/g, "/");
-  const url = new URL(cleanPath, window.location.origin);
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+/**
+ * Build the base URL for PL matches, with correct endpoint for
+ * dev (proxy) vs production (direct Football-Data API).
+ *
+ * dev:   /football-api/pl-matches           → Vite proxy rewrites to /v4/competitions/PL/matches
+ * prod:  https://api.football-data.org/v4/competitions/PL/matches
+ */
+function buildMatchesUrl(params: Record<string, string | number | undefined>): string {
+  const basePath = USE_PROXY
+    ? `${API_BASE}/pl-matches`
+    : `${API_BASE}/competitions/PL/matches`;
+
+  const url = USE_PROXY
+    ? new URL(basePath, window.location.origin) // relative URL in dev
+    : new URL(basePath); // absolute URL in prod
+
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) {
+      url.searchParams.set(k, String(v));
     }
   }
+
   return url.toString();
 }
 
-async function fetchJson(url: string) {
-  const res = await fetch(url);
+/**
+ * Low-level fetch helper that:
+ * - Uses proxy in dev (no header needed)
+ * - Adds X-Auth-Token header in production
+ */
+async function fetchMatches(
+  params: Record<string, string | number | undefined>
+): Promise<any[]> {
+  const url = buildMatchesUrl(params);
+
+  const headers: Record<string, string> = {};
+
+  // In production (no proxy), we must send the token with the request
+  if (!USE_PROXY) {
+    if (!API_TOKEN) {
+      console.warn(
+        "[Football API] VITE_FOOTBALL_DATA_TOKEN is missing in production build."
+      );
+    } else {
+      headers["X-Auth-Token"] = API_TOKEN;
+    }
+  }
+
+  const res = await fetch(url, { headers });
   const text = await res.text();
+
   let data: any;
   try {
     data = JSON.parse(text);
@@ -49,6 +94,7 @@ async function fetchJson(url: string) {
     console.error("Non-JSON response from Football API:", text);
     throw new Error("Football API returned non-JSON response");
   }
+
   if (!res.ok) {
     console.error("Football API HTTP error:", res.status, data);
     throw new Error(
@@ -57,10 +103,11 @@ async function fetchJson(url: string) {
       )}`
     );
   }
-  return data;
+
+  return (data.matches || []) as any[];
 }
 
-// ---- Public API --------------------------------------------------
+// ---- Public API ----------------------------------------------------
 
 /**
  * Return ALL fixtures for the next Premier League gameweek (entire matchday).
@@ -71,13 +118,18 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
   // Step 1: detect next matchday using a near-term window
   const now = new Date();
   const dateFrom = formatDate(now);
-  const dateTo   = formatDate(new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)); // 14 days
+  const dateTo = formatDate(
+    new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+  ); // 14 days
 
-  const detectUrl = makeUrl(`${API_BASE}/pl-matches`, { dateFrom, dateTo });
-  console.log("[Football API] Detect next GW:", detectUrl);
-  const detectData = await fetchJson(detectUrl);
+  console.log("[Football API] Detect next GW (range):", { dateFrom, dateTo });
 
-  const upcoming = (detectData.matches || []) as any[];
+  const upcoming = await fetchMatches({
+    dateFrom,
+    dateTo,
+    status: "SCHEDULED",
+  });
+
   const matchdays = upcoming
     .map((m) => m.matchday)
     .filter((md) => typeof md === "number") as number[];
@@ -90,19 +142,23 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
   const roundLabel = `Matchday ${nextMatchday}`;
 
   // Step 2: fetch the full round by matchday+season (no date slicing)
-  const roundUrl = makeUrl(`${API_BASE}/pl-matches`, {
+  console.log("[Football API] Fetch full GW:", {
     matchday: nextMatchday,
     season: CURRENT_SEASON,
   });
-  console.log("[Football API] Fetch full GW:", roundUrl);
-  const roundData = await fetchJson(roundUrl);
 
-  const matches = (roundData.matches || []) as any[];
+  const matches = await fetchMatches({
+    matchday: nextMatchday,
+    season: CURRENT_SEASON,
+  });
+
   if (!matches.length) {
     throw new Error("No matches returned for the detected matchday.");
   }
 
-  return matches.map(mapApiMatchToFixture(roundLabel, nextMatchday, CURRENT_SEASON));
+  return matches.map(
+    mapApiMatchToFixture(roundLabel, nextMatchday, CURRENT_SEASON)
+  );
 }
 
 /**
@@ -115,11 +171,12 @@ export async function getPremierLeagueMatchesForRange(
   const dateFrom = formatDate(from);
   const dateTo = formatDate(to);
 
-  const url = makeUrl(`${API_BASE}/pl-matches`, { dateFrom, dateTo });
-  console.log("[Football API] Requesting range:", url);
+  console.log("[Football API] Requesting range:", { dateFrom, dateTo });
 
-  const data = await fetchJson(url);
-  const matches = (data.matches || []) as any[];
+  const matches = await fetchMatches({
+    dateFrom,
+    dateTo,
+  });
 
   return matches.map((m) => {
     const md = typeof m.matchday === "number" ? m.matchday : undefined;
@@ -128,7 +185,7 @@ export async function getPremierLeagueMatchesForRange(
   });
 }
 
-// ---- Mapping -----------------------------------------------------
+// ---- Mapping -------------------------------------------------------
 
 function mapApiMatchToFixture(roundLabel: string, md?: number, season?: number) {
   return (m: any): Fixture => {
@@ -142,7 +199,6 @@ function mapApiMatchToFixture(roundLabel: string, md?: number, season?: number) 
     else if (m.status === "SUSPENDED") statusShort = "SUS";
     else if (m.status === "POSTPONED") statusShort = "PST";
 
-    // Football-Data includes TLA/shortName on team objects
     const h = m.homeTeam || {};
     const a = m.awayTeam || {};
     const homeShort = h.tla || h.shortName || h.name || "Home";
