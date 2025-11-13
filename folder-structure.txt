@@ -1,0 +1,67 @@
+Folder: .
+
+├── web
+│   ├── api
+│   │   ├── football
+│   │   │   └── [...path].js
+│   │   └── test.js
+│   ├── public
+│   │   ├── icons
+│   │   │   ├── icon-192.png
+│   │   │   ├── icon-512.png
+│   │   │   ├── maskable-192.png
+│   │   │   └── maskable-512.png
+│   │   ├── 128px-Soccer_ball.png
+│   │   ├── 256px-Soccer_ball.png
+│   │   ├── 64px-Soccer_ball.png
+│   │   └── manifest.webmanifest
+│   ├── src
+│   │   ├── api
+│   │   │   └── football.ts
+│   │   ├── assets
+│   │   │   └── react.svg
+│   │   ├── components
+│   │   │   ├── auth
+│   │   │   │   ├── LoginPage.css
+│   │   │   │   ├── LoginPage.tsx
+│   │   │   │   └── stjamespark.jpg
+│   │   │   ├── layout
+│   │   │   │   └── Navbar.tsx
+│   │   │   ├── leaderboard
+│   │   │   │   └── LeaderboardPage.tsx
+│   │   │   ├── predictions
+│   │   │   │   ├── FixtureCard.tsx
+│   │   │   │   ├── PredictionsPage.tsx
+│   │   │   │   └── PredictionStatusPill.tsx
+│   │   │   ├── stats
+│   │   │   │   └── MyStatsPage.tsx
+│   │   │   └── weekly
+│   │   │       └── WeeklyGameweekPage.tsx
+│   │   ├── config
+│   │   │   └── football.ts
+│   │   ├── context
+│   │   │   └── LiveFixturesContext.tsx
+│   │   ├── styles
+│   │   │   └── theme.css
+│   │   ├── utils
+│   │   │   ├── dates.ts
+│   │   │   └── scoring.ts
+│   │   ├── App.css
+│   │   ├── App.tsx
+│   │   ├── firebase.ts
+│   │   ├── index.css
+│   │   ├── main.tsx
+│   │   └── vite-env.d.ts
+│   ├── .env.local
+│   ├── .gitignore
+│   ├── api-proxy.mjs
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── README.md
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   └── vite.config.ts
+└── folder-structure.txt
