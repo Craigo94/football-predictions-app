@@ -1,10 +1,10 @@
 Folder: .
 
+├── api
+│   ├── football
+│   │   └── [...path].js
+│   └── test.js
 ├── web
-│   ├── api
-│   │   ├── football
-│   │   │   └── [...path].js
-│   │   └── test.js
 │   ├── public
 │   │   ├── icons
 │   │   │   ├── icon-192.png
