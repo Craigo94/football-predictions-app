@@ -2,40 +2,33 @@ const API_BASE = "https://api.football-data.org/v4";
 
 export default async function handler(req, res) {
   try {
-    const API_TOKEN = process.env.FOOTBALL_DATA_TOKEN;
+    const token = process.env.FOOTBALL_DATA_TOKEN;
 
-    if (!API_TOKEN) {
-      console.error("FOOTBALL_DATA_TOKEN is not set");
-      return res
-        .status(500)
-        .json({ error: "Football API token not configured" });
+    if (!token) {
+      return res.status(500).json({ error: "Missing Football API token" });
     }
 
-    // Build upstream URL
+    // Reconstruct upstream URL
     const url = new URL(req.url, `https://${req.headers.host}`);
-    const upstreamPath = url.pathname.replace(/^\/api\/football/, "") || "/";
-    const upstreamUrl = API_BASE + upstreamPath + url.search;
+    const path = url.pathname.replace(/^\/api\/football/, "") || "/";
+    const upstream = API_BASE + path + url.search;
 
-    console.log("[Football proxy] ->", upstreamUrl);
+    console.log("Proxy ->", upstream);
 
-    const upstreamRes = await fetch(upstreamUrl, {
-      headers: { "X-Auth-Token": API_TOKEN },
+    const response = await fetch(upstream, {
+      headers: { "X-Auth-Token": token },
     });
 
-    const text = await upstreamRes.text();
+    const text = await response.text();
 
-    // Try to return JSON; fall back to plain text
     try {
       const json = JSON.parse(text);
-      res.status(upstreamRes.status).json(json);
+      return res.status(response.status).json(json);
     } catch {
-      console.error("Upstream returned non-JSON:", text);
-      res
-        .status(upstreamRes.status)
-        .send(text || "Upstream returned non-JSON response");
+      return res.status(response.status).send(text);
     }
   } catch (err) {
     console.error("Proxy error:", err);
-    res.status(500).json({ error: "Internal proxy error" });
+    return res.status(500).json({ error: "Proxy crashed" });
   }
 }
