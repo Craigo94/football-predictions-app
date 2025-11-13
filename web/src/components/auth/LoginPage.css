@@ -1,0 +1,133 @@
+.login-page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: url("./stjamespark.jpg") center/cover no-repeat;
+  overflow: hidden;
+}
+
+.login-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45); /* slightly transparent dark overlay */
+  z-index: 1;
+}
+
+
+.login-container {
+  position: relative;
+  z-index: 2;
+  background: rgba(18, 20, 23, 0.95);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  padding: 3rem 2.5rem;
+  width: 90%;
+  max-width: 380px;
+  text-align: center;
+  animation: fadeIn 0.6s ease forwards;
+}
+
+.login-title {
+  font-size: 1.9rem;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.login-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin-bottom: 1.8rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.login-form input {
+  background: #181a1f;
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.7rem;
+  font-size: 1rem;
+  outline: none;
+  transition: border var(--transition);
+  width: 100%;              /* ✅ make sure they fit the container */
+  box-sizing: border-box;    /* ✅ padding stays inside the width */
+}
+
+.login-form input:focus {
+  border-color: var(--accent);
+}
+
+.login-form button {
+  background: var(--accent);
+  border: none;
+  color: white;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.8rem;
+  cursor: pointer;
+  transition: background var(--transition), transform 0.15s ease;
+}
+.login-form button:hover {
+  background: #007aff;
+  transform: translateY(-1px);
+}
+
+.login-error {
+  background: rgba(255, 0, 0, 0.15);
+  color: #ff6666;
+  border: 1px solid rgba(255, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.toggle-text {
+  margin-top: 1.2rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.toggle-text span {
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.toggle-text span:hover {
+  color: white;
+}
+
+.login-footer {
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.name-fields {
+  display: flex;
+  flex-direction: column;   /* ✅ stack them instead of side by side */
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.name-fields input {
+  flex: 1;
+}

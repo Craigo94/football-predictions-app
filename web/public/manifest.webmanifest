@@ -1,0 +1,23 @@
+{
+    "name": "Football Predictions",
+    "short_name": "Predictions",
+    "description": "Predict Premier League scores, track your points, and compete with friends.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#020617",
+    "theme_color": "#0f172a",
+    "icons": [
+        {
+            "src": "/128px-Soccer_ball.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/64px-Soccer_ball.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
