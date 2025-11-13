@@ -1,56 +1,42 @@
-// src/api/football.ts
+// web/src/api/football.ts
 import { CURRENT_SEASON } from "../config/football";
-
-// Use proxy only in dev (Vite dev server)
-const USE_PROXY = import.meta.env.DEV;
-
-// In dev, we call the Vite proxy at /football-api
-// In prod (GitHub Pages), we call Football-Data directly.
-export const API_BASE = USE_PROXY
-  ? "/football-api"
-  : "https://api.football-data.org/v4";
-
-const API_TOKEN = import.meta.env.VITE_FOOTBALL_DATA_TOKEN;
 
 export interface Fixture {
   id: number;
-  kickoff: string; // ISO datetime string (UTC)
-  statusShort: string; // "NS" | "FT" | "LIVE" etc for our UI
-  statusLong: string; // original status from API
-  round: string; // e.g. "Matchday 13"
-  matchday?: number; // numeric matchday
-  season?: number; // season year (e.g. 2025)
+  kickoff: string;            // ISO datetime string (UTC)
+  statusShort: string;        // "NS" | "FT" | "LIVE" etc for our UI
+  statusLong: string;         // original status from API
+  round: string;              // e.g. "Matchday 13"
+  matchday?: number;          // numeric matchday
+  season?: number;            // season year (e.g. 2025)
   homeTeam: string;
   awayTeam: string;
-  homeShort: string; // short label (TLA or shortName)
-  awayShort: string; // short label (TLA or shortName)
+  homeShort: string;
+  awayShort: string;
   homeLogo: string;
   awayLogo: string;
   homeGoals: number | null;
   awayGoals: number | null;
 }
 
-// ---- Helpers ------------------------------------------------------
+// ---- helpers ------------------------------------------------------
 
 function formatDate(date: Date): string {
   return date.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
 /**
- * Build the base URL for PL matches, with correct endpoint for
- * dev (proxy) vs production (direct Football-Data API).
+ * Build a URL for PL matches via our proxy:
+ *   /api/football/competitions/PL/matches
  *
- * dev:   /football-api/pl-matches           → Vite proxy rewrites to /v4/competitions/PL/matches
- * prod:  https://api.football-data.org/v4/competitions/PL/matches
+ * In dev: Vite proxies this to Football-Data with the token.
+ * In prod (Vercel): our serverless function proxies it with the token.
  */
-function buildMatchesUrl(params: Record<string, string | number | undefined>): string {
-  const basePath = USE_PROXY
-    ? `${API_BASE}/pl-matches`
-    : `${API_BASE}/competitions/PL/matches`;
-
-  const url = USE_PROXY
-    ? new URL(basePath, window.location.origin) // relative URL in dev
-    : new URL(basePath); // absolute URL in prod
+function buildMatchesUrl(
+  params: Record<string, string | number | undefined>
+): string {
+  const basePath = "/api/football/competitions/PL/matches";
+  const url = new URL(basePath, window.location.origin);
 
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null) {
@@ -61,30 +47,12 @@ function buildMatchesUrl(params: Record<string, string | number | undefined>): s
   return url.toString();
 }
 
-/**
- * Low-level fetch helper that:
- * - Uses proxy in dev (no header needed)
- * - Adds X-Auth-Token header in production
- */
 async function fetchMatches(
   params: Record<string, string | number | undefined>
 ): Promise<any[]> {
   const url = buildMatchesUrl(params);
 
-  const headers: Record<string, string> = {};
-
-  // In production (no proxy), we must send the token with the request
-  if (!USE_PROXY) {
-    if (!API_TOKEN) {
-      console.warn(
-        "[Football API] VITE_FOOTBALL_DATA_TOKEN is missing in production build."
-      );
-    } else {
-      headers["X-Auth-Token"] = API_TOKEN;
-    }
-  }
-
-  const res = await fetch(url, { headers });
+  const res = await fetch(url);
   const text = await res.text();
 
   let data: any;
@@ -111,16 +79,13 @@ async function fetchMatches(
 
 /**
  * Return ALL fixtures for the next Premier League gameweek (entire matchday).
- * Step 1: use a small date window to find the next matchday number.
- * Step 2: fetch by matchday+season to get every fixture in that round (Fri–Mon).
  */
 export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]> {
-  // Step 1: detect next matchday using a near-term window
   const now = new Date();
   const dateFrom = formatDate(now);
   const dateTo = formatDate(
     new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
-  ); // 14 days
+  ); // 14 days ahead
 
   console.log("[Football API] Detect next GW (range):", { dateFrom, dateTo });
 
@@ -141,7 +106,6 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
   const nextMatchday = Math.min(...matchdays);
   const roundLabel = `Matchday ${nextMatchday}`;
 
-  // Step 2: fetch the full round by matchday+season (no date slicing)
   console.log("[Football API] Fetch full GW:", {
     matchday: nextMatchday,
     season: CURRENT_SEASON,

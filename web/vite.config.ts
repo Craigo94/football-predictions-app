@@ -1,9 +1,7 @@
-// vite.config.ts
+// web/vite.config.ts
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
-
-const repoBase = "/football-predictions-app/"; 
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -11,12 +9,14 @@ export default defineConfig(({ mode }) => {
   if (!env.VITE_FOOTBALL_DATA_TOKEN) {
     console.warn(
       "[Vite proxy] VITE_FOOTBALL_DATA_TOKEN is empty. " +
-        "Requests to /football-api will likely return 401 until you set it in .env.local and restart the dev server."
+        "Requests to /api/football will likely return 401 in dev " +
+        "until you set it in .env.local and restart the dev server."
     );
   }
 
   return {
-    base: repoBase, // <-- THIS is what GitHub Pages needs
+    // Vercel serves from the domain root, not /football-predictions-app/
+    base: "/",
 
     plugins: [
       react(),
@@ -28,9 +28,8 @@ export default defineConfig(({ mode }) => {
           short_name: "Footy Picks",
           description:
             "Family Premier League score predictions with live points and leaderboards.",
-          // important for PWA on GitHub Pages:
-          start_url: repoBase,
-          scope: repoBase,
+          start_url: "/",
+          scope: "/",
           display: "standalone",
           orientation: "portrait",
           background_color: "#020817",
@@ -59,22 +58,20 @@ export default defineConfig(({ mode }) => {
       }),
     ],
 
+    // Dev server (local only)
     server: {
       host: "0.0.0.0",
       port: 5173,
       proxy: {
-        "/football-api": {
-          target: "https://api.football-data.org",
+        "/api/football": {
+          target: "https://api.football-data.org/v4",
           changeOrigin: true,
           secure: true,
           headers: {
             "X-Auth-Token": env.VITE_FOOTBALL_DATA_TOKEN || "",
           },
-          rewrite: (path) =>
-            path
-              .replace(/^\/football-api\/pl-next-fixtures/, "/v4/competitions/PL/matches")
-              .replace(/^\/football-api\/pl-matches/, "/v4/competitions/PL/matches")
-              .replace(/^\/football-api/, ""),
+          // /api/football/competitions/PL/matches -> /competitions/PL/matches
+          rewrite: (path) => path.replace(/^\/api\/football/, ""),
         },
       },
     },
