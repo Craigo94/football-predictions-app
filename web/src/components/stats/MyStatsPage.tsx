@@ -5,7 +5,7 @@ import { db } from "../../firebase";
 import {
   getPremierLeagueMatchesForRange,
   type Fixture,
-} from "../../../api/football";
+} from "../../api/football";
 import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
 
 interface Props {

@@ -18,6 +18,7 @@ interface PredictionDoc {
 
 interface WeeklyRow {
   userId: string;
+
   userDisplayName: string;
   totalPoints: number;
 }
