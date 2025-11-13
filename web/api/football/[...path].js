@@ -1,5 +1,3 @@
-// web/api/football/[...path].js
-
 export default async function handler(req, res) {
   const API_BASE = "https://api.football-data.org/v4";
   const API_TOKEN = process.env.FOOTBALL_DATA_TOKEN;
@@ -8,20 +6,27 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "API key missing" });
   }
 
-  // Extract the path after /api/football/
-  const upstreamPath = "/" + req.query.path.join("/");
-  const url = API_BASE + upstreamPath + (req.url.includes("?") ? req.url.split("?")[1] : "");
+  const dynamicPath = req.query.path.join("/");
 
-  console.log("➡️ Proxying:", url);
+  const qs = req.url.includes("?") ? "?" + req.url.split("?")[1] : "";
+  const upstreamUrl = `${API_BASE}/${dynamicPath}${qs}`;
 
-  const upstream = await fetch(url, {
-    headers: { "X-Auth-Token": API_TOKEN }
-  });
+  console.log("➡️ Proxy:", upstreamUrl);
 
-  const text = await upstream.text();
   try {
-    res.status(upstream.status).json(JSON.parse(text));
-  } catch {
-    res.status(upstream.status).send(text);
+    const upstreamRes = await fetch(upstreamUrl, {
+      headers: { "X-Auth-Token": API_TOKEN },
+    });
+
+    const text = await upstreamRes.text();
+
+    try {
+      const json = JSON.parse(text);
+      return res.status(upstreamRes.status).json(json);
+    } catch {
+      return res.status(upstreamRes.status).send(text);
+    }
+  } catch (err) {
+    return res.status(500).json({ error: "Internal proxy error" });
   }
 }
