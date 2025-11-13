@@ -9,8 +9,8 @@ export default defineConfig(({ mode }) => {
   if (!env.VITE_FOOTBALL_DATA_TOKEN) {
     console.warn(
       "[Vite proxy] VITE_FOOTBALL_DATA_TOKEN is empty. " +
-        "Requests to /api/football will likely return 401 in dev " +
-        "until you set it in .env.local and restart the dev server."
+      "Requests to /api/football will likely return 401 in dev " +
+      "until you set it in .env.local and restart the dev server."
     );
   }
 
@@ -22,7 +22,11 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: "autoUpdate",
-        includeAssets: ["/icons/icon-192.png", "/icons/icon-512.png"],
+        includeAssets: [
+          "/64px-Soccer_ball.png",
+          "/128px-Soccer_ball.png",
+          "/256px-Soccer_ball.png"
+        ],
         manifest: {
           name: "Family Premier League Picks",
           short_name: "Footy Picks",
@@ -35,27 +39,29 @@ export default defineConfig(({ mode }) => {
           background_color: "#020817",
           theme_color: "#020817",
           icons: [
-            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
             {
-              src: "/icons/maskable-192.png",
-              sizes: "192x192",
-              type: "image/png",
-              purpose: "maskable",
+              src: "/64px-Soccer_ball.png",
+              sizes: "64x64",
+              type: "image/png"
             },
             {
-              src: "/icons/maskable-512.png",
-              sizes: "512x512",
-              type: "image/png",
-              purpose: "maskable",
+              src: "/128px-Soccer_ball.png",
+              sizes: "128x128",
+              type: "image/png"
             },
-          ],
+            {
+              src: "/256px-Soccer_ball.png",
+              sizes: "256x256",
+              type: "image/png"
+            }
+          ]
         },
         workbox: {
           navigateFallback: "/index.html",
-          globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
-        },
-      }),
+          globPatterns: ["**/*.{js,css,html,ico,png,svg}"]
+        }
+      })
+
     ],
 
     // Dev server (local only)
