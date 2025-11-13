@@ -8,7 +8,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    // req.url will be like:
+    // Example req.url:
     //   /api/football/competitions/PL/matches?dateFrom=...&dateTo=...
     const url = req.url || "/api/football";
 
@@ -28,10 +28,8 @@ export default async function handler(req, res) {
 
     const text = await response.text();
 
-    // Mirror the status code
+    // Forward status + content-type
     res.status(response.status);
-
-    // Pass through JSON content-type if present
     const contentType = response.headers.get("content-type");
     if (contentType) {
       res.setHeader("content-type", contentType);
