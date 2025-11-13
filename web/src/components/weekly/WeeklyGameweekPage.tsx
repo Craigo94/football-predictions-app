@@ -4,7 +4,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
 import { scorePrediction } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
-import type { Fixture } from "../../../api/football";
+import type { Fixture } from "../../api/football";
 
 interface PredictionDoc {
   userId: string;
