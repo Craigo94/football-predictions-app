@@ -1,10 +1,10 @@
 Folder: .
 
+├── api
+│   ├── football
+│   │   └── [...path].js
+│   └── test.js
 ├── web
-│   ├── api
-│   │   ├── football
-│   │   │   └── [...path].js
-│   │   └── test.js
 │   ├── public
 │   │   ├── icons
 │   │   │   ├── icon-192.png
@@ -54,7 +54,6 @@ Folder: .
 │   │   └── vite-env.d.ts
 │   ├── .env.local
 │   ├── .gitignore
-│   ├── api-proxy.mjs
 │   ├── eslint.config.js
 │   ├── index.html
 │   ├── package-lock.json
