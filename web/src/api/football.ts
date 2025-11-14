@@ -36,15 +36,16 @@ function buildMatchesUrl(
   params: Record<string, string | number | undefined>
 ): string {
   const basePath = "/api/football/competitions/PL/matches";
-  const url = new URL(basePath, window.location.origin);
+  const search = new URLSearchParams();
 
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null) {
-      url.searchParams.set(k, String(v));
+      search.set(k, String(v));
     }
   }
 
-  return url.toString();
+  const query = search.toString();
+  return query ? `${basePath}?${query}` : basePath;
 }
 
 async function fetchMatches(

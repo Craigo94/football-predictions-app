@@ -1,4 +1,4 @@
-// web/api/football.js
+// web/api/football/[...path].js
 
 const API_BASE = "https://api.football-data.org/v4";
 
@@ -10,25 +10,22 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Missing Football API token" });
     }
 
-    // Parse the incoming URL
+    // Example incoming path:
+    //   /api/football/competitions/PL/matches?dateFrom=...&dateTo=...&status=SCHEDULED
     const url = new URL(req.url, `https://${req.headers.host}`);
 
-    // We expect either:
-    //   /api/football?path=/competitions/PL/matches&...
-    // or (after Vercel rewrite):
-    //   /api/football.js?path=/competitions/PL/matches&...
-    const upstreamPath = url.searchParams.get("path") || "/";
-    url.searchParams.delete("path");
+    // Strip "/api/football" from the front
+    const upstreamPath = url.pathname.replace(/^\/api\/football/, "") || "/";
 
-    // Build upstream Football-Data URL
-    const search = url.searchParams.toString();
-    const upstreamUrl =
-      API_BASE + upstreamPath + (search ? `?${search}` : "");
+    // Build Football-Data URL
+    const upstreamUrl = API_BASE + upstreamPath + url.search;
 
     console.log("[Football proxy] Upstream:", upstreamUrl);
 
     const upstreamRes = await fetch(upstreamUrl, {
-      headers: { "X-Auth-Token": token },
+      headers: {
+        "X-Auth-Token": token,
+      },
     });
 
     const text = await upstreamRes.text();
@@ -37,7 +34,7 @@ export default async function handler(req, res) {
       const json = JSON.parse(text);
       return res.status(upstreamRes.status).json(json);
     } catch {
-      // Non-JSON (e.g. HTML error from upstream)
+      // Upstream returned HTML or other non-JSON
       return res.status(upstreamRes.status).send(text);
     }
   } catch (err) {
