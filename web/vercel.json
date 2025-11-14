@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/football/(.*)",
+      "destination": "/api/football?path=$1"
+    }
+  ]
+}
