@@ -2,9 +2,7 @@ Folder: .
 
 ├── web
 │   ├── api
-│   │   ├── football
-│   │   │   └── [...path].js
-│   │   └── test.js
+│   │   └── football.js
 │   ├── public
 │   │   ├── icons
 │   │   │   ├── icon-192.png

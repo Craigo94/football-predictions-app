@@ -1,3 +1,5 @@
+// web/api/football.js
+
 const API_BASE = "https://api.football-data.org/v4";
 
 export default async function handler(req, res) {
@@ -8,12 +10,22 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Missing Football API token" });
     }
 
-    // Build upstream URL
+    // Parse the incoming URL
     const url = new URL(req.url, `https://${req.headers.host}`);
-    const path = url.pathname.replace(/^\/api\/football/, "") || "/";
-    const upstreamUrl = API_BASE + path + url.search;
 
-    console.log("Upstream:", upstreamUrl);
+    // We expect either:
+    //   /api/football?path=/competitions/PL/matches&...
+    // or (after Vercel rewrite):
+    //   /api/football.js?path=/competitions/PL/matches&...
+    const upstreamPath = url.searchParams.get("path") || "/";
+    url.searchParams.delete("path");
+
+    // Build upstream Football-Data URL
+    const search = url.searchParams.toString();
+    const upstreamUrl =
+      API_BASE + upstreamPath + (search ? `?${search}` : "");
+
+    console.log("[Football proxy] Upstream:", upstreamUrl);
 
     const upstreamRes = await fetch(upstreamUrl, {
       headers: { "X-Auth-Token": token },
@@ -25,6 +37,7 @@ export default async function handler(req, res) {
       const json = JSON.parse(text);
       return res.status(upstreamRes.status).json(json);
     } catch {
+      // Non-JSON (e.g. HTML error from upstream)
       return res.status(upstreamRes.status).send(text);
     }
   } catch (err) {

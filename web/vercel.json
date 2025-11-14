@@ -1,5 +1,33 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    },
+    {
+      "src": "api/football.js",
+      "use": "@vercel/node",
+      "config": {
+        "runtime": "nodejs22.x"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/football/(.*)",
+      "dest": "/api/football.js?path=/$1"
+    },
+    {
+      "src": "/api/football",
+      "dest": "/api/football.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ]
 }
