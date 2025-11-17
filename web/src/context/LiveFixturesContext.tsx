@@ -3,6 +3,7 @@ import {
   getPremierLeagueMatchesForRange,
   type Fixture,
 } from "../api/football";
+import { CURRENT_SEASON } from "../config/football";
 
 interface LiveFixturesContextValue {
   fixturesById: Record<number, Fixture>;
@@ -30,9 +31,9 @@ export const LiveFixturesProvider: React.FC<{ children: React.ReactNode }> = ({
     let intervalId: number | null = null;
     const firstRun = { current: true } as { current: boolean };
 
-    // 👇 One wide season window (adjust season years if needed)
-    const from = new Date("2025-08-01T00:00:00Z");
-    const to = new Date("2026-06-01T00:00:00Z");
+    // 👇 One wide window for the current PL season (Aug → June)
+    const seasonStart = new Date(`${CURRENT_SEASON}-08-01T00:00:00Z`);
+    const seasonEnd = new Date(`${CURRENT_SEASON + 1}-06-01T00:00:00Z`);
 
     const fetchAllSeasonFixtures = async () => {
       try {
@@ -40,7 +41,10 @@ export const LiveFixturesProvider: React.FC<{ children: React.ReactNode }> = ({
           setLoadingFixtures(true);
         }
 
-        const fixtures = await getPremierLeagueMatchesForRange(from, to);
+        const fixtures = await getPremierLeagueMatchesForRange(
+          seasonStart,
+          seasonEnd
+        );
         if (cancelled) return;
 
         const map: Record<number, Fixture> = {};
