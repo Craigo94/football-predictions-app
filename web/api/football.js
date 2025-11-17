@@ -1,6 +1,9 @@
 // web/api/football.js
 
 const API_BASE = "https://api.football-data.org/v4";
+const CACHE_TTL_MS = 60 * 1000;
+
+const cache = new Map();
 
 /**
  * Vercel Node.js Function
@@ -39,6 +42,15 @@ export default async function handler(request, response) {
     const upstreamUrl = search
       ? `${API_BASE}${upstreamPath}?${search}`
       : `${API_BASE}${upstreamPath}`;
+    const cacheKey = `${upstreamPath}${search ? `?${search}` : ""}`;
+    const cached = cache.get(cacheKey);
+
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log(`[Football proxy][cache hit] ${cacheKey}`);
+      return response.status(cached.status).json(cached.body);
+    }
+
+    console.log(`[Football proxy][cache miss] ${cacheKey}`);
     console.log("[Football proxy] →", upstreamUrl);
 
     const upstreamRes = await fetch(upstreamUrl, {
@@ -52,9 +64,19 @@ export default async function handler(request, response) {
     // Try JSON first
     try {
       const json = JSON.parse(text);
+      cache.set(cacheKey, {
+        body: json,
+        status: upstreamRes.status,
+        expiresAt: Date.now() + CACHE_TTL_MS,
+      });
       return response.status(upstreamRes.status).json(json);
     } catch {
       // Fallback: plain text/HTML (for debugging)
+      cache.set(cacheKey, {
+        body: text,
+        status: upstreamRes.status,
+        expiresAt: Date.now() + CACHE_TTL_MS,
+      });
       return response
         .status(upstreamRes.status)
         .send(text);
