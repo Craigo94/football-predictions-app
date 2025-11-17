@@ -28,10 +28,17 @@ export default async function handler(request, response) {
       ? rawPath.startsWith("/") ? rawPath : `/${rawPath}`
       : "/";
 
-    // Keep the original query parameters (dateFrom, status, etc.)
-    const search = url.search; // includes ?dateFrom=...&dateTo=...&status=...
+    // Keep the original query parameters (dateFrom, status, etc.) but drop
+    // the internal `path` parameter used by the rewrite, otherwise the
+    // upstream API receives `?path=competitions/PL/matches` and rejects the
+    // request.
+    const params = new URLSearchParams(url.searchParams);
+    params.delete("path");
 
-    const upstreamUrl = API_BASE + upstreamPath + search;
+    const search = params.toString();
+    const upstreamUrl = search
+      ? `${API_BASE}${upstreamPath}?${search}`
+      : `${API_BASE}${upstreamPath}`;
     console.log("[Football proxy] →", upstreamUrl);
 
     const upstreamRes = await fetch(upstreamUrl, {
