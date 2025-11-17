@@ -3,7 +3,6 @@ import {
   getPremierLeagueMatchesForRange,
   type Fixture,
 } from "../api/football";
-import { CURRENT_SEASON } from "../config/football";
 
 interface LiveFixturesContextValue {
   fixturesById: Record<number, Fixture>;
@@ -15,6 +14,10 @@ interface LiveFixturesContextValue {
 const LiveFixturesContext = React.createContext<
   LiveFixturesContextValue | undefined
 >(undefined);
+
+const WINDOW_PAST_DAYS = 2;
+const WINDOW_FUTURE_DAYS = 10;
+const POLL_INTERVAL_MS = 120_000; // 2 minutes is enough for a small group
 
 export const LiveFixturesProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -31,19 +34,15 @@ export const LiveFixturesProvider: React.FC<{ children: React.ReactNode }> = ({
     let intervalId: number | null = null;
     const firstRun = { current: true } as { current: boolean };
 
-    // 👇 One wide window for the current PL season (Aug → June)
-    const seasonStart = new Date(`${CURRENT_SEASON}-08-01T00:00:00Z`);
-    const seasonEnd = new Date(`${CURRENT_SEASON + 1}-06-01T00:00:00Z`);
-
-    const fetchAllSeasonFixtures = async () => {
+    const fetchWindowFixtures = async () => {
       try {
         if (firstRun.current) {
           setLoadingFixtures(true);
         }
 
         const fixtures = await getPremierLeagueMatchesForRange(
-          seasonStart,
-          seasonEnd
+          new Date(Date.now() - WINDOW_PAST_DAYS * 24 * 60 * 60 * 1000),
+          new Date(Date.now() + WINDOW_FUTURE_DAYS * 24 * 60 * 60 * 1000)
         );
         if (cancelled) return;
 
@@ -71,10 +70,10 @@ export const LiveFixturesProvider: React.FC<{ children: React.ReactNode }> = ({
     };
 
     // First fetch now
-    fetchAllSeasonFixtures();
+    fetchWindowFixtures();
 
-    // Then poll every 60s
-    intervalId = window.setInterval(fetchAllSeasonFixtures, 60_000);
+    // Then poll on a slower cadence (no need to hammer the API for a small group)
+    intervalId = window.setInterval(fetchWindowFixtures, POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;

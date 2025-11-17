@@ -36,6 +36,7 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
   >({});
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
 
   // Load ALL fixtures in the next gameweek (entire matchday)
   React.useEffect(() => {
@@ -110,13 +111,28 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
     };
 
     // Optimistic update
-    setPredictions((prev) => ({ ...prev, [fixture.id]: data }));
+    let previousValue: PredictionDoc | null = null;
+    setPredictions((prev) => {
+      previousValue = prev[fixture.id] ?? null;
+      return { ...prev, [fixture.id]: data };
+    });
 
     try {
       await setDoc(doc(db, "predictions", docId), data, { merge: true });
+      setSaveError(null);
     } catch (err) {
       console.error("Failed to save prediction", err);
-      alert("Could not save your prediction. Please try again.");
+      setSaveError(
+        "Could not save your prediction. Please check your connection and try again."
+      );
+      setPredictions((prev) => {
+        if (previousValue) {
+          return { ...prev, [fixture.id]: previousValue };
+        }
+        const next = { ...prev };
+        delete next[fixture.id];
+        return next;
+      });
     }
   };
 
@@ -187,6 +203,30 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
 
   return (
     <div>
+      {saveError && (
+        <div
+          className="card"
+          role="alert"
+          style={{
+            marginBottom: 12,
+            borderColor: "var(--red)",
+            background: "#fff6f6",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <div>
+              <strong>Save issue</strong>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
+                {saveError}
+              </p>
+            </div>
+            <button className="fx-btn" onClick={() => setSaveError(null)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Gameweek header */}
       <div
         className="card"
