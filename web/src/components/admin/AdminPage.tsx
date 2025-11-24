@@ -3,7 +3,6 @@ import { doc, setDoc, writeBatch } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useUsers } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
-import { PRIMARY_ADMIN_EMAIL } from "../../config/admin";
 
 const AdminPage: React.FC = () => {
   const { users, loading, error } = useUsers();
