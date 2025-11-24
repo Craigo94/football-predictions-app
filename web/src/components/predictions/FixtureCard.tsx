@@ -1,7 +1,7 @@
 import React from "react";
 import PredictionStatusPill from "./PredictionStatusPill";
 import type { Fixture } from "../../api/football";
-import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
+import { scorePrediction } from "../../utils/scoring";
 import { timeUK } from "../../utils/dates";
 
 export interface Prediction {
@@ -73,7 +73,7 @@ const FixtureCard: React.FC<Props> = ({ fixture, prediction, onChangePrediction 
     }
   };
 
-  const { points, status } = scorePrediction(
+  const { status } = scorePrediction(
     predHome, predAway, fixture.homeGoals, fixture.awayGoals
   );
 
@@ -169,14 +169,7 @@ const FixtureCard: React.FC<Props> = ({ fixture, prediction, onChangePrediction 
       {/* Live/FT status */}
       {(isLive || isFT) && (
         <div className="fx-meta" style={{ marginTop: 6, justifyContent: "center" }}>
-          {hasPrediction && (
-            <PredictionStatusPill status={status as PredictionStatus} isLive={isLive} />
-          )}
-          {isFT && typeof points === "number" && (
-            <span className="fx-points">
-              This match: <strong>{points}</strong> pts
-            </span>
-          )}
+          {hasPrediction && <PredictionStatusPill status={status} />}
         </div>
       )}
     </div>
