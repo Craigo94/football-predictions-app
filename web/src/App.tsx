@@ -106,7 +106,7 @@ const App: React.FC = () => {
             <p className="config-error__label">Missing environment variables:</p>
             <ul>
               {missingFirebaseKeys.length ? (
-                missingFirebaseKeys.map((key) => <li key={key}>{`VITE_FIREBASE_${key}`}</li>)
+                missingFirebaseKeys.map((key) => <li key={key}>{key}</li>)
               ) : (
                 <li>VITE_FIREBASE_* keys were not provided</li>
               )}
