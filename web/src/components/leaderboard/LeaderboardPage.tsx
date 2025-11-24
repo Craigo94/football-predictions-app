@@ -12,6 +12,7 @@ import { formatFirstName } from "../../utils/displayName";
 interface PredictionDoc {
   userId: string;
   userDisplayName: string;
+  userEmail?: string;
   fixtureId: number;
   predHome: number | null;
   predAway: number | null;
@@ -32,12 +33,43 @@ const LeaderboardPage: React.FC = () => {
   const [rows, setRows] = React.useState<LeaderboardRow[]>([]);
   const [loadingPreds, setLoadingPreds] = React.useState(true);
   const [predError, setPredError] = React.useState<string | null>(null);
+  const [usersById, setUsersById] = React.useState<Record<string, string>>({});
+  const [usersError, setUsersError] = React.useState<string | null>(null);
 
   const {
     fixturesById,
     loadingFixtures,
     fixturesError,
   } = useLiveFixtures();
+
+  /* 0) Listen to user profile documents for up-to-date display names */
+  React.useEffect(() => {
+    const ref = collection(db, "users");
+
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const map: Record<string, string> = {};
+        snap.forEach((doc) => {
+          const data = doc.data() as any;
+          const displayName =
+            data.displayName ||
+            `${data.firstName ?? ""} ${data.lastName ?? ""}`.trim();
+
+          if (displayName) {
+            map[doc.id] = formatFirstName(displayName);
+          }
+        });
+        setUsersById(map);
+      },
+      (err) => {
+        console.error("Error loading users", err);
+        setUsersError("Failed to load player info.");
+      }
+    );
+
+    return () => unsub();
+  }, []);
 
   /* 1) Listen to ALL predictions (all users, all gameweeks) */
   React.useEffect(() => {
@@ -54,6 +86,7 @@ const LeaderboardPage: React.FC = () => {
             userDisplayName: formatFirstName(
               data.userDisplayName || data.userEmail || "Unknown"
             ),
+            userEmail: data.userEmail,
             fixtureId: data.fixtureId,
             predHome: data.predHome ?? null,
             predAway: data.predAway ?? null,
@@ -83,6 +116,10 @@ const LeaderboardPage: React.FC = () => {
     const byUser: Record<string, LeaderboardRow> = {};
 
     for (const p of predictions) {
+      const userDisplayName =
+        usersById[p.userId] ||
+        formatFirstName(p.userDisplayName || p.userEmail || "Unknown");
+
       const fixture: Fixture | undefined = fixturesById[p.fixtureId];
 
       let points: number | null = null;
@@ -102,7 +139,7 @@ const LeaderboardPage: React.FC = () => {
       if (!byUser[p.userId]) {
         byUser[p.userId] = {
           userId: p.userId,
-          userDisplayName: p.userDisplayName,
+          userDisplayName,
           totalPoints: 0,
           exactCount: 0,
           resultCount: 0,
@@ -111,6 +148,8 @@ const LeaderboardPage: React.FC = () => {
       }
 
       const row = byUser[p.userId];
+
+      row.userDisplayName = userDisplayName;
 
       if (points != null) {
         row.totalPoints += points;
@@ -126,10 +165,10 @@ const LeaderboardPage: React.FC = () => {
     );
 
     setRows(sorted);
-  }, [predictions, fixturesById]);
+  }, [predictions, fixturesById, usersById]);
 
   const loading = loadingPreds || loadingFixtures;
-  const combinedError = predError || fixturesError;
+  const combinedError = predError || fixturesError || usersError;
 
   if (loading) {
     return <div>Loading leaderboard…</div>;
