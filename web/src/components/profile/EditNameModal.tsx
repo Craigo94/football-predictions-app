@@ -1,8 +1,18 @@
 import React from "react";
 import type { User } from "firebase/auth";
 import { updateProfile } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+  writeBatch,
+} from "firebase/firestore";
 import { auth, db } from "../../firebase";
+import { formatFirstName } from "../../utils/displayName";
 
 interface Props {
   open: boolean;
@@ -33,6 +43,7 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
   const [lastName, setLastName] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const initialFullName = React.useRef<string>("");
 
   React.useEffect(() => {
     if (!open) return;
@@ -41,7 +52,27 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
     setFirstName(first);
     setLastName(last);
     setError(null);
+    initialFullName.current = `${first} ${last}`.trim().toLowerCase();
   }, [open, user.displayName, user.email]);
+
+  const updatePredictionNames = React.useCallback(
+    async (uid: string, fullName: string) => {
+      const q = query(collection(db, "predictions"), where("userId", "==", uid));
+      const snap = await getDocs(q);
+
+      if (snap.empty) return;
+
+      const batch = writeBatch(db);
+      const userDisplayName = formatFirstName(fullName);
+
+      snap.forEach((docSnap) => {
+        batch.set(docSnap.ref, { userDisplayName }, { merge: true });
+      });
+
+      await batch.commit();
+    },
+    []
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +83,13 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
 
     if (!trimmedFirst || !trimmedLast) {
       setError("Please provide both a first and last name.");
+      return;
+    }
+
+    const normalizedInput = `${trimmedFirst} ${trimmedLast}`.trim().toLowerCase();
+
+    if (normalizedInput === initialFullName.current) {
+      onClose();
       return;
     }
 
@@ -77,6 +115,8 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
         },
         { merge: true }
       );
+
+      await updatePredictionNames(auth.currentUser.uid, fullName);
 
       await auth.currentUser.reload();
 
