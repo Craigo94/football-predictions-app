@@ -29,6 +29,24 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
 
   const displayName = getDisplayName(currentUser);
 
+  const navItems = [
+    { to: "/predictions", icon: "🎯", label: "Predictions" },
+    { to: "/leaderboard", icon: "🏆", label: "Leaderboard" },
+    { to: "/weekly", icon: "🗓️", label: "Gameweek" },
+    { to: "/stats", icon: "📊", label: "My Stats" },
+  ];
+
+  if (isAdmin) {
+    navItems.push({ to: "/admin", icon: "🛠️", label: "Admin" });
+  }
+
+  const navStyleVars: React.CSSProperties & Record<`--${string}`, string | number> = {
+    // Helps the CSS evenly size items on narrow screens (with or without Admin)
+    "--nav-count": navItems.length,
+    "--nav-icon-size": navItems.length > 4 ? "22px" : "24px",
+    "--nav-font-size": navItems.length > 4 ? "11px" : "12px",
+  };
+
   return (
     <header className="navbar" role="banner">
       {/* Top section: brand + user, stacked and centred */}
@@ -66,57 +84,23 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
       </div>
 
       {/* Nav links row */}
-      <nav className="navbar-links" aria-label="Primary navigation">
-        <NavLink
-          to="/predictions"
-          className={({ isActive }) =>
-            "nav-link" + (isActive ? " nav-link-active" : "")
-          }
-        >
-          <span className="nav-icon" aria-hidden="true">🎯</span>
-          <span className="nav-label">Predictions</span>
-        </NavLink>
-        <NavLink
-          to="/leaderboard"
-          className={({ isActive }) =>
-            "nav-link" + (isActive ? " nav-link-active" : "")
-          }
-        >
-          <span className="nav-icon" aria-hidden="true">🏆</span>
-          <span className="nav-label">Leaderboard</span>
-        </NavLink>
-
-        <NavLink
-          to="/weekly"
-          className={({ isActive }) =>
-            "nav-link" + (isActive ? " nav-link-active" : "")
-          }
-        >
-          <span className="nav-icon" aria-hidden="true">🗓️</span>
-          <span className="nav-label">Gameweek</span>
-        </NavLink>
-
-        <NavLink
-          to="/stats"
-          className={({ isActive }) =>
-            "nav-link" + (isActive ? " nav-link-active" : "")
-          }
-        >
-          <span className="nav-icon" aria-hidden="true">📊</span>
-          <span className="nav-label">My Stats</span>
-        </NavLink>
-
-        {isAdmin && (
+      <nav
+        className="navbar-links"
+        aria-label="Primary navigation"
+        style={navStyleVars}
+      >
+        {navItems.map(({ to, icon, label }) => (
           <NavLink
-            to="/admin"
+            key={to}
+            to={to}
             className={({ isActive }) =>
               "nav-link" + (isActive ? " nav-link-active" : "")
             }
           >
-            <span className="nav-icon" aria-hidden="true">🛠️</span>
-            <span className="nav-label">Admin</span>
+            <span className="nav-icon" aria-hidden="true">{icon}</span>
+            <span className="nav-label">{label}</span>
           </NavLink>
-        )}
+        ))}
       </nav>
     </header>
   );
