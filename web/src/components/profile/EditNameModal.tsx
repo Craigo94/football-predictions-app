@@ -79,8 +79,16 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
       );
 
       await auth.currentUser.reload();
-      await onSaved?.();
+
       onClose();
+
+      if (onSaved) {
+        try {
+          await onSaved();
+        } catch (callbackError) {
+          console.error("Error running post-save callback", callbackError);
+        }
+      }
     } catch (err) {
       console.error(err);
       const message =

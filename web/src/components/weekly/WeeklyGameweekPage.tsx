@@ -5,7 +5,7 @@ import { db } from "../../firebase";
 import { scorePrediction } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import type { Fixture } from "../../api/football";
-import { formatFullName } from "../../utils/displayName";
+import { formatFirstName } from "../../utils/displayName";
 
 interface PredictionDoc {
   userId: string;
@@ -59,7 +59,7 @@ const WeeklyGameweekPage: React.FC = () => {
           const data = doc.data() as any;
           list.push({
             userId: data.userId,
-            userDisplayName: formatFullName(
+            userDisplayName: formatFirstName(
               data.userDisplayName ?? data.userEmail ?? "Unknown"
             ),
             fixtureId: data.fixtureId,
