@@ -61,14 +61,17 @@ const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
 
     if (snap.empty) return;
 
-    const batch = writeBatch(db);
     const userDisplayName = formatFirstName(fullName);
+    const docs = snap.docs;
+    const BATCH_LIMIT = 450; // keep under Firestore's 500-op limit per batch
 
-    snap.forEach((docSnap) => {
-      batch.set(docSnap.ref, { userDisplayName }, { merge: true });
-    });
-
-    await batch.commit();
+    for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      docs.slice(i, i + BATCH_LIMIT).forEach((docSnap) => {
+        batch.set(docSnap.ref, { userDisplayName }, { merge: true });
+      });
+      await batch.commit();
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
