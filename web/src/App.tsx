@@ -2,7 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { auth, db } from "./firebase";
+import { auth, db, firebaseInitializationError, isFirebaseConfigured } from "./firebase";
 import Navbar from "./components/layout/Navbar";
 import PredictionsPage from "./components/predictions/PredictionsPage";
 import LeaderboardPage from "./components/leaderboard/LeaderboardPage";
@@ -28,9 +28,10 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = React.useState(true);
   const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = React.useState(false);
+  const firebaseReady = isFirebaseConfigured && !firebaseInitializationError;
 
   const refreshUser = React.useCallback(async () => {
-    if (!auth.currentUser) return null;
+    if (!auth?.currentUser) return null;
 
     await auth.currentUser.reload();
     const updatedUser = auth.currentUser;
@@ -39,12 +40,13 @@ const App: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
+    if (!auth || !firebaseReady) return;
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setAuthLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [firebaseReady]);
 
   React.useEffect(() => {
     if (!user) {
@@ -52,6 +54,8 @@ const App: React.FC = () => {
       setProfileLoading(false);
       return;
     }
+
+    if (!db || !firebaseReady) return;
 
     setProfileLoading(true);
     const ref = doc(db, "users", user.uid);
@@ -81,7 +85,19 @@ const App: React.FC = () => {
     );
 
     return () => unsub();
-  }, [user]);
+  }, [db, firebaseReady, user]);
+
+  if (!firebaseReady) {
+    return (
+      <div style={{ padding: 16 }}>
+        <h2>Configuration error</h2>
+        <p style={{ color: "#9fb0a2", marginTop: 8 }}>
+          {firebaseInitializationError?.message ||
+            "Firebase is not configured. Please check your VITE_FIREBASE_* environment variables."}
+        </p>
+      </div>
+    );
+  }
 
   if (authLoading || (user && profileLoading)) {
     return <div style={{ padding: 16 }}>Loading…</div>;

@@ -1,6 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
 
 const rawConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,17 +15,25 @@ const missingKeys = Object.entries(rawConfig)
   .filter(([, value]) => typeof value !== "string" || value.trim() === "")
   .map(([key]) => key);
 
-if (missingKeys.length) {
-  const message =
-    "Missing Firebase configuration. Please check your VITE_FIREBASE_* env vars. Missing: " +
-    missingKeys.join(", ");
-  console.error(message);
-  throw new Error(message);
+let firebaseInitializationError: Error | null = null;
+let app: FirebaseApp | null = null;
+
+try {
+  if (missingKeys.length) {
+    throw new Error(
+      "Missing Firebase configuration. Please check your VITE_FIREBASE_* env vars. Missing: " +
+        missingKeys.join(", ")
+    );
+  }
+
+  const firebaseConfig = rawConfig as Record<keyof typeof rawConfig, string>;
+  app = initializeApp(firebaseConfig);
+} catch (err) {
+  firebaseInitializationError = err instanceof Error ? err : new Error(String(err));
+  console.error(firebaseInitializationError.message);
 }
 
-const firebaseConfig = rawConfig as Record<keyof typeof rawConfig, string>;
-
-const app = initializeApp(firebaseConfig);
-
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const auth: Auth = app ? getAuth(app) : (null as unknown as Auth);
+export const db: Firestore = app ? getFirestore(app) : (null as unknown as Firestore);
+export const isFirebaseConfigured = Boolean(app && !firebaseInitializationError);
+export { firebaseInitializationError };

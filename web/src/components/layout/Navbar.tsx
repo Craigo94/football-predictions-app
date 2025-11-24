@@ -18,6 +18,11 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
   const [currentUser, setCurrentUser] = React.useState(user);
   const navigate = useNavigate();
 
+  const handleSignOut = React.useCallback(() => {
+    if (!auth) return;
+    signOut(auth);
+  }, []);
+
   React.useEffect(() => {
     setCurrentUser(user);
   }, [user]);
@@ -52,7 +57,7 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
           </button>
           <button
             className="navbar-logout"
-            onClick={() => signOut(auth)}
+            onClick={handleSignOut}
             aria-label="Log out"
           >
             Log out

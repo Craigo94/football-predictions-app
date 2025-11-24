@@ -17,6 +17,20 @@ const LoginPage: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
+  if (!auth || !db) {
+    return (
+      <div className="login-page">
+        <div className="login-container">
+          <h1 className="login-title">Configuration error</h1>
+          <p className="login-subtitle">
+            Firebase is not configured. Please provide the VITE_FIREBASE_* environment variables
+            and restart the app.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
