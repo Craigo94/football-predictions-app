@@ -5,7 +5,7 @@ import { db } from "../../firebase";
 import { scorePrediction } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import type { Fixture } from "../../api/football";
-import { formatFirstName } from "../../utils/displayName";
+import { formatFullName } from "../../utils/displayName";
 
 interface PredictionDoc {
   userId: string;
@@ -59,7 +59,9 @@ const WeeklyGameweekPage: React.FC = () => {
           const data = doc.data() as any;
           list.push({
             userId: data.userId,
-            userDisplayName: data.userDisplayName ?? "Unknown",
+            userDisplayName: formatFullName(
+              data.userDisplayName ?? data.userEmail ?? "Unknown"
+            ),
             fixtureId: data.fixtureId,
             predHome: data.predHome ?? null,
             predAway: data.predAway ?? null,
@@ -171,7 +173,7 @@ const WeeklyGameweekPage: React.FC = () => {
       if (!byUser[p.userId]) {
         byUser[p.userId] = {
           userId: p.userId,
-          userDisplayName: formatFirstName(p.userDisplayName),
+          userDisplayName: p.userDisplayName,
           totalPoints: 0,
         };
       }
