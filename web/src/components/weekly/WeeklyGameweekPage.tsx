@@ -582,10 +582,6 @@ const WeeklyGameweekPage: React.FC = () => {
                           bg = "rgba(148,163,184,0.08)";
                         }
 
-                        const hasScore =
-                          f.homeGoals != null &&
-                          f.awayGoals != null;
-
                         return (
                           <td
                             key={f.id}
@@ -629,8 +625,8 @@ const WeeklyGameweekPage: React.FC = () => {
                               </span>
                             </div>
 
-                            {/* Current actual score underneath */}
-                            {hasScore && (
+                            {/* Points (only once matches have started/finished) */}
+                            {points != null && (
                               <div
                                 style={{
                                   fontSize: 11,
@@ -638,13 +634,9 @@ const WeeklyGameweekPage: React.FC = () => {
                                   marginTop: 2,
                                 }}
                               >
-                                {f.homeGoals}–{f.awayGoals}{" "}
-                                {points != null && points !== 0 && (
-                                  <strong>
-                                    ({points} pt
-                                    {points === 1 ? "" : "s"})
-                                  </strong>
-                                )}
+                                <strong>
+                                  {points} pt{points === 1 ? "" : "s"}
+                                </strong>
                               </div>
                             )}
                           </td>
