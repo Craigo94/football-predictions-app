@@ -220,45 +220,19 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
       )}
 
       {/* Gameweek header */}
-      <div
-        className="card"
-        style={{
-          marginBottom: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        <div>
-          <p
-            style={{
-              fontSize: 13,
-              color: "var(--text-muted)",
-              marginTop: 4,
-              marginBottom: 0,
-            }}
-          >
-            Predict the next Premier League matches. Once games kick off,
-            predictions lock.
-          </p>
-          {fixtures[0] && (
-            <p
-              style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                marginTop: 4,
-              }}
-            >
-              {fixtures[0].round}
+      <div className="card gw-header-card">
+        <div className="gw-header-top">
+          <div>
+            <p className="gw-header-text">
+              Predict the next Premier League matches. Once games kick off,
+              predictions lock.
             </p>
-          )}
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            This gameweek
+            {fixtures[0] && <p className="gw-round-label">{fixtures[0].round}</p>}
           </div>
-          <div style={{ fontWeight: 700, fontSize: 20 }}>{totalPoints} pts</div>
+        </div>
+        <div className="gw-points-row">
+          <span className="gw-points-label">This gameweek</span>
+          <span className="gw-points-value">{totalPoints} pts</span>
         </div>
       </div>
 
