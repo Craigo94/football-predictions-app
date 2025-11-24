@@ -368,21 +368,15 @@ input[type="number"]::-webkit-inner-spin-button {
   --nav-count: 4;
   --nav-icon-size: 28px;
   --nav-font-size: 12px;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(var(--nav-count), minmax(0, 1fr));
   gap: var(--nav-gap);
   margin-top: 16px;
   width: 100%;
-  justify-content: center;
 }
 
 /* Each nav item = pill */
 .nav-link {
-  flex: 1 1
-    calc(
-      (100% - var(--nav-gap) * (var(--nav-count) - 1)) /
-        var(--nav-count)
-    );
-  max-width: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -422,6 +416,7 @@ input[type="number"]::-webkit-inner-spin-button {
 .nav-label {
   line-height: 1;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 /* Mobile first */
@@ -450,7 +445,14 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 
   .nav-link {
+    min-height: 56px;
     font-size: var(--nav-font-size);
+    gap: 2px;
+    padding: 10px 8px;
+  }
+
+  .nav-label {
+    display: none;
   }
 }
 
@@ -471,10 +473,12 @@ input[type="number"]::-webkit-inner-spin-button {
   .nav-link {
     flex-direction: row;
     padding-inline: 18px;
+    min-height: 60px;
   }
 
   .nav-label {
     margin-left: 6px;
+    display: inline;
   }
 }
 

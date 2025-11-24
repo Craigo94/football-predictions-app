@@ -93,6 +93,7 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
           <NavLink
             key={to}
             to={to}
+            aria-label={label}
             className={({ isActive }) =>
               "nav-link" + (isActive ? " nav-link-active" : "")
             }
