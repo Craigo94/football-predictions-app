@@ -133,8 +133,9 @@ const App: React.FC = () => {
 
   const normalizedUserEmail = normalizeEmail(user?.email);
   const normalizedPrimaryAdmin = normalizeEmail(PRIMARY_ADMIN_EMAIL);
+  const primaryAdminConfigured = normalizedPrimaryAdmin !== "";
   const matchesPrimaryAdmin =
-    normalizedPrimaryAdmin === "" || normalizedUserEmail === normalizedPrimaryAdmin;
+    primaryAdminConfigured && normalizedUserEmail === normalizedPrimaryAdmin;
 
   React.useEffect(() => {
     if (!user || !userProfile || !matchesPrimaryAdmin) return;
@@ -146,7 +147,9 @@ const App: React.FC = () => {
     }
   }, [user, userProfile, matchesPrimaryAdmin]);
 
-  const isAdmin = Boolean(userProfile?.isAdmin && matchesPrimaryAdmin);
+  const isAdmin = Boolean(
+    userProfile?.isAdmin && (!primaryAdminConfigured || matchesPrimaryAdmin)
+  );
 
   return (
     <Router>
