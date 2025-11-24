@@ -51,9 +51,9 @@ const LeaderboardPage: React.FC = () => {
       (snap) => {
         const map: Record<string, string> = {};
         snap.forEach((doc) => {
-          const data = doc.data() as any;
+          const data = doc.data();
           const displayName =
-            data.displayName ||
+            (typeof data.displayName === "string" && data.displayName) ||
             `${data.firstName ?? ""} ${data.lastName ?? ""}`.trim();
 
           if (displayName) {
@@ -80,7 +80,7 @@ const LeaderboardPage: React.FC = () => {
       (snap) => {
         const list: PredictionDoc[] = [];
         snap.forEach((doc) => {
-          const data = doc.data() as any;
+          const data = doc.data();
           list.push({
             userId: data.userId,
             userDisplayName: formatFirstName(

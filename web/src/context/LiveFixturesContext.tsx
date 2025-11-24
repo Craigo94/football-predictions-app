@@ -54,12 +54,14 @@ export const LiveFixturesProvider: React.FC<{ children: React.ReactNode }> = ({
         setFixturesById(map);
         setFixturesError(null);
         setLastUpdated(Date.now());
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("[LiveFixtures] Failed to load fixtures", err);
         if (!cancelled) {
-          setFixturesError(
-            err?.message || "Failed to load live scores from the Football API."
-          );
+          const message =
+            err instanceof Error
+              ? err.message
+              : "Failed to load live scores from the Football API.";
+          setFixturesError(message);
         }
       } finally {
         if (!cancelled) {
@@ -97,6 +99,7 @@ export const LiveFixturesProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useLiveFixtures = (): LiveFixturesContextValue => {
   const ctx = React.useContext(LiveFixturesContext);
   if (!ctx) {

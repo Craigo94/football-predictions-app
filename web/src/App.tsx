@@ -91,7 +91,27 @@ const App: React.FC = () => {
     );
 
     return () => unsub();
-  }, [db, firebaseReady, user]);
+  }, [firebaseReady, user]);
+
+  const normalizedUserEmail = normalizeEmail(user?.email);
+  const normalizedPrimaryAdmin = normalizeEmail(PRIMARY_ADMIN_EMAIL);
+  const primaryAdminConfigured = normalizedPrimaryAdmin !== "";
+  const matchesPrimaryAdmin =
+    primaryAdminConfigured && normalizedUserEmail === normalizedPrimaryAdmin;
+
+  React.useEffect(() => {
+    if (!db || !user || !userProfile || !matchesPrimaryAdmin) return;
+
+    if (!userProfile.isAdmin) {
+      setDoc(doc(db, "users", user.uid), { isAdmin: true }, { merge: true }).catch(
+        (err) => console.error("Failed to sync primary admin flag", err)
+      );
+    }
+  }, [user, userProfile, matchesPrimaryAdmin]);
+
+  const isAdmin = Boolean(
+    userProfile?.isAdmin && (!primaryAdminConfigured || matchesPrimaryAdmin)
+  );
 
   if (!firebaseReady) {
     return (
@@ -130,26 +150,6 @@ const App: React.FC = () => {
   if (authLoading || (user && profileLoading)) {
     return <div style={{ padding: 16 }}>Loading…</div>;
   }
-
-  const normalizedUserEmail = normalizeEmail(user?.email);
-  const normalizedPrimaryAdmin = normalizeEmail(PRIMARY_ADMIN_EMAIL);
-  const primaryAdminConfigured = normalizedPrimaryAdmin !== "";
-  const matchesPrimaryAdmin =
-    primaryAdminConfigured && normalizedUserEmail === normalizedPrimaryAdmin;
-
-  React.useEffect(() => {
-    if (!user || !userProfile || !matchesPrimaryAdmin) return;
-
-    if (!userProfile.isAdmin) {
-      setDoc(doc(db, "users", user.uid), { isAdmin: true }, { merge: true }).catch(
-        (err) => console.error("Failed to sync primary admin flag", err)
-      );
-    }
-  }, [user, userProfile, matchesPrimaryAdmin]);
-
-  const isAdmin = Boolean(
-    userProfile?.isAdmin && (!primaryAdminConfigured || matchesPrimaryAdmin)
-  );
 
   return (
     <Router>
