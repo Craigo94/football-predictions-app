@@ -1,8 +1,8 @@
-export function formatFirstName(raw?: string | null): string {
-  if (!raw) return "Unknown";
+const tokenizeDisplayName = (raw?: string | null) => {
+  if (!raw) return [] as string[];
 
   let value = raw.trim();
-  if (!value) return "Unknown";
+  if (!value) return [];
 
   if (value.includes("@")) {
     const [namePart] = value.split("@");
@@ -20,11 +20,19 @@ export function formatFirstName(raw?: string | null): string {
       )
       .join("");
 
-  const tokens = value
+  return value
     .split(/[._\s]+/)
     .filter(Boolean)
     .map(formatSegment)
     .filter(Boolean);
+};
 
+export function formatFirstName(raw?: string | null): string {
+  const tokens = tokenizeDisplayName(raw);
   return tokens.length ? tokens[0] : "Unknown";
+}
+
+export function formatFullName(raw?: string | null): string {
+  const tokens = tokenizeDisplayName(raw);
+  return tokens.length ? tokens.join(" ") : "Unknown";
 }

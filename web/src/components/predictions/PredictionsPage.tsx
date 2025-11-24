@@ -13,6 +13,7 @@ import { getNextPremierLeagueGameweekFixtures } from "../../api/football";
 import type { Fixture } from "../../api/football";
 import FixtureCard, { type Prediction } from "./FixtureCard";
 import { scorePrediction } from "../../utils/scoring";
+import { formatFullName } from "../../utils/displayName";
 import { ymdUK, dayHeading } from "../../utils/dates";
 
 interface Props {
@@ -84,7 +85,7 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
     const docId = `${user.uid}_${fixture.id}`;
 
     // Preserve the full display name; downstream views format first names
-    const userDisplayName = user.displayName || user.email || "Unknown";
+    const userDisplayName = formatFullName(user.displayName || user.email || "Unknown");
 
     const data: PredictionDoc = {
       userId: user.uid,
