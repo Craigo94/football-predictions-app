@@ -401,7 +401,14 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .nav-icon {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .nav-label {
@@ -426,6 +433,12 @@ input[type="number"]::-webkit-inner-spin-button {
   .navbar-logout {
     font-size: 10px;
     padding-inline: 10px;
+  }
+
+  .nav-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 18px;
   }
 
   .nav-link {
