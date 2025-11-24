@@ -31,6 +31,10 @@ const PLAYER_COL_WIDTH = 100;
 const PTS_COL_WIDTH = 60;
 const FIXTURE_COL_WIDTH = 76;
 
+// Slightly narrower widths for compact/mobile layouts
+const COMPACT_PLAYER_COL_WIDTH = 82;
+const COMPACT_PTS_COL_WIDTH = 52;
+
 const WeeklyGameweekPage: React.FC = () => {
   const [predictions, setPredictions] = React.useState<PredictionDoc[]>([]);
   const [currentRound, setCurrentRound] = React.useState<string | null>(null);
@@ -41,8 +45,22 @@ const WeeklyGameweekPage: React.FC = () => {
   const [predictionsError, setPredictionsError] = React.useState<string | null>(
     null
   );
+  const [isCompactLayout, setIsCompactLayout] = React.useState(false);
   const { users: userProfiles, loading: usersLoading, error: usersError } =
     useUsers();
+
+  // Use narrower sticky columns on smaller screens so fixture columns stay visible
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 720px)");
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsCompactLayout(event.matches);
+    };
+
+    setIsCompactLayout(mq.matches);
+    mq.addEventListener("change", handleChange);
+
+    return () => mq.removeEventListener("change", handleChange);
+  }, []);
 
   // Shared fixtures & polling from context
   const {
@@ -50,6 +68,11 @@ const WeeklyGameweekPage: React.FC = () => {
     loadingFixtures,
     fixturesError,
   } = useLiveFixtures();
+
+  const playerColWidth = isCompactLayout
+    ? COMPACT_PLAYER_COL_WIDTH
+    : PLAYER_COL_WIDTH;
+  const ptsColWidth = isCompactLayout ? COMPACT_PTS_COL_WIDTH : PTS_COL_WIDTH;
 
   /* 1) Listen to ALL predictions */
   React.useEffect(() => {
@@ -411,8 +434,8 @@ const WeeklyGameweekPage: React.FC = () => {
                       position: "sticky",
                       left: 0,
                       background: "var(--card-bg)",
-                      width: PLAYER_COL_WIDTH,
-                      minWidth: PLAYER_COL_WIDTH,
+                      width: playerColWidth,
+                      minWidth: playerColWidth,
                       zIndex: 3,
                     }}
                   >
@@ -423,10 +446,10 @@ const WeeklyGameweekPage: React.FC = () => {
                       padding: "10px 8px",
                       textAlign: "right",
                       position: "sticky",
-                      left: PLAYER_COL_WIDTH,
+                      left: playerColWidth,
                       background: "var(--card-bg)",
-                      width: PTS_COL_WIDTH,
-                      minWidth: PTS_COL_WIDTH,
+                      width: ptsColWidth,
+                      minWidth: ptsColWidth,
                       zIndex: 3,
                     }}
                   >
@@ -524,8 +547,8 @@ const WeeklyGameweekPage: React.FC = () => {
                           position: "sticky",
                           left: 0,
                           background: "var(--card-bg)",
-                          width: PLAYER_COL_WIDTH,
-                          minWidth: PLAYER_COL_WIDTH,
+                          width: playerColWidth,
+                          minWidth: playerColWidth,
                           zIndex: 2,
                         }}
                       >
@@ -556,11 +579,11 @@ const WeeklyGameweekPage: React.FC = () => {
                           padding: "8px 8px",
                           textAlign: "right",
                           position: "sticky",
-                          left: PLAYER_COL_WIDTH,
+                          left: playerColWidth,
                           background: "var(--card-bg)",
                           fontWeight: 700,
-                          width: PTS_COL_WIDTH,
-                          minWidth: PTS_COL_WIDTH,
+                          width: ptsColWidth,
+                          minWidth: ptsColWidth,
                           zIndex: 2,
                         }}
                       >
