@@ -96,7 +96,13 @@ const AdminPage: React.FC = () => {
         <h2 style={{ margin: "0 0 4px" }}>Admin</h2>
         <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>
           Manage player access and payments. Ticking <strong>Paid</strong> adds £5
-          to the prize pot.
+          to the prize pot. Admin access is locked to
+          {" "}
+          <strong>
+            {PRIMARY_ADMIN_EMAIL || "the configured primary admin email"}
+          </strong>
+          {" "}
+          so only that account can see this dashboard.
         </p>
       </div>
 
@@ -143,7 +149,9 @@ const AdminPage: React.FC = () => {
           <thead>
             <tr style={{ textAlign: "left", color: "var(--text-muted)", fontSize: 12 }}>
               <th style={{ padding: "8px 4px" }}>Name</th>
+              <th style={{ padding: "8px 4px" }}>Email</th>
               <th style={{ padding: "8px 4px" }}>Paid</th>
+              <th style={{ padding: "8px 4px" }}>Admin</th>
             </tr>
           </thead>
           <tbody>
@@ -160,6 +168,9 @@ const AdminPage: React.FC = () => {
                     <td style={{ padding: "10px 4px", fontWeight: 600 }}>
                       {user.displayName}
                     </td>
+                    <td style={{ padding: "10px 4px", color: "var(--text-muted)" }}>
+                      {user.email || "—"}
+                    </td>
                     <td style={{ padding: "10px 4px" }}>
                       <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <input
@@ -172,6 +183,26 @@ const AdminPage: React.FC = () => {
                         />
                         <span>Paid</span>
                       </label>
+                    </td>
+                    <td style={{ padding: "10px 4px" }}>
+                      {isAdminLocked ? (
+                        <span style={{ color: "var(--text-muted)" }}>
+                          {user.id === lockedAdminUserId
+                            ? "Primary admin"
+                            : "Admin locked"}
+                        </span>
+                      ) : (
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <input
+                            type="radio"
+                            name="admin"
+                            checked={user.isAdmin}
+                            onChange={() => handleAssignAdmin(user.id)}
+                            disabled={updatingId !== null}
+                          />
+                          <span>{user.isAdmin ? "Current admin" : "Make admin"}</span>
+                        </label>
+                      )}
                     </td>
                   </tr>
                 );
