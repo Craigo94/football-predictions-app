@@ -14,6 +14,7 @@ import type { Fixture } from "../../api/football";
 import FixtureCard, { type Prediction } from "./FixtureCard";
 import { scorePrediction } from "../../utils/scoring";
 import { ymdUK, dayHeading } from "../../utils/dates";
+import { formatFirstName } from "../../utils/displayName";
 
 interface Props {
   user: User;
@@ -84,18 +85,9 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
     const docId = `${user.uid}_${fixture.id}`;
 
     // Try to create a clean display name
-    let userDisplayName = "Unknown";
-    if (user.displayName) {
-      userDisplayName = user.displayName.trim();
-    } else if (user.email) {
-      // Convert "craig.goddard@domain.com" → "Craig Goddard"
-      const [namePart] = user.email.split("@");
-      userDisplayName = namePart
-        .split(/[._]/)
-        .filter(Boolean)
-        .map((s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
-        .join(" ");
-    }
+    const userDisplayName = formatFirstName(
+      user.displayName || user.email || "Unknown"
+    );
 
     const data: PredictionDoc = {
       userId: user.uid,
