@@ -14,9 +14,15 @@ interface Props {
   fixture: Fixture;
   prediction: Prediction | null;
   onChangePrediction: (p: Prediction) => void;
+  gameweekLocked: boolean;
 }
 
-const FixtureCard: React.FC<Props> = ({ fixture, prediction, onChangePrediction }) => {
+const FixtureCard: React.FC<Props> = ({
+  fixture,
+  prediction,
+  onChangePrediction,
+  gameweekLocked,
+}) => {
   const ko = timeUK(fixture.kickoff);
   const [editing, setEditing] = React.useState(false);
 
@@ -28,6 +34,7 @@ const FixtureCard: React.FC<Props> = ({ fixture, prediction, onChangePrediction 
   const isLive    = fixture.statusShort !== "NS" && fixture.statusShort !== "FT" && hasActual;
   const isFT      = fixture.statusShort === "FT";
   const preKO     = fixture.statusShort === "NS";
+  const canEdit   = preKO && !gameweekLocked;
 
   const hasPrediction = predHome != null && predAway != null;
 
@@ -66,12 +73,19 @@ const FixtureCard: React.FC<Props> = ({ fixture, prediction, onChangePrediction 
 
   // Single-click edit: unlock if needed and open editing
   const startEditing = () => {
-    if (!preKO) return;
+    if (!canEdit) return;
     setEditing(true);
     if (locked) {
       onChangePrediction({ predHome, predAway, locked: false });
     }
   };
+
+  // Close any open editor if the fixture or gameweek locks while editing
+  React.useEffect(() => {
+    if (editing && !canEdit) {
+      setEditing(false);
+    }
+  }, [canEdit, editing]);
 
   const { status } = scorePrediction(
     predHome, predAway, fixture.homeGoals, fixture.awayGoals
@@ -143,7 +157,7 @@ const FixtureCard: React.FC<Props> = ({ fixture, prediction, onChangePrediction 
               className="fx-btn"
               onClick={saveEdits}
               title="Save prediction"
-              disabled={!preKO || !hasEditPrediction}
+              disabled={!canEdit || !hasEditPrediction}
             >
               Save ✓
             </button>
@@ -157,7 +171,7 @@ const FixtureCard: React.FC<Props> = ({ fixture, prediction, onChangePrediction 
               <span className="fx-pred">{hasPrediction ? predAway : "—"}</span>
             </div>
 
-            {preKO && (
+            {canEdit && (
               <button className="fx-btn" onClick={startEditing} title="Edit prediction">
                 Edit ✎
               </button>
