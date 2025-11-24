@@ -32,8 +32,8 @@ const PTS_COL_WIDTH = 60;
 const FIXTURE_COL_WIDTH = 76;
 
 // Slightly narrower widths for compact/mobile layouts
-const COMPACT_PLAYER_COL_WIDTH = 82;
-const COMPACT_PTS_COL_WIDTH = 52;
+const COMPACT_PLAYER_COL_WIDTH = 60;
+const COMPACT_PTS_COL_WIDTH = 40;
 
 const WeeklyGameweekPage: React.FC = () => {
   const [predictions, setPredictions] = React.useState<PredictionDoc[]>([]);
