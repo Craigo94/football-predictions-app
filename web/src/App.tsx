@@ -36,6 +36,12 @@ const App: React.FC = () => {
   const [profileLoading, setProfileLoading] = React.useState(false);
   const firebaseReady = isFirebaseConfigured && !firebaseInitializationError;
 
+  const normalizedUserEmail = normalizeEmail(user?.email);
+  const normalizedPrimaryAdmin = normalizeEmail(PRIMARY_ADMIN_EMAIL);
+  const primaryAdminConfigured = normalizedPrimaryAdmin !== "";
+  const matchesPrimaryAdmin =
+    primaryAdminConfigured && normalizedUserEmail === normalizedPrimaryAdmin;
+
   const refreshUser = React.useCallback(async () => {
     if (!auth?.currentUser) return null;
 
@@ -93,6 +99,16 @@ const App: React.FC = () => {
     return () => unsub();
   }, [db, firebaseReady, user]);
 
+  React.useEffect(() => {
+    if (!user || !userProfile || !matchesPrimaryAdmin || !db) return;
+
+    if (!userProfile.isAdmin) {
+      setDoc(doc(db, "users", user.uid), { isAdmin: true }, { merge: true }).catch(
+        (err) => console.error("Failed to sync primary admin flag", err)
+      );
+    }
+  }, [db, user, userProfile, matchesPrimaryAdmin]);
+
   if (!firebaseReady) {
     return (
       <div className="config-error">
@@ -131,22 +147,9 @@ const App: React.FC = () => {
     return <div style={{ padding: 16 }}>Loading…</div>;
   }
 
-  const normalizedUserEmail = normalizeEmail(user?.email);
-  const normalizedPrimaryAdmin = normalizeEmail(PRIMARY_ADMIN_EMAIL);
-  const matchesPrimaryAdmin =
-    normalizedPrimaryAdmin === "" || normalizedUserEmail === normalizedPrimaryAdmin;
-
-  React.useEffect(() => {
-    if (!user || !userProfile || !matchesPrimaryAdmin) return;
-
-    if (!userProfile.isAdmin) {
-      setDoc(doc(db, "users", user.uid), { isAdmin: true }, { merge: true }).catch(
-        (err) => console.error("Failed to sync primary admin flag", err)
-      );
-    }
-  }, [user, userProfile, matchesPrimaryAdmin]);
-
-  const isAdmin = Boolean(userProfile?.isAdmin && matchesPrimaryAdmin);
+  const isAdmin = Boolean(
+    userProfile?.isAdmin && (!primaryAdminConfigured || matchesPrimaryAdmin)
+  );
 
   return (
     <Router>
