@@ -40,7 +40,7 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
     navItems.push({ to: "/admin", icon: "🛠️", label: "Admin" });
   }
 
-  const navStyleVars: React.CSSProperties = {
+  const navStyleVars: React.CSSProperties & Record<`--${string}`, string | number> = {
     // Helps the CSS evenly size items on narrow screens (with or without Admin)
     "--nav-count": navItems.length,
     "--nav-icon-size": navItems.length > 4 ? "22px" : "24px",
