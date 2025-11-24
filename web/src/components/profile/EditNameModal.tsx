@@ -1,16 +1,7 @@
 import React from "react";
 import type { User } from "firebase/auth";
 import { updateProfile } from "firebase/auth";
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc,
-  where,
-  writeBatch,
-} from "firebase/firestore";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "../../firebase";
 
 interface Props {
@@ -37,45 +28,9 @@ const parseName = (raw?: string | null) => {
   return { first: parts[0], last: parts.slice(1).join(" ") };
 };
 
-const updatePredictionDisplayNames = async (
-  userId: string,
-  displayName: string
-) => {
-  const qPredictions = query(
-    collection(db, "predictions"),
-    where("userId", "==", userId)
-  );
-
-  const snap = await getDocs(qPredictions);
-  if (snap.empty) return;
-
-  let batch = writeBatch(db);
-  let opsInBatch = 0;
-  const commits: Promise<void>[] = [];
-
-  snap.forEach((docSnap) => {
-    batch.set(docSnap.ref, { userDisplayName: displayName }, { merge: true });
-    opsInBatch += 1;
-
-    if (opsInBatch === 400) {
-      commits.push(batch.commit());
-      batch = writeBatch(db);
-      opsInBatch = 0;
-    }
-  });
-
-  if (opsInBatch > 0) {
-    commits.push(batch.commit());
-  }
-
-  await Promise.all(commits);
-};
-
 const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
-  const [initialFirstName, setInitialFirstName] = React.useState("");
-  const [initialLastName, setInitialLastName] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -85,8 +40,6 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
     const { first, last } = parseName(user.displayName || user.email);
     setFirstName(first);
     setLastName(last);
-    setInitialFirstName(first);
-    setInitialLastName(last);
     setError(null);
   }, [open, user.displayName, user.email]);
 
@@ -99,15 +52,6 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
 
     if (!trimmedFirst || !trimmedLast) {
       setError("Please provide both a first and last name.");
-      return;
-    }
-
-    const hasChanged =
-      trimmedFirst !== initialFirstName || trimmedLast !== initialLastName;
-
-    if (!hasChanged) {
-      await onSaved?.();
-      onClose();
       return;
     }
 
@@ -133,8 +77,6 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
         },
         { merge: true }
       );
-
-      await updatePredictionDisplayNames(auth.currentUser.uid, fullName);
 
       await auth.currentUser.reload();
       await onSaved?.();
