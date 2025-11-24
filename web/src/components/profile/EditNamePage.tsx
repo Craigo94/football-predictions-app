@@ -46,6 +46,18 @@ const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
   const initialFullName = React.useRef<string>("");
   const navigate = useNavigate();
 
+  if (!auth || !db) {
+    return (
+      <div className="card profile-card">
+        <h2>Configuration error</h2>
+        <p style={{ color: "#9fb0a2" }}>
+          Firebase is not configured. Please provide the VITE_FIREBASE_* environment variables
+          and restart the app.
+        </p>
+      </div>
+    );
+  }
+
   React.useEffect(() => {
     const { first, last } = parseName(user.displayName || user.email);
     setFirstName(first);
