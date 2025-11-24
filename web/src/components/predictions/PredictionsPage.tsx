@@ -13,7 +13,7 @@ import { getNextPremierLeagueGameweekFixtures } from "../../api/football";
 import type { Fixture } from "../../api/football";
 import FixtureCard, { type Prediction } from "./FixtureCard";
 import { scorePrediction } from "../../utils/scoring";
-import { formatFullName } from "../../utils/displayName";
+import { formatFirstName } from "../../utils/displayName";
 import { ymdUK, dayHeading } from "../../utils/dates";
 
 interface Props {
@@ -84,8 +84,10 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
   const handleChangePrediction = async (fixture: Fixture, p: Prediction) => {
     const docId = `${user.uid}_${fixture.id}`;
 
-    // Preserve the full display name; downstream views format first names
-    const userDisplayName = formatFullName(user.displayName || user.email || "Unknown");
+    // Store the user's first name for display across leaderboards and stats
+    const userDisplayName = formatFirstName(
+      user.displayName || user.email || "Unknown"
+    );
 
     const data: PredictionDoc = {
       userId: user.uid,
