@@ -5,6 +5,7 @@ import { db } from "../../firebase";
 import { scorePrediction } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import type { Fixture } from "../../api/football";
+import { formatFirstName } from "../../utils/displayName";
 
 interface PredictionDoc {
   userId: string;
@@ -21,31 +22,6 @@ interface WeeklyRow {
 
   userDisplayName: string;
   totalPoints: number;
-}
-
-/**
- * Make names look nicer.
- * - "craig.goddard@domain.com" -> "Craig Goddard"
- * - "john_smith" -> "John Smith"
- */
-function formatDisplayName(raw?: string | null): string {
-  if (!raw) return "Unknown";
-
-  let value = raw.trim();
-
-  if (value.includes("@")) {
-    const [namePart] = value.split("@");
-    value = namePart;
-  }
-
-  const parts = value
-    .split(/[._\s]+/)
-    .filter(Boolean)
-    .map(
-      (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
-    );
-
-  return parts.length ? parts.join(" ") : "Unknown";
 }
 
 // Fixed column widths so sticky cols don't overlap
@@ -195,7 +171,7 @@ const WeeklyGameweekPage: React.FC = () => {
       if (!byUser[p.userId]) {
         byUser[p.userId] = {
           userId: p.userId,
-          userDisplayName: formatDisplayName(p.userDisplayName),
+          userDisplayName: formatFirstName(p.userDisplayName),
           totalPoints: 0,
         };
       }

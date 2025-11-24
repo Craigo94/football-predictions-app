@@ -7,6 +7,7 @@ import {
   type PredictionStatus,
 } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
+import { formatFirstName } from "../../utils/displayName";
 
 interface PredictionDoc {
   userId: string;
@@ -50,7 +51,7 @@ const LeaderboardPage: React.FC = () => {
           const data = doc.data() as any;
           list.push({
             userId: data.userId,
-            userDisplayName: data.userDisplayName ?? "Unknown",
+            userDisplayName: formatFirstName(data.userDisplayName),
             fixtureId: data.fixtureId,
             predHome: data.predHome ?? null,
             predAway: data.predAway ?? null,
@@ -99,7 +100,7 @@ const LeaderboardPage: React.FC = () => {
       if (!byUser[p.userId]) {
         byUser[p.userId] = {
           userId: p.userId,
-          userDisplayName: p.userDisplayName || "Unknown",
+          userDisplayName: formatFirstName(p.userDisplayName),
           totalPoints: 0,
           exactCount: 0,
           resultCount: 0,

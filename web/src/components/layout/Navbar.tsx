@@ -3,14 +3,14 @@ import type { User } from "firebase/auth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
 import { NavLink } from "react-router-dom";
+import { formatFirstName } from "../../utils/displayName";
 
 interface Props {
   user: User;
 }
 
 const getDisplayName = (user: User) =>
-  user.displayName ||
-  (user.email ? user.email.split("@")[0].replace(/[._]/g, " ") : "User");
+  formatFirstName(user.displayName || user.email || "User");
 
 
 const Navbar: React.FC<Props> = ({ user }) => {
