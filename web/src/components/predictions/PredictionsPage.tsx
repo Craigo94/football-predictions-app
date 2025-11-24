@@ -14,7 +14,6 @@ import type { Fixture } from "../../api/football";
 import FixtureCard, { type Prediction } from "./FixtureCard";
 import { scorePrediction } from "../../utils/scoring";
 import { ymdUK, dayHeading } from "../../utils/dates";
-import { formatFirstName } from "../../utils/displayName";
 
 interface Props {
   user: User;
@@ -84,10 +83,8 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
   const handleChangePrediction = async (fixture: Fixture, p: Prediction) => {
     const docId = `${user.uid}_${fixture.id}`;
 
-    // Try to create a clean display name
-    const userDisplayName = formatFirstName(
-      user.displayName || user.email || "Unknown"
-    );
+    // Preserve the full display name; downstream views format first names
+    const userDisplayName = user.displayName || user.email || "Unknown";
 
     const data: PredictionDoc = {
       userId: user.uid,
