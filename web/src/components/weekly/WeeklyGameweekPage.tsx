@@ -60,7 +60,7 @@ const WeeklyGameweekPage: React.FC = () => {
       (snap) => {
         const list: PredictionDoc[] = [];
         snap.forEach((doc) => {
-          const data = doc.data() as any;
+          const data = doc.data();
           list.push({
             userId: data.userId,
             userDisplayName: formatFirstName(

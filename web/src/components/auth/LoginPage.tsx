@@ -106,9 +106,10 @@ const LoginPage: React.FC = () => {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         await ensureUserProfile(cred.user);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || "Something went wrong");
+      const message = err instanceof Error ? err.message : "Something went wrong";
+      setError(message);
     } finally {
       setLoading(false);
     }

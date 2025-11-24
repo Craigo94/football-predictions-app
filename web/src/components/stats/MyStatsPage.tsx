@@ -67,7 +67,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
       (snap) => {
         const list: PredictionDoc[] = [];
         snap.forEach((docSnap) => {
-          const data = docSnap.data() as any;
+          const data = docSnap.data();
           list.push({
             userId: data.userId,
             userDisplayName: data.userDisplayName ?? "Unknown",
@@ -124,13 +124,14 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
         });
         setFixturesById(map);
         setError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to load fixtures for stats page", err);
         if (!cancelled) {
-          setError(
-            err?.message ||
-              "Failed to load live scores from the Football API."
-          );
+          const message =
+            err instanceof Error
+              ? err.message
+              : "Failed to load live scores from the Football API.";
+          setError(message);
         }
       }
     };

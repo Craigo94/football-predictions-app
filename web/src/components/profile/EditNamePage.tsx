@@ -45,18 +45,7 @@ const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
   const [loading, setLoading] = React.useState(false);
   const initialFullName = React.useRef<string>("");
   const navigate = useNavigate();
-
-  if (!auth || !db) {
-    return (
-      <div className="card profile-card">
-        <h2>Configuration error</h2>
-        <p style={{ color: "#9fb0a2" }}>
-          Firebase is not configured. Please provide the VITE_FIREBASE_* environment variables
-          and restart the app.
-        </p>
-      </div>
-    );
-  }
+  const configMissing = !auth || !db;
 
   React.useEffect(() => {
     const { first, last } = parseName(user.displayName || user.email);
@@ -67,29 +56,41 @@ const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
     initialFullName.current = `${first} ${last}`.trim().toLowerCase();
   }, [user.displayName, user.email]);
 
-  const updatePredictionNames = React.useCallback(async (uid: string, fullName: string) => {
-    const q = query(collection(db, "predictions"), where("userId", "==", uid));
-    const snap = await getDocs(q);
+  const updatePredictionNames = React.useCallback(
+      async (uid: string, fullName: string) => {
+        if (!db) return;
 
-    if (snap.empty) return;
+      const q = query(collection(db, "predictions"), where("userId", "==", uid));
+      const snap = await getDocs(q);
 
-    const userDisplayName = formatFirstName(fullName);
-    const docs = snap.docs;
-    const BATCH_LIMIT = 450; // keep under Firestore's 500-op limit per batch
+      if (snap.empty) return;
 
-    for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
-      const batch = writeBatch(db);
-      docs.slice(i, i + BATCH_LIMIT).forEach((docSnap) => {
-        batch.set(docSnap.ref, { userDisplayName }, { merge: true });
-      });
-      await batch.commit();
-    }
-  }, []);
+      const userDisplayName = formatFirstName(fullName);
+      const docs = snap.docs;
+      const BATCH_LIMIT = 450; // keep under Firestore's 500-op limit per batch
+
+      for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+        const batch = writeBatch(db);
+        docs.slice(i, i + BATCH_LIMIT).forEach((docSnap) => {
+          batch.set(docSnap.ref, { userDisplayName }, { merge: true });
+        });
+        await batch.commit();
+      }
+      },
+      []
+    );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (configMissing) {
+      setError(
+        "Firebase is not configured. Please provide the VITE_FIREBASE_* environment variables and restart the app."
+      );
+      return;
+    }
 
     const trimmedFirst = firstName.trim();
     const trimmedLast = lastName.trim();
@@ -156,6 +157,18 @@ const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
       setLoading(false);
     }
   };
+
+  if (configMissing) {
+    return (
+      <div className="card profile-card">
+        <h2>Configuration error</h2>
+        <p style={{ color: "#9fb0a2" }}>
+          Firebase is not configured. Please provide the VITE_FIREBASE_* environment variables
+          and restart the app.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="profile-page">

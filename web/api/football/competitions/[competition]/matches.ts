@@ -1,3 +1,5 @@
+import type { NextApiRequest, NextApiResponse } from "next";
+
 const API_BASE = "https://api.football-data.org/v4";
 const CACHE_TTL_MS = 60 * 1000;
 
@@ -9,7 +11,10 @@ type CacheEntry = {
 
 const cache = new Map<string, CacheEntry>();
 
-export default async function handler(request: any, response: any) {
+export default async function handler(
+  request: NextApiRequest,
+  response: NextApiResponse,
+) {
   try {
     const token = process.env.FOOTBALL_DATA_TOKEN;
 
@@ -20,8 +25,14 @@ export default async function handler(request: any, response: any) {
         .json({ error: "Missing Football API token on the server" });
     }
 
-    const url = new URL(request.url, `https://${request.headers.host}`);
-    const competition = request.query?.competition;
+    const url = new URL(
+      request.url ?? "/api/football/competitions/PL/matches",
+      `https://${request.headers.host ?? "localhost"}`,
+    );
+    const competitionQuery = request.query?.competition;
+    const competition = Array.isArray(competitionQuery)
+      ? competitionQuery[0]
+      : competitionQuery;
 
     if (!competition) {
       return response.status(400).json({ error: "Competition is required" });

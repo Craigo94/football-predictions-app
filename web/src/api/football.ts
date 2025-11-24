@@ -1,6 +1,35 @@
 // web/src/api/football.ts
 import { CURRENT_SEASON } from "../config/football";
 
+interface ApiTeam {
+  name?: string;
+  shortName?: string;
+  tla?: string;
+  crest?: string;
+}
+
+interface ApiMatch {
+  id: number;
+  utcDate: string;
+  status: string;
+  matchday?: number;
+  round?: string;
+  group?: string;
+  homeTeam?: ApiTeam;
+  awayTeam?: ApiTeam;
+  score?: {
+    fullTime?: {
+      home?: number | null;
+      away?: number | null;
+    };
+  };
+}
+
+interface ApiMatchResponse {
+  matches?: ApiMatch[];
+  error?: unknown;
+}
+
 export interface Fixture {
   id: number;
   kickoff: string;            // ISO datetime string (UTC)
@@ -50,15 +79,15 @@ function buildMatchesUrl(
 
 async function fetchMatches(
   params: Record<string, string | number | undefined>
-): Promise<any[]> {
+): Promise<ApiMatch[]> {
   const url = buildMatchesUrl(params);
 
   const res = await fetch(url);
   const text = await res.text();
 
-  let data: any;
+  let data: ApiMatchResponse;
   try {
-    data = JSON.parse(text);
+    data = JSON.parse(text) as ApiMatchResponse;
   } catch {
     console.error("Non-JSON response from Football API:", text);
     throw new Error("Football API returned non-JSON response");
@@ -73,7 +102,12 @@ async function fetchMatches(
     );
   }
 
-  return (data.matches || []) as any[];
+  if (!Array.isArray(data.matches)) {
+    console.error("Football API returned unexpected payload", data);
+    throw new Error("Football API returned an unexpected response shape.");
+  }
+
+  return data.matches;
 }
 
 // ---- Public API ----------------------------------------------------
@@ -158,7 +192,7 @@ export async function getPremierLeagueMatchesForRange(
 // ---- Mapping -------------------------------------------------------
 
 function mapApiMatchToFixture(roundLabel: string, md?: number, season?: number) {
-  return (m: any): Fixture => {
+  return (m: ApiMatch): Fixture => {
     const fullTime = m.score?.fullTime || {};
     const homeGoals = typeof fullTime.home === "number" ? fullTime.home : null;
     const awayGoals = typeof fullTime.away === "number" ? fullTime.away : null;

@@ -49,12 +49,13 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
         // sort by kickoff just in case
         data.sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime());
         setFixtures(data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(
-          err?.message ||
-            "Failed to load fixtures from the Football API. Check your API key or plan."
-        );
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to load fixtures from the Football API. Check your API key or plan.";
+        setError(message);
       } finally {
         setLoading(false);
       }
