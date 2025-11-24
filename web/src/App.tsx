@@ -122,7 +122,7 @@ const App: React.FC = () => {
                 path="/admin"
                 element={
                   isAdmin ? (
-                    <AdminPage currentUser={user} />
+                    <AdminPage />
                   ) : (
                     <Navigate to="/predictions" replace />
                   )

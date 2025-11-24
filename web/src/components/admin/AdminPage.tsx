@@ -1,16 +1,11 @@
 import React from "react";
-import type { User } from "firebase/auth";
 import { doc, setDoc, writeBatch } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useUsers } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
 import { PRIMARY_ADMIN_EMAIL, normalizeEmail } from "../../config/admin";
 
-interface Props {
-  currentUser: User;
-}
-
-const AdminPage: React.FC<Props> = ({ currentUser }) => {
+const AdminPage: React.FC = () => {
   const { users, loading, error } = useUsers();
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
