@@ -44,6 +44,8 @@ const LoginPage: React.FC = () => {
           lastName: lastName.trim(),
           displayName: fullName,
           email: email.toLowerCase(),
+          isAdmin: false,
+          hasPaid: false,
           createdAt: serverTimestamp(),
         });
       } else {
