@@ -14,6 +14,15 @@ const App: React.FC = () => {
   const [user, setUser] = React.useState<User | null>(null);
   const [authLoading, setAuthLoading] = React.useState(true);
 
+  const refreshUser = React.useCallback(async () => {
+    if (!auth.currentUser) return null;
+
+    await auth.currentUser.reload();
+    const updatedUser = auth.currentUser;
+    setUser(updatedUser ? ({ ...updatedUser } as User) : null);
+    return updatedUser;
+  }, []);
+
   React.useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -31,7 +40,7 @@ const App: React.FC = () => {
       {user ? (
         <LiveFixturesProvider>
           <div className="app-shell">
-            <Navbar user={user} />
+            <Navbar user={user} onUserUpdated={refreshUser} />
             <Routes>
               <Route
                 path="/predictions"

@@ -4,17 +4,41 @@ import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
 import { NavLink } from "react-router-dom";
 import { formatFirstName } from "../../utils/displayName";
+import EditNameModal from "../profile/EditNameModal";
 
 interface Props {
   user: User;
+  onUserUpdated?: () => Promise<User | null>;
 }
 
 const getDisplayName = (user: User) =>
   formatFirstName(user.displayName || user.email || "User");
 
 
-const Navbar: React.FC<Props> = ({ user }) => {
-  const displayName = getDisplayName(user);
+const Navbar: React.FC<Props> = ({ user, onUserUpdated }) => {
+  const [currentUser, setCurrentUser] = React.useState(user);
+  const [isEditingName, setIsEditingName] = React.useState(false);
+
+  React.useEffect(() => {
+    setCurrentUser(user);
+  }, [user]);
+
+  const displayName = getDisplayName(currentUser);
+
+  const handleProfileRefresh = React.useCallback(async () => {
+    if (onUserUpdated) {
+      const refreshed = await onUserUpdated();
+      if (refreshed) {
+        setCurrentUser(refreshed);
+      }
+      return;
+    }
+
+    if (auth.currentUser) {
+      await auth.currentUser.reload();
+      setCurrentUser({ ...auth.currentUser } as User);
+    }
+  }, [onUserUpdated]);
 
   return (
     <header className="navbar" role="banner">
@@ -33,7 +57,15 @@ const Navbar: React.FC<Props> = ({ user }) => {
 
         {/* User row */}
         <div className="navbar-user">
-          <div className="userbox__chip" title={displayName}>{displayName}</div>
+          <button
+            className="userbox__chip"
+            title={displayName}
+            onClick={() => setIsEditingName(true)}
+            aria-label="Edit your display name"
+            type="button"
+          >
+            {displayName}
+          </button>
           <button
             className="navbar-logout"
             onClick={() => signOut(auth)}
@@ -46,7 +78,7 @@ const Navbar: React.FC<Props> = ({ user }) => {
 
       {/* Nav links row */}
       <nav className="navbar-links" aria-label="Primary navigation">
-          <NavLink
+        <NavLink
           to="/predictions"
           className={({ isActive }) =>
             "nav-link" + (isActive ? " nav-link-active" : "")
@@ -84,9 +116,13 @@ const Navbar: React.FC<Props> = ({ user }) => {
           <span className="nav-icon" aria-hidden="true">📊</span>
           <span className="nav-label">My Stats</span>
         </NavLink>
-
-
       </nav>
+      <EditNameModal
+        open={isEditingName}
+        user={currentUser}
+        onClose={() => setIsEditingName(false)}
+        onSaved={handleProfileRefresh}
+      />
     </header>
   );
 };
