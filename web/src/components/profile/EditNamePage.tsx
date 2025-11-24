@@ -117,7 +117,11 @@ const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
         { merge: true }
       );
 
-      await updatePredictionNames(auth.currentUser.uid, fullName);
+      try {
+        await updatePredictionNames(auth.currentUser.uid, fullName);
+      } catch (predictionsError) {
+        console.error("Failed to update prediction names", predictionsError);
+      }
 
       await auth.currentUser.reload();
       initialFullName.current = normalizedInput;
