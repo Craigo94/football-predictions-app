@@ -164,6 +164,16 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
       });
   }, [fixtures]);
 
+  // Lock all predictions once the first fixture of the gameweek kicks off
+  const gameweekLocked = React.useMemo(() => {
+    if (!fixtures.length) return false;
+    const firstFixture = fixtures[0];
+    const kickoffTime = new Date(firstFixture.kickoff).getTime();
+    const startedByTime = Number.isFinite(kickoffTime) && Date.now() >= kickoffTime;
+    const startedByStatus = firstFixture.statusShort !== "NS";
+    return startedByStatus || startedByTime;
+  }, [fixtures]);
+
   if (loading) {
     return <div>Loading fixtures…</div>;
   }
@@ -256,6 +266,7 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
                 fixture={f}
                 prediction={predictions[f.id] || null}
                 onChangePrediction={(p) => handleChangePrediction(f, p)}
+                gameweekLocked={gameweekLocked}
               />
             ))}
           </div>
