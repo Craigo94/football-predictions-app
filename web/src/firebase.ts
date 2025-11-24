@@ -37,3 +37,6 @@ export const auth: Auth = app ? getAuth(app) : (null as unknown as Auth);
 export const db: Firestore = app ? getFirestore(app) : (null as unknown as Firestore);
 export const isFirebaseConfigured = Boolean(app && !firebaseInitializationError);
 export { firebaseInitializationError };
+
+// Export the specific keys we couldn't read so the UI can provide actionable guidance
+export const missingFirebaseKeys = missingKeys;
