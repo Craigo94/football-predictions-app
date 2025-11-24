@@ -100,6 +100,8 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
 
     setLoading(true);
 
+    let didSave = false;
+
     try {
       const fullName = `${trimmedFirst} ${trimmedLast}`.trim();
 
@@ -119,8 +121,7 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
       await updatePredictionNames(auth.currentUser.uid, fullName);
 
       await auth.currentUser.reload();
-
-      onClose();
+      didSave = true;
 
       if (onSaved) {
         try {
@@ -138,6 +139,7 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
       setError(message);
     } finally {
       setLoading(false);
+      if (didSave) onClose();
     }
   };
 

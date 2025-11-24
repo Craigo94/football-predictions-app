@@ -648,6 +648,7 @@ input[type="number"]::-webkit-inner-spin-button {
   overflow: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   padding: 18px 18px 14px;
+  box-sizing: border-box;
 }
 
 .modal-header {
@@ -716,4 +717,24 @@ input[type="number"]::-webkit-inner-spin-button {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 4px;
+}
+
+@media (max-width: 520px) {
+  .modal-card {
+    width: 100%;
+    max-width: 420px;
+    max-height: calc(100vh - 24px);
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .modal-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
 }
