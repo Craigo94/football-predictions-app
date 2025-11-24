@@ -9,6 +9,7 @@ import WeeklyGameweekPage from "./components/weekly/WeeklyGameweekPage";
 import MyStatsPage from "./components/stats/MyStatsPage";
 import LoginPage from "./components/auth/LoginPage";
 import { LiveFixturesProvider } from "./context/LiveFixturesContext";
+import EditNamePage from "./components/profile/EditNamePage";
 
 const App: React.FC = () => {
   const [user, setUser] = React.useState<User | null>(null);
@@ -40,7 +41,7 @@ const App: React.FC = () => {
       {user ? (
         <LiveFixturesProvider>
           <div className="app-shell">
-            <Navbar user={user} onUserUpdated={refreshUser} />
+            <Navbar user={user} />
             <Routes>
               <Route
                 path="/predictions"
@@ -49,6 +50,12 @@ const App: React.FC = () => {
               <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/weekly" element={<WeeklyGameweekPage />} />
               <Route path="/stats" element={<MyStatsPage user={user} />} />
+              <Route
+                path="/profile/name"
+                element={
+                  <EditNamePage user={user} onUserUpdated={refreshUser} />
+                }
+              />
               <Route path="*" element={<Navigate to="/predictions" replace />} />
             </Routes>
           </div>

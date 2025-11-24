@@ -11,14 +11,13 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../firebase";
 import { formatFirstName } from "../../utils/displayName";
 
 interface Props {
-  open: boolean;
   user: User;
-  onClose: () => void;
-  onSaved?: () => void | Promise<void>;
+  onUserUpdated?: () => Promise<User | null>;
 }
 
 const parseName = (raw?: string | null) => {
@@ -38,45 +37,44 @@ const parseName = (raw?: string | null) => {
   return { first: parts[0], last: parts.slice(1).join(" ") };
 };
 
-const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
+const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const [success, setSuccess] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const initialFullName = React.useRef<string>("");
+  const navigate = useNavigate();
 
   React.useEffect(() => {
-    if (!open) return;
-
     const { first, last } = parseName(user.displayName || user.email);
     setFirstName(first);
     setLastName(last);
     setError(null);
+    setSuccess(null);
     initialFullName.current = `${first} ${last}`.trim().toLowerCase();
-  }, [open, user.displayName, user.email]);
+  }, [user.displayName, user.email]);
 
-  const updatePredictionNames = React.useCallback(
-    async (uid: string, fullName: string) => {
-      const q = query(collection(db, "predictions"), where("userId", "==", uid));
-      const snap = await getDocs(q);
+  const updatePredictionNames = React.useCallback(async (uid: string, fullName: string) => {
+    const q = query(collection(db, "predictions"), where("userId", "==", uid));
+    const snap = await getDocs(q);
 
-      if (snap.empty) return;
+    if (snap.empty) return;
 
-      const batch = writeBatch(db);
-      const userDisplayName = formatFirstName(fullName);
+    const batch = writeBatch(db);
+    const userDisplayName = formatFirstName(fullName);
 
-      snap.forEach((docSnap) => {
-        batch.set(docSnap.ref, { userDisplayName }, { merge: true });
-      });
+    snap.forEach((docSnap) => {
+      batch.set(docSnap.ref, { userDisplayName }, { merge: true });
+    });
 
-      await batch.commit();
-    },
-    []
-  );
+    await batch.commit();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
 
     const trimmedFirst = firstName.trim();
     const trimmedLast = lastName.trim();
@@ -89,7 +87,7 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
     const normalizedInput = `${trimmedFirst} ${trimmedLast}`.trim().toLowerCase();
 
     if (normalizedInput === initialFullName.current) {
-      onClose();
+      setSuccess("No changes to save – your name is already up to date.");
       return;
     }
 
@@ -99,8 +97,6 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
     }
 
     setLoading(true);
-
-    let didSave = false;
 
     try {
       const fullName = `${trimmedFirst} ${trimmedLast}`.trim();
@@ -121,103 +117,77 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
       await updatePredictionNames(auth.currentUser.uid, fullName);
 
       await auth.currentUser.reload();
-      didSave = true;
+      initialFullName.current = normalizedInput;
 
-      if (onSaved) {
+      if (onUserUpdated) {
         try {
-          await onSaved();
+          await onUserUpdated();
         } catch (callbackError) {
           console.error("Error running post-save callback", callbackError);
         }
       }
+
+      setSuccess("Name updated! Your changes will show everywhere in a few moments.");
     } catch (err) {
       console.error(err);
       const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to update your name right now.";
+        err instanceof Error ? err.message : "Unable to update your name right now.";
       setError(message);
     } finally {
       setLoading(false);
-      if (didSave) onClose();
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      onClick={() => {
-        if (!loading) onClose();
-      }}
-    >
-      <div
-        className="modal-card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-name-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <div>
-            <p className="modal-eyebrow">Profile</p>
-            <h2 id="edit-name-title">Edit display name</h2>
-            <p className="modal-description">
-              Update the name shown across your predictions and leaderboard.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={onClose}
-            aria-label="Close edit name dialog"
-          >
-            ✕
-          </button>
+    <div className="profile-page">
+      <div className="card profile-card">
+        <div className="profile-header">
+          <p className="eyebrow">Profile</p>
+          <h1>Edit display name</h1>
+          <p className="profile-subtitle">
+            Update the name that appears on your predictions, leaderboard, and stats.
+          </p>
         </div>
 
-        <form className="modal-body" onSubmit={handleSubmit}>
-          <div className="modal-field">
-            <label htmlFor="edit-first-name">First name</label>
-            <input
-              id="edit-first-name"
-              className="modal-input"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              autoComplete="given-name"
-              disabled={loading}
-              required
-            />
+        <form className="profile-form" onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <label className="form-field">
+              <span>First name</span>
+              <input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                autoComplete="given-name"
+                disabled={loading}
+                required
+              />
+            </label>
+
+            <label className="form-field">
+              <span>Last name</span>
+              <input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                autoComplete="family-name"
+                disabled={loading}
+                required
+              />
+            </label>
           </div>
 
-          <div className="modal-field">
-            <label htmlFor="edit-last-name">Last name</label>
-            <input
-              id="edit-last-name"
-              className="modal-input"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              autoComplete="family-name"
-              disabled={loading}
-              required
-            />
-          </div>
+          {error && <div className="form-error">{error}</div>}
+          {success && <div className="form-success">{success}</div>}
 
-          {error && <div className="modal-error">{error}</div>}
-
-          <div className="modal-actions">
+          <div className="profile-actions">
             <button
               type="button"
               className="button-secondary"
-              onClick={onClose}
+              onClick={() => navigate(-1)}
               disabled={loading}
             >
-              Cancel
+              Go back
             </button>
             <button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save changes"}
+              {loading ? "Saving..." : "Save name"}
             </button>
           </div>
         </form>
@@ -226,4 +196,4 @@ const EditNameModal: React.FC<Props> = ({ open, user, onClose, onSaved }) => {
   );
 };
 
-export default EditNameModal;
+export default EditNamePage;

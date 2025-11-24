@@ -2,43 +2,26 @@ import React from "react";
 import type { User } from "firebase/auth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { formatFirstName } from "../../utils/displayName";
-import EditNameModal from "../profile/EditNameModal";
 
 interface Props {
   user: User;
-  onUserUpdated?: () => Promise<User | null>;
 }
 
 const getDisplayName = (user: User) =>
   formatFirstName(user.displayName || user.email || "User");
 
 
-const Navbar: React.FC<Props> = ({ user, onUserUpdated }) => {
+const Navbar: React.FC<Props> = ({ user }) => {
   const [currentUser, setCurrentUser] = React.useState(user);
-  const [isEditingName, setIsEditingName] = React.useState(false);
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     setCurrentUser(user);
   }, [user]);
 
   const displayName = getDisplayName(currentUser);
-
-  const handleProfileRefresh = React.useCallback(async () => {
-    if (onUserUpdated) {
-      const refreshed = await onUserUpdated();
-      if (refreshed) {
-        setCurrentUser(refreshed);
-      }
-      return;
-    }
-
-    if (auth.currentUser) {
-      await auth.currentUser.reload();
-      setCurrentUser({ ...auth.currentUser } as User);
-    }
-  }, [onUserUpdated]);
 
   return (
     <header className="navbar" role="banner">
@@ -60,7 +43,7 @@ const Navbar: React.FC<Props> = ({ user, onUserUpdated }) => {
           <button
             className="userbox__chip"
             title={displayName}
-            onClick={() => setIsEditingName(true)}
+            onClick={() => navigate("/profile/name")}
             aria-label="Edit your display name"
             type="button"
           >
@@ -117,12 +100,6 @@ const Navbar: React.FC<Props> = ({ user, onUserUpdated }) => {
           <span className="nav-label">My Stats</span>
         </NavLink>
       </nav>
-      <EditNameModal
-        open={isEditingName}
-        user={currentUser}
-        onClose={() => setIsEditingName(false)}
-        onSaved={handleProfileRefresh}
-      />
     </header>
   );
 };
