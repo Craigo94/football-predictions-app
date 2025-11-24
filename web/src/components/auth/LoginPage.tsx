@@ -3,9 +3,10 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
+  type User,
 } from "firebase/auth";
 import { auth, db } from "../../firebase";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import "./LoginPage.css";
 
 const LoginPage: React.FC = () => {
@@ -30,6 +31,44 @@ const LoginPage: React.FC = () => {
       </div>
     );
   }
+
+  const ensureUserProfile = async (user: User) => {
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+
+    const displayName = user.displayName?.trim();
+    const email = user.email?.toLowerCase() || "";
+
+    if (snap.exists()) {
+      const updates: Record<string, unknown> = {
+        lastLoginAt: serverTimestamp(),
+      };
+
+      if (displayName) {
+        updates.displayName = displayName;
+      }
+
+      if (email) {
+        updates.email = email;
+      }
+
+      await setDoc(ref, updates, { merge: true });
+      return;
+    }
+
+    await setDoc(
+      ref,
+      {
+        displayName: displayName || undefined,
+        email,
+        isAdmin: false,
+        hasPaid: false,
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,9 +100,11 @@ const LoginPage: React.FC = () => {
           isAdmin: false,
           hasPaid: false,
           createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
         });
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        await ensureUserProfile(cred.user);
       }
     } catch (err: any) {
       console.error(err);
