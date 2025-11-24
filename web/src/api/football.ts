@@ -90,10 +90,15 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
 
   console.log("[Football API] Detect next GW (range):", { dateFrom, dateTo });
 
+  // Include fixtures that have already kicked off (IN_PLAY/PAUSED) so that
+  // once a gameweek begins we still treat it as the "current" one until the
+  // next scheduled matchday arrives. If we only fetch SCHEDULED games then as
+  // soon as the first fixture starts, the API stops returning the active
+  // matchday and we would incorrectly jump ahead to the following round.
   const upcoming = await fetchMatches({
     dateFrom,
     dateTo,
-    status: "SCHEDULED",
+    status: "SCHEDULED,IN_PLAY,PAUSED",
   });
 
   const matchdays = upcoming
