@@ -2,18 +2,40 @@ import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
-const rawConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+const firebaseEnv = {
+  apiKey: {
+    envValue: import.meta.env.VITE_FIREBASE_API_KEY,
+    name: "VITE_FIREBASE_API_KEY",
+  },
+  authDomain: {
+    envValue: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    name: "VITE_FIREBASE_AUTH_DOMAIN",
+  },
+  projectId: {
+    envValue: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    name: "VITE_FIREBASE_PROJECT_ID",
+  },
+  storageBucket: {
+    envValue: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    name: "VITE_FIREBASE_STORAGE_BUCKET",
+  },
+  messagingSenderId: {
+    envValue: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    name: "VITE_FIREBASE_MESSAGING_SENDER_ID",
+  },
+  appId: {
+    envValue: import.meta.env.VITE_FIREBASE_APP_ID,
+    name: "VITE_FIREBASE_APP_ID",
+  },
 };
 
-const missingKeys = Object.entries(rawConfig)
-  .filter(([, value]) => typeof value !== "string" || value.trim() === "")
-  .map(([key]) => key);
+const rawConfig = Object.fromEntries(
+  Object.entries(firebaseEnv).map(([key, { envValue }]) => [key, envValue])
+) as Record<keyof typeof firebaseEnv, string | undefined>;
+
+const missingKeys = Object.values(firebaseEnv)
+  .filter(({ envValue }) => typeof envValue !== "string" || envValue.trim() === "")
+  .map(({ name }) => name);
 
 let firebaseInitializationError: Error | null = null;
 let app: FirebaseApp | null = null;
@@ -37,3 +59,6 @@ export const auth: Auth = app ? getAuth(app) : (null as unknown as Auth);
 export const db: Firestore = app ? getFirestore(app) : (null as unknown as Firestore);
 export const isFirebaseConfigured = Boolean(app && !firebaseInitializationError);
 export { firebaseInitializationError };
+
+// Export the specific keys we couldn't read so the UI can provide actionable guidance
+export const missingFirebaseKeys = missingKeys;

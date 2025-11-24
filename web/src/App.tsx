@@ -2,7 +2,13 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { auth, db, firebaseInitializationError, isFirebaseConfigured } from "./firebase";
+import {
+  auth,
+  db,
+  firebaseInitializationError,
+  isFirebaseConfigured,
+  missingFirebaseKeys,
+} from "./firebase";
 import Navbar from "./components/layout/Navbar";
 import PredictionsPage from "./components/predictions/PredictionsPage";
 import LeaderboardPage from "./components/leaderboard/LeaderboardPage";
@@ -89,12 +95,34 @@ const App: React.FC = () => {
 
   if (!firebaseReady) {
     return (
-      <div style={{ padding: 16 }}>
-        <h2>Configuration error</h2>
-        <p style={{ color: "#9fb0a2", marginTop: 8 }}>
-          {firebaseInitializationError?.message ||
-            "Firebase is not configured. Please check your VITE_FIREBASE_* environment variables."}
-        </p>
+      <div className="config-error">
+        <div className="config-error__card">
+          <h2>Configuration error</h2>
+          <p className="config-error__message">
+            We couldn&apos;t start Firebase because the client credentials are missing.
+          </p>
+
+          <div className="config-error__details">
+            <p className="config-error__label">Missing environment variables:</p>
+            <ul>
+              {missingFirebaseKeys.length ? (
+                missingFirebaseKeys.map((key) => <li key={key}>{key}</li>)
+              ) : (
+                <li>VITE_FIREBASE_* keys were not provided</li>
+              )}
+            </ul>
+          </div>
+
+          <p className="config-error__hint">
+            Create a <code>.env.local</code> file in <code>web/</code> (next to package.json) and
+            supply all <code>VITE_FIREBASE_*</code> values exactly as shown in your Firebase
+            project. Restart the build/dev server after adding them.
+          </p>
+
+          {firebaseInitializationError?.message && (
+            <p className="config-error__technical">{firebaseInitializationError.message}</p>
+          )}
+        </div>
       </div>
     );
   }
