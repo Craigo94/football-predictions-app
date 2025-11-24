@@ -160,9 +160,6 @@ const AdminPage: React.FC = () => {
                     <td style={{ padding: "10px 4px", fontWeight: 600 }}>
                       {user.displayName}
                     </td>
-                    <td style={{ padding: "10px 4px", color: "var(--text-muted)" }}>
-                      {user.email || "—"}
-                    </td>
                     <td style={{ padding: "10px 4px" }}>
                       <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <input
@@ -175,26 +172,6 @@ const AdminPage: React.FC = () => {
                         />
                         <span>Paid</span>
                       </label>
-                    </td>
-                    <td style={{ padding: "10px 4px" }}>
-                      {isAdminLocked ? (
-                        <span style={{ color: "var(--text-muted)" }}>
-                          {user.id === lockedAdminUserId
-                            ? "Primary admin"
-                            : "Admin locked"}
-                        </span>
-                      ) : (
-                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <input
-                            type="radio"
-                            name="admin"
-                            checked={user.isAdmin}
-                            onChange={() => handleAssignAdmin(user.id)}
-                            disabled={updatingId !== null}
-                          />
-                          <span>{user.isAdmin ? "Current admin" : "Make admin"}</span>
-                        </label>
-                      )}
                     </td>
                   </tr>
                 );
