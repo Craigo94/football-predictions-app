@@ -770,6 +770,34 @@ input[type="number"]::-webkit-inner-spin-button {
   color: #c8f7dc;
 }
 
+/* 🎟️ Admin dashboard stats */
+.stat-box {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(0, 255, 100, 0.12);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.stat-subtext {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .profile-actions {
   display: flex;
   justify-content: space-between;

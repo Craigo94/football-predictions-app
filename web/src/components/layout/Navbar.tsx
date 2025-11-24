@@ -7,13 +7,14 @@ import { formatFirstName } from "../../utils/displayName";
 
 interface Props {
   user: User;
+  isAdmin?: boolean;
 }
 
 const getDisplayName = (user: User) =>
   formatFirstName(user.displayName || user.email || "User");
 
 
-const Navbar: React.FC<Props> = ({ user }) => {
+const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
   const [currentUser, setCurrentUser] = React.useState(user);
   const navigate = useNavigate();
 
@@ -99,6 +100,18 @@ const Navbar: React.FC<Props> = ({ user }) => {
           <span className="nav-icon" aria-hidden="true">📊</span>
           <span className="nav-label">My Stats</span>
         </NavLink>
+
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              "nav-link" + (isActive ? " nav-link-active" : "")
+            }
+          >
+            <span className="nav-icon" aria-hidden="true">🛠️</span>
+            <span className="nav-label">Admin</span>
+          </NavLink>
+        )}
       </nav>
     </header>
   );

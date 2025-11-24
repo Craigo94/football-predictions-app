@@ -6,6 +6,8 @@ import { scorePrediction } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import type { Fixture } from "../../api/football";
 import { formatFirstName } from "../../utils/displayName";
+import { useUsers } from "../../hooks/useUsers";
+import { formatCurrencyGBP } from "../../utils/currency";
 
 interface PredictionDoc {
   userId: string;
@@ -39,6 +41,8 @@ const WeeklyGameweekPage: React.FC = () => {
   const [predictionsError, setPredictionsError] = React.useState<string | null>(
     null
   );
+  const { users: userProfiles, loading: usersLoading, error: usersError } =
+    useUsers();
 
   // Shared fixtures & polling from context
   const {
@@ -197,8 +201,17 @@ const WeeklyGameweekPage: React.FC = () => {
       .sort(
         (a, b) =>
           new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
-      );
+    );
   }, [fixturesById, currentRound]);
+
+  const paidCount = React.useMemo(
+    () => userProfiles.filter((u) => u.hasPaid).length,
+    [userProfiles]
+  );
+  const prizePot = paidCount * 5;
+  const firstPrize = prizePot * 0.75;
+  const secondPrize = prizePot * 0.2;
+  const thirdPrize = prizePot * 0.05;
 
   // Lookup: user+fixture -> prediction
   const predsByUserFixture = React.useMemo(() => {
@@ -291,6 +304,50 @@ const WeeklyGameweekPage: React.FC = () => {
             Current leader:{" "}
             <strong>{weeklyRows[0].userDisplayName}</strong> (
             {weeklyRows[0].totalPoints} pts)
+          </p>
+        )}
+
+        <div className="gw-points-row">
+          <div>
+            <div className="gw-points-label">Prize pot</div>
+            <div className="gw-points-value">
+              {usersLoading ? "Loading…" : formatCurrencyGBP(prizePot)}
+            </div>
+            <div className="gw-round-label" style={{ marginTop: 2 }}>
+              {usersLoading
+                ? "Checking payments"
+                : `${paidCount} paid player${paidCount === 1 ? "" : "s"}`}
+            </div>
+          </div>
+          <div
+            style={{
+              textAlign: "right",
+              fontSize: 12,
+              color: "var(--text-muted)",
+              lineHeight: 1.5,
+            }}
+          >
+            <div>
+              1st: {usersLoading ? "…" : formatCurrencyGBP(firstPrize)} (75%)
+            </div>
+            <div>
+              2nd: {usersLoading ? "…" : formatCurrencyGBP(secondPrize)} (20%)
+            </div>
+            <div>
+              3rd: {usersLoading ? "…" : formatCurrencyGBP(thirdPrize)} (5%)
+            </div>
+          </div>
+        </div>
+
+        {usersError && (
+          <p
+            style={{
+              fontSize: 12,
+              color: "var(--red)",
+              marginTop: 4,
+            }}
+          >
+            {usersError}
           </p>
         )}
 
