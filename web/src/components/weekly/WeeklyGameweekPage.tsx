@@ -209,9 +209,7 @@ const WeeklyGameweekPage: React.FC = () => {
     [userProfiles]
   );
   const prizePot = paidCount * 5;
-  const firstPrize = prizePot * 0.75;
-  const secondPrize = prizePot * 0.2;
-  const thirdPrize = prizePot * 0.05;
+  const firstPrize = prizePot;
 
   // Lookup: user+fixture -> prediction
   const predsByUserFixture = React.useMemo(() => {
@@ -327,14 +325,9 @@ const WeeklyGameweekPage: React.FC = () => {
               lineHeight: 1.5,
             }}
           >
+            <div>Winner takes all</div>
             <div>
-              1st: {usersLoading ? "…" : formatCurrencyGBP(firstPrize)} (75%)
-            </div>
-            <div>
-              2nd: {usersLoading ? "…" : formatCurrencyGBP(secondPrize)} (20%)
-            </div>
-            <div>
-              3rd: {usersLoading ? "…" : formatCurrencyGBP(thirdPrize)} (5%)
+              1st: {usersLoading ? "…" : formatCurrencyGBP(firstPrize)} (100%)
             </div>
           </div>
         </div>
