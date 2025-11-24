@@ -3,37 +3,19 @@ import { doc, setDoc, writeBatch } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useUsers } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
-import { PRIMARY_ADMIN_EMAIL, normalizeEmail } from "../../config/admin";
+import { PRIMARY_ADMIN_EMAIL } from "../../config/admin";
 
 const AdminPage: React.FC = () => {
   const { users, loading, error } = useUsers();
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
+  const [clearingPaid, setClearingPaid] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
-  const normalizedPrimaryAdmin = normalizeEmail(PRIMARY_ADMIN_EMAIL);
-  const isAdminLocked = normalizedPrimaryAdmin !== "";
-
-  const lockedAdminUserId = React.useMemo(() => {
-    if (!isAdminLocked) return null;
-    return (
-      users.find((user) => normalizeEmail(user.email) === normalizedPrimaryAdmin)?.id ||
-      null
-    );
-  }, [isAdminLocked, normalizedPrimaryAdmin, users]);
 
   const paidCount = React.useMemo(
     () => users.filter((u) => u.hasPaid).length,
     [users]
   );
   const prizePot = paidCount * 5;
-
-  const breakdown = React.useMemo(
-    () => ({
-      first: prizePot * 0.75,
-      second: prizePot * 0.2,
-      third: prizePot * 0.05,
-    }),
-    [prizePot]
-  );
 
   const formatShare = React.useCallback(
     (value: number) => (loading ? "…" : formatCurrencyGBP(value)),
@@ -57,36 +39,30 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const handleAssignAdmin = async (userId: string) => {
-    if (isAdminLocked && userId !== lockedAdminUserId) {
-      setActionError(
-        lockedAdminUserId
-          ? `Admin access is locked to ${PRIMARY_ADMIN_EMAIL || "the configured email"}.`
-          : "No user matches the configured admin email."
-      );
-      return;
-    }
+  const handleClearAllPaid = async () => {
+    const confirmClear = window.confirm(
+      "Clear the paid status for all players? You can re-add payments after this is done.",
+    );
+    if (!confirmClear) return;
 
-    setUpdatingId(userId);
+    setClearingPaid(true);
     setActionError(null);
 
     try {
       const batch = writeBatch(db);
 
       users.forEach((user) => {
-        const targetIsAdmin = user.id === userId;
-
-        if (user.isAdmin !== targetIsAdmin) {
-          batch.set(doc(db, "users", user.id), { isAdmin: targetIsAdmin }, { merge: true });
+        if (user.hasPaid) {
+          batch.set(doc(db, "users", user.id), { hasPaid: false }, { merge: true });
         }
       });
 
       await batch.commit();
     } catch (err) {
-      console.error("Failed to assign admin", err);
-      setActionError("Unable to assign admin. Please try again.");
+      console.error("Failed to clear paid statuses", err);
+      setActionError("Unable to clear paid statuses. Please try again.");
     } finally {
-      setUpdatingId(null);
+      setClearingPaid(false);
     }
   };
 
@@ -95,8 +71,8 @@ const AdminPage: React.FC = () => {
       <div>
         <h2 style={{ margin: "0 0 4px" }}>Admin</h2>
         <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>
-          Manage player access and payments. Ticking <strong>Paid</strong> adds £5
-          to the prize pot. Admin access is locked to
+          Manage payments. Ticking <strong>Paid</strong> adds £5 to the prize pot.
+          Admin access is locked to
           {" "}
           <strong>
             {PRIMARY_ADMIN_EMAIL || "the configured primary admin email"}
@@ -119,11 +95,16 @@ const AdminPage: React.FC = () => {
           <div className="stat-subtext">{paidLabel}</div>
         </div>
         <div className="stat-box">
-          <div className="stat-label">Breakdown</div>
-          <div className="stat-subtext">1st: {formatShare(breakdown.first)} (75%)</div>
-          <div className="stat-subtext">2nd: {formatShare(breakdown.second)} (20%)</div>
-          <div className="stat-subtext">3rd: {formatShare(breakdown.third)} (5%)</div>
+          <div className="stat-label">Payout</div>
+          <div className="stat-subtext">Winner takes all</div>
+          <div className="stat-subtext">Top scorer: {formatShare(prizePot)} (100%)</div>
         </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button onClick={handleClearAllPaid} disabled={clearingPaid}>
+          {clearingPaid ? "Clearing…" : "Clear all paid"}
+        </button>
       </div>
 
       {actionError && (
@@ -149,15 +130,13 @@ const AdminPage: React.FC = () => {
           <thead>
             <tr style={{ textAlign: "left", color: "var(--text-muted)", fontSize: 12 }}>
               <th style={{ padding: "8px 4px" }}>Name</th>
-              <th style={{ padding: "8px 4px" }}>Email</th>
               <th style={{ padding: "8px 4px" }}>Paid</th>
-              <th style={{ padding: "8px 4px" }}>Admin</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={4} style={{ padding: 12 }}>
+                <td colSpan={2} style={{ padding: 12 }}>
                   Loading users…
                 </td>
               </tr>
@@ -168,9 +147,6 @@ const AdminPage: React.FC = () => {
                     <td style={{ padding: "10px 4px", fontWeight: 600 }}>
                       {user.displayName}
                     </td>
-                    <td style={{ padding: "10px 4px", color: "var(--text-muted)" }}>
-                      {user.email || "—"}
-                    </td>
                     <td style={{ padding: "10px 4px" }}>
                       <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <input
@@ -179,30 +155,10 @@ const AdminPage: React.FC = () => {
                           onChange={(e) =>
                             handleUpdatePaid(user.id, e.target.checked)
                           }
-                          disabled={updatingId === user.id}
+                          disabled={updatingId === user.id || clearingPaid}
                         />
                         <span>Paid</span>
                       </label>
-                    </td>
-                    <td style={{ padding: "10px 4px" }}>
-                      {isAdminLocked ? (
-                        <span style={{ color: "var(--text-muted)" }}>
-                          {user.id === lockedAdminUserId
-                            ? "Primary admin"
-                            : "Admin locked"}
-                        </span>
-                      ) : (
-                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <input
-                            type="radio"
-                            name="admin"
-                            checked={user.isAdmin}
-                            onChange={() => handleAssignAdmin(user.id)}
-                            disabled={updatingId !== null}
-                          />
-                          <span>{user.isAdmin ? "Current admin" : "Make admin"}</span>
-                        </label>
-                      )}
                     </td>
                   </tr>
                 );
