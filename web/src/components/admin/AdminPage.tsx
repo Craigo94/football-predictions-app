@@ -96,13 +96,7 @@ const AdminPage: React.FC = () => {
         <h2 style={{ margin: "0 0 4px" }}>Admin</h2>
         <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>
           Manage player access and payments. Ticking <strong>Paid</strong> adds £5
-          to the prize pot. Admin access is locked to
-          {" "}
-          <strong>
-            {PRIMARY_ADMIN_EMAIL || "the configured primary admin email"}
-          </strong>
-          {" "}
-          so only that account can see this dashboard.
+          to the prize pot.
         </p>
       </div>
 
@@ -149,9 +143,7 @@ const AdminPage: React.FC = () => {
           <thead>
             <tr style={{ textAlign: "left", color: "var(--text-muted)", fontSize: 12 }}>
               <th style={{ padding: "8px 4px" }}>Name</th>
-              <th style={{ padding: "8px 4px" }}>Email</th>
               <th style={{ padding: "8px 4px" }}>Paid</th>
-              <th style={{ padding: "8px 4px" }}>Admin</th>
             </tr>
           </thead>
           <tbody>
