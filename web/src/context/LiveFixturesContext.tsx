@@ -3,6 +3,7 @@ import {
   getPremierLeagueMatchesForRange,
   type Fixture,
 } from "../api/football";
+import { CURRENT_SEASON } from "../config/football";
 
 interface LiveFixturesContextValue {
   fixturesById: Record<number, Fixture>;
@@ -15,8 +16,17 @@ const LiveFixturesContext = React.createContext<
   LiveFixturesContextValue | undefined
 >(undefined);
 
-const WINDOW_PAST_DAYS = 2;
-const WINDOW_FUTURE_DAYS = 10;
+// Fetch the full Premier League season so the leaderboard can score predictions
+// across all gameweeks (not just recent fixtures). This keeps historical
+// results available even after many months have passed.
+const seasonDateRange = (season: number) => {
+  // Premier League seasons start in August and end in May. Use an inclusive
+  // July 1 -> June 30 window to capture the whole season regardless of the
+  // exact fixture calendar.
+  const start = new Date(Date.UTC(season, 6, 1)); // July 1 of the season year
+  const end = new Date(Date.UTC(season + 1, 5, 30, 23, 59, 59, 999)); // June 30 of next year
+  return { start, end };
+};
 const POLL_INTERVAL_MS = 120_000; // 2 minutes is enough for a small group
 
 export const LiveFixturesProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -40,10 +50,8 @@ export const LiveFixturesProvider: React.FC<{ children: React.ReactNode }> = ({
           setLoadingFixtures(true);
         }
 
-        const fixtures = await getPremierLeagueMatchesForRange(
-          new Date(Date.now() - WINDOW_PAST_DAYS * 24 * 60 * 60 * 1000),
-          new Date(Date.now() + WINDOW_FUTURE_DAYS * 24 * 60 * 60 * 1000)
-        );
+        const { start, end } = seasonDateRange(CURRENT_SEASON);
+        const fixtures = await getPremierLeagueMatchesForRange(start, end);
         if (cancelled) return;
 
         const map: Record<number, Fixture> = {};
