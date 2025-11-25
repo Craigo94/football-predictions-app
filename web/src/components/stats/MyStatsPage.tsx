@@ -499,11 +499,13 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                           pillLabel = "Wrong";
                         }
 
-                        const kickoffDate = new Date(f.kickoff);
-                        const koLabel = kickoffDate.toLocaleTimeString("en-GB", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        });
+                        const koLabel = new Date(f.kickoff).toLocaleTimeString(
+                          "en-GB",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        );
 
                         return (
                           <div
@@ -526,15 +528,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                                 fontWeight: 700,
                               }}
                             >
-                              <img
-                                src={f.awayLogo}
-                                alt={f.awayTeam}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "contain",
-                                }}
-                              />
+                              {koLabel}
                             </div>
 
                             {/* Teams and score */}
