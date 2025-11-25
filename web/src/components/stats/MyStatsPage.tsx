@@ -526,7 +526,15 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                                 fontWeight: 700,
                               }}
                             >
-                              {koLabel}
+                              <img
+                                src={f.awayLogo}
+                                alt={f.awayTeam}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "contain",
+                                }}
+                              />
                             </div>
 
                             {/* Teams and score */}
