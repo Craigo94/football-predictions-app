@@ -266,12 +266,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
     setOverallExact(exactOverall);
     setOverallResult(resultOverall);
     setOverallWrong(wrongOverall);
-
-    // If no open round yet, open the most recent one
-    if (!openRound && completed.length > 0) {
-      setOpenRound(completed[0].round);
-    }
-  }, [predictions, fixturesById, openRound]);
+  }, [predictions, fixturesById]);
 
   if (loading) {
     return <div>Loading your stats…</div>;
@@ -512,33 +507,22 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                             key={f.id}
                             style={{
                               display: "flex",
-                              flexWrap: "wrap",
+                              flexDirection: "column",
                               alignItems: "center",
                               gap: 10,
-                              padding: "8px 0",
+                              padding: "10px 0",
                               borderBottom: "1px solid rgba(148,163,184,0.12)",
                             }}
                           >
-                            {/* Time */}
-                            <div
-                              style={{
-                                width: 60,
-                                fontSize: 12,
-                                color: "var(--text-muted)",
-                                fontWeight: 700,
-                              }}
-                            >
-                              {koLabel}
-                            </div>
-
                             {/* Teams and score */}
                             <div
                               style={{
-                                display: "flex",
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto 1fr",
                                 alignItems: "center",
-                                gap: 8,
-                                flex: 1,
-                                minWidth: 220,
+                                gap: 12,
+                                width: "100%",
+                                minWidth: 0,
                               }}
                             >
                               <div
@@ -546,7 +530,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                                   display: "flex",
                                   alignItems: "center",
                                   gap: 6,
-                                  flex: 1,
+                                  justifyContent: "flex-end",
                                   minWidth: 80,
                                 }}
                               >
@@ -581,8 +565,8 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
 
                               <div
                                 style={{
-                                  fontSize: 13,
-                                  fontWeight: 700,
+                                  fontSize: 14,
+                                  fontWeight: 800,
                                   textAlign: "center",
                                   minWidth: 40,
                                 }}
@@ -597,8 +581,6 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                                   display: "flex",
                                   alignItems: "center",
                                   gap: 6,
-                                  flex: 1,
-                                  justifyContent: "flex-end",
                                   minWidth: 80,
                                 }}
                               >
@@ -632,57 +614,87 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                               </div>
                             </div>
 
-                            {/* Prediction, status, and points */}
+                            {/* Time, prediction, points, and status pill */}
                             <div
                               style={{
                                 display: "flex",
+                                flexWrap: "wrap",
+                                justifyContent: "center",
                                 alignItems: "center",
                                 gap: 10,
-                                minWidth: 180,
-                                flexWrap: "wrap",
-                                justifyContent: "flex-end",
-                                textAlign: "right",
+                                width: "100%",
+                                textAlign: "center",
                               }}
                             >
-                              <div style={{ minWidth: 120 }}>
-                                <div
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    padding: "2px 8px",
-                                    borderRadius: 999,
-                                    background: pillBg,
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    marginBottom: 4,
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {pillLabel}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: 12,
-                                    color: "var(--text-muted)",
-                                  }}
-                                >
-                                  Pred {p.predHome ?? "–"}-{p.predAway ?? "–"}
-                                </div>
+                              <div
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "4px 10px",
+                                  borderRadius: 999,
+                                  background: "rgba(148,163,184,0.14)",
+                                  color: "var(--text-muted)",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  minWidth: 72,
+                                }}
+                              >
+                                {koLabel}
+                              </div>
+
+                              <div
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "4px 12px",
+                                  borderRadius: 999,
+                                  background: "rgba(148,163,184,0.12)",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  minWidth: 90,
+                                }}
+                              >
+                                Pred {p.predHome ?? "–"}-{p.predAway ?? "–"}
                               </div>
 
                               {row.points != null && (
                                 <div
                                   style={{
-                                    fontSize: 16,
-                                    fontWeight: 700,
-                                    minWidth: 40,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    padding: "4px 12px",
+                                    borderRadius: 999,
+                                    background: "rgba(148,163,184,0.08)",
+                                    fontSize: 13,
+                                    fontWeight: 800,
+                                    minWidth: 64,
                                   }}
                                 >
                                   {row.points} pt
                                   {row.points === 1 ? "" : "s"}
                                 </div>
                               )}
+
+                              <div
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "4px 10px",
+                                  borderRadius: 999,
+                                  background: pillBg,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: "white",
+                                  whiteSpace: "nowrap",
+                                  minWidth: 90,
+                                }}
+                              >
+                                {pillLabel}
+                              </div>
                             </div>
                           </div>
                         );
