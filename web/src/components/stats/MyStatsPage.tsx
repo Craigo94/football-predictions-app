@@ -297,8 +297,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
             margin: 0,
           }}
         >
-          A breakdown of every completed gameweek you&apos;ve played so far.
-          Tap a week to see your scores and points.
+          Completed Premier League gameweeks with your points at a glance.
         </p>
 
         <div
@@ -346,7 +345,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
         <div className="card">
           <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
             No completed gameweeks yet. Once a full matchday you&apos;ve
-            predicted is finished, it will appear here with a full breakdown.
+            predicted is finished, it will appear here.
           </p>
         </div>
       ) : (
@@ -383,7 +382,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                   padding: "4px 0",
                 }}
               >
-                <div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <div
                     style={{
                       fontSize: 13,
@@ -396,12 +395,19 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                     style={{
                       fontSize: 11,
                       color: "var(--text-muted)",
-                      marginTop: 2,
                     }}
                   >
-                    {startLabel} • {round.fixtures.length} matches •{" "}
-                    {round.exactCount} exact, {round.resultCount} result,{" "}
-                    {round.wrongCount} wrong
+                    {startLabel} • {round.fixtures.length} matches
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    Exact {round.exactCount} • Result {round.resultCount} • Wrong
+                    {" "}
+                    {round.wrongCount}
                   </div>
                 </div>
 
@@ -463,16 +469,16 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                       pillLabel = "Wrong";
                     }
 
-                    const koLabel = new Date(f.kickoff).toLocaleString(
-                      "en-GB",
-                      {
-                        weekday: "short",
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }
-                    );
+                    const kickoffDate = new Date(f.kickoff);
+                    const koLabel = kickoffDate.toLocaleTimeString("en-GB", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    const dateLabel = kickoffDate.toLocaleDateString("en-GB", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "short",
+                    });
 
                     return (
                       <div
@@ -486,112 +492,131 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                             "1px solid rgba(148,163,184,0.12)",
                         }}
                       >
-                        {/* Teams + time */}
+                        {/* Date/time */}
                         <div
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            flex: 1,
+                            width: 70,
+                            textAlign: "left",
+                            fontSize: 12,
+                            color: "var(--text-muted)",
                           }}
                         >
-                          <div
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 999,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <img
-                              src={f.homeLogo}
-                              alt={f.homeTeam}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain",
-                              }}
-                            />
+                          <div style={{ fontWeight: 700 }}>
+                            {koLabel}
                           </div>
-                          <div
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 999,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <img
-                              src={f.awayLogo}
-                              alt={f.awayTeam}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain",
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 500,
-                              }}
-                            >
-                              {f.homeTeam} vs {f.awayTeam}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: "var(--text-muted)",
-                              }}
-                            >
-                              {koLabel}
-                            </div>
-                          </div>
+                          <div>{dateLabel}</div>
                         </div>
 
-                        {/* Your prediction & result */}
+                        {/* Teams and score */}
                         <div
                           style={{
                             display: "flex",
                             alignItems: "center",
                             gap: 12,
-                            minWidth: 180,
-                            justifyContent: "flex-end",
+                            flex: 1,
                           }}
                         >
-                          <div style={{ textAlign: "right" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              minWidth: 120,
+                            }}
+                          >
                             <div
                               style={{
-                                fontSize: 11,
-                                color: "var(--text-muted)",
+                                width: 28,
+                                height: 28,
+                                borderRadius: 999,
+                                overflow: "hidden",
                               }}
                             >
-                              Your prediction
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 15,
-                                fontWeight: 600,
-                              }}
-                            >
-                              {p.predHome ?? "–"}–{p.predAway ?? "–"}
-                            </div>
-                            {hasScore && (
-                              <div
+                              <img
+                                src={f.homeLogo}
+                                alt={f.homeTeam}
                                 style={{
-                                  fontSize: 11,
-                                  color: "var(--text-muted)",
-                                  marginTop: 2,
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "contain",
                                 }}
-                              >
-                                Final: {f.homeGoals}–{f.awayGoals}
-                              </div>
-                            )}
+                              />
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 14,
+                                fontWeight: 700,
+                                letterSpacing: 0.3,
+                              }}
+                            >
+                              {f.homeShort}
+                            </div>
                           </div>
 
-                          <div style={{ textAlign: "right" }}>
+                          <div
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 700,
+                              minWidth: 52,
+                              textAlign: "center",
+                            }}
+                          >
+                            {hasScore
+                              ? `${f.homeGoals ?? "-"}  -  ${f.awayGoals ?? "-"}`
+                              : "vs"}
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              minWidth: 120,
+                              justifyContent: "flex-end",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 14,
+                                fontWeight: 700,
+                                letterSpacing: 0.3,
+                              }}
+                            >
+                              {f.awayShort}
+                            </div>
+                            <div
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 999,
+                                overflow: "hidden",
+                              }}
+                            >
+                              <img
+                                src={f.awayLogo}
+                                alt={f.awayTeam}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "contain",
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Prediction & points */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            minWidth: 170,
+                            justifyContent: "flex-end",
+                            textAlign: "right",
+                          }}
+                        >
+                          <div style={{ minWidth: 70 }}>
                             <div
                               style={{
                                 display: "inline-flex",
@@ -603,22 +628,44 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                                 fontSize: 11,
                                 fontWeight: 600,
                                 marginBottom: 4,
+                                whiteSpace: "nowrap",
                               }}
                             >
                               {pillLabel}
                             </div>
-                            {row.points != null && (
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              Pred {p.predHome ?? "–"}-{p.predAway ?? "–"}
+                            </div>
+                            {hasScore && (
                               <div
                                 style={{
-                                  fontSize: 13,
-                                  fontWeight: 600,
+                                  fontSize: 11,
+                                  color: "var(--text-muted)",
+                                  marginTop: 2,
                                 }}
                               >
-                                {row.points} pt
-                                {row.points === 1 ? "" : "s"}
+                                FT {f.homeGoals}–{f.awayGoals}
                               </div>
                             )}
                           </div>
+
+                          {row.points != null && (
+                            <div
+                              style={{
+                                fontSize: 16,
+                                fontWeight: 700,
+                                minWidth: 52,
+                              }}
+                            >
+                              {row.points} pt
+                              {row.points === 1 ? "" : "s"}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
