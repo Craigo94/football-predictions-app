@@ -266,12 +266,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
     setOverallExact(exactOverall);
     setOverallResult(resultOverall);
     setOverallWrong(wrongOverall);
-
-    // If no open round yet, open the most recent one
-    if (!openRound && completed.length > 0) {
-      setOpenRound(completed[0].round);
-    }
-  }, [predictions, fixturesById, openRound]);
+  }, [predictions, fixturesById]);
 
   if (loading) {
     return <div>Loading your stats…</div>;
@@ -297,8 +292,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
             margin: 0,
           }}
         >
-          A breakdown of every completed gameweek you&apos;ve played so far.
-          Tap a week to see your scores and points.
+          Completed Premier League gameweeks with your points at a glance.
         </p>
 
         <div
@@ -346,7 +340,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
         <div className="card">
           <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
             No completed gameweeks yet. Once a full matchday you&apos;ve
-            predicted is finished, it will appear here with a full breakdown.
+            predicted is finished, it will appear here.
           </p>
         </div>
       ) : (
@@ -357,6 +351,19 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
             weekday: "short",
             day: "2-digit",
             month: "short",
+          });
+
+          const fixturesByDate: Record<string, RoundFixtureRow[]> = {};
+          round.fixtures.forEach((fixtureRow) => {
+            const dateLabel = new Date(
+              fixtureRow.fixture.kickoff
+            ).toLocaleDateString("en-GB", {
+              weekday: "short",
+              day: "2-digit",
+              month: "short",
+            });
+            fixturesByDate[dateLabel] = fixturesByDate[dateLabel] || [];
+            fixturesByDate[dateLabel].push(fixtureRow);
           });
 
           return (
@@ -380,28 +387,39 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                   alignItems: "center",
                   justifyContent: "space-between",
                   width: "100%",
-                  padding: "4px 0",
+                  padding: "6px 0",
                 }}
               >
-                <div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <div
                     style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
                       fontSize: 13,
-                      fontWeight: 600,
+                      fontWeight: 700,
+                      flexWrap: "wrap",
                     }}
                   >
-                    {round.round}
+                    <span>{round.round}</span>
+                    <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                      Exact {round.exactCount} • Result {round.resultCount} • Wrong{" "}
+                      {round.wrongCount}
+                    </span>
                   </div>
                   <div
                     style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
                       fontSize: 11,
                       color: "var(--text-muted)",
-                      marginTop: 2,
+                      flexWrap: "wrap",
                     }}
                   >
-                    {startLabel} • {round.fixtures.length} matches •{" "}
-                    {round.exactCount} exact, {round.resultCount} result,{" "}
-                    {round.wrongCount} wrong
+                    <span>
+                      {startLabel} • {round.fixtures.length} matches
+                    </span>
                   </div>
                 </div>
 
@@ -444,185 +462,245 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
                     paddingTop: 8,
                   }}
                 >
-                  {round.fixtures.map((row) => {
-                    const f = row.fixture;
-                    const p = row.prediction;
-                    const hasScore =
-                      f.homeGoals != null && f.awayGoals != null;
-
-                    let pillBg = "#4b5563";
-                    let pillLabel = "Pending";
-                    if (row.status === "exact") {
-                      pillBg = "var(--green)";
-                      pillLabel = "Exact";
-                    } else if (row.status === "result") {
-                      pillBg = "var(--blue)";
-                      pillLabel = "Correct result";
-                    } else if (row.status === "wrong") {
-                      pillBg = "var(--red)";
-                      pillLabel = "Wrong";
-                    }
-
-                    const koLabel = new Date(f.kickoff).toLocaleString(
-                      "en-GB",
-                      {
-                        weekday: "short",
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }
-                    );
-
-                    return (
+                  {Object.entries(fixturesByDate).map(([dateLabel, fixtures]) => (
+                    <div key={dateLabel} style={{ marginBottom: 6 }}>
                       <div
-                        key={f.id}
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "6px 0",
-                          borderBottom:
-                            "1px solid rgba(148,163,184,0.12)",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "var(--text-muted)",
+                          margin: "6px 0",
                         }}
                       >
-                        {/* Teams + time */}
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            flex: 1,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 999,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <img
-                              src={f.homeLogo}
-                              alt={f.homeTeam}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain",
-                              }}
-                            />
-                          </div>
-                          <div
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 999,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <img
-                              src={f.awayLogo}
-                              alt={f.awayTeam}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain",
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 500,
-                              }}
-                            >
-                              {f.homeTeam} vs {f.awayTeam}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: "var(--text-muted)",
-                              }}
-                            >
-                              {koLabel}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Your prediction & result */}
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 12,
-                            minWidth: 180,
-                            justifyContent: "flex-end",
-                          }}
-                        >
-                          <div style={{ textAlign: "right" }}>
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: "var(--text-muted)",
-                              }}
-                            >
-                              Your prediction
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 15,
-                                fontWeight: 600,
-                              }}
-                            >
-                              {p.predHome ?? "–"}–{p.predAway ?? "–"}
-                            </div>
-                            {hasScore && (
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  color: "var(--text-muted)",
-                                  marginTop: 2,
-                                }}
-                              >
-                                Final: {f.homeGoals}–{f.awayGoals}
-                              </div>
-                            )}
-                          </div>
-
-                          <div style={{ textAlign: "right" }}>
-                            <div
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                padding: "2px 8px",
-                                borderRadius: 999,
-                                background: pillBg,
-                                fontSize: 11,
-                                fontWeight: 600,
-                                marginBottom: 4,
-                              }}
-                            >
-                              {pillLabel}
-                            </div>
-                            {row.points != null && (
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {row.points} pt
-                                {row.points === 1 ? "" : "s"}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        {dateLabel}
                       </div>
-                    );
-                  })}
+
+                      {fixtures.map((row) => {
+                        const f = row.fixture;
+                        const p = row.prediction;
+                        const hasScore =
+                          f.homeGoals != null && f.awayGoals != null;
+
+                        let pillBg = "#4b5563";
+                        let pillLabel = "Pending";
+                        if (row.status === "exact") {
+                          pillBg = "var(--green)";
+                          pillLabel = "Exact";
+                        } else if (row.status === "result") {
+                          pillBg = "var(--blue)";
+                          pillLabel = "Correct result";
+                        } else if (row.status === "wrong") {
+                          pillBg = "var(--red)";
+                          pillLabel = "Wrong";
+                        }
+
+                        const koLabel = new Date(f.kickoff).toLocaleTimeString(
+                          "en-GB",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        );
+
+                        return (
+                          <div
+                            key={f.id}
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: "10px 0",
+                              borderBottom: "1px solid rgba(148,163,184,0.12)",
+                            }}
+                          >
+                            {/* Teams and score */}
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto 1fr",
+                                alignItems: "center",
+                                gap: 12,
+                                width: "100%",
+                                minWidth: 0,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  justifyContent: "flex-end",
+                                  minWidth: 80,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: 26,
+                                    height: 26,
+                                    borderRadius: 999,
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  <img
+                                    src={f.homeLogo}
+                                    alt={f.homeTeam}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "contain",
+                                    }}
+                                  />
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    letterSpacing: 0.3,
+                                  }}
+                                >
+                                  {f.homeShort}
+                                </div>
+                              </div>
+
+                              <div
+                                style={{
+                                  fontSize: 14,
+                                  fontWeight: 800,
+                                  textAlign: "center",
+                                  minWidth: 40,
+                                }}
+                              >
+                                {hasScore
+                                  ? `${f.homeGoals ?? "-"} - ${f.awayGoals ?? "-"}`
+                                  : "vs"}
+                              </div>
+
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  minWidth: 80,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    letterSpacing: 0.3,
+                                  }}
+                                >
+                                  {f.awayShort}
+                                </div>
+                                <div
+                                  style={{
+                                    width: 26,
+                                    height: 26,
+                                    borderRadius: 999,
+                                    overflow: "hidden",
+                                  }}
+                                >
+                                  <img
+                                    src={f.awayLogo}
+                                    alt={f.awayTeam}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "contain",
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Time, prediction, points, and status pill */}
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                gap: 10,
+                                width: "100%",
+                                textAlign: "center",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "4px 10px",
+                                  borderRadius: 999,
+                                  background: "rgba(148,163,184,0.14)",
+                                  color: "var(--text-muted)",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  minWidth: 72,
+                                }}
+                              >
+                                {koLabel}
+                              </div>
+
+                              <div
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "4px 12px",
+                                  borderRadius: 999,
+                                  background: "rgba(148,163,184,0.12)",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  minWidth: 90,
+                                }}
+                              >
+                                Pred {p.predHome ?? "–"}-{p.predAway ?? "–"}
+                              </div>
+
+                              {row.points != null && (
+                                <div
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    padding: "4px 12px",
+                                    borderRadius: 999,
+                                    background: "rgba(148,163,184,0.08)",
+                                    fontSize: 13,
+                                    fontWeight: 800,
+                                    minWidth: 64,
+                                  }}
+                                >
+                                  {row.points} pt
+                                  {row.points === 1 ? "" : "s"}
+                                </div>
+                              )}
+
+                              <div
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "4px 10px",
+                                  borderRadius: 999,
+                                  background: pillBg,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: "white",
+                                  whiteSpace: "nowrap",
+                                  minWidth: 90,
+                                }}
+                              >
+                                {pillLabel}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
