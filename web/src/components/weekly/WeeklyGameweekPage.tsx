@@ -6,8 +6,6 @@ import { scorePrediction } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import type { Fixture } from "../../api/football";
 import { formatFirstName } from "../../utils/displayName";
-import { useUsers } from "../../hooks/useUsers";
-import { formatCurrencyGBP } from "../../utils/currency";
 
 interface PredictionDoc {
   userId: string;
@@ -26,6 +24,15 @@ interface WeeklyRow {
   totalPoints: number;
 }
 
+interface RoundData {
+  fixturesList: Fixture[];
+  earliestKickoff: Date | null;
+  revealPredictions: boolean;
+  weeklyRows: WeeklyRow[];
+  predsByUserFixture: Record<string, PredictionDoc>;
+  leaderPoints: number;
+}
+
 // Fixed column widths so sticky cols don't overlap
 const PLAYER_COL_WIDTH = 100;
 const PTS_COL_WIDTH = 60;
@@ -37,17 +44,11 @@ const COMPACT_PTS_COL_WIDTH = 40;
 
 const WeeklyGameweekPage: React.FC = () => {
   const [predictions, setPredictions] = React.useState<PredictionDoc[]>([]);
-  const [currentRound, setCurrentRound] = React.useState<string | null>(null);
-  const [weeklyRows, setWeeklyRows] = React.useState<WeeklyRow[]>([]);
-  const [earliestKickoff, setEarliestKickoff] = React.useState<Date | null>(null);
-  const [revealPredictions, setRevealPredictions] = React.useState(false);
   const [predictionsLoading, setPredictionsLoading] = React.useState(true);
   const [predictionsError, setPredictionsError] = React.useState<string | null>(
     null
   );
   const [isCompactLayout, setIsCompactLayout] = React.useState(false);
-  const { users: userProfiles, loading: usersLoading, error: usersError } =
-    useUsers();
 
   // Use narrower sticky columns on smaller screens so fixture columns stay visible
   React.useEffect(() => {
@@ -109,12 +110,8 @@ const WeeklyGameweekPage: React.FC = () => {
     return () => unsub();
   }, []);
 
-  /* 2) Decide which round is "current". */
-  React.useEffect(() => {
-    if (!predictions.length) {
-      setCurrentRound(null);
-      return;
-    }
+  const roundsOrdered = React.useMemo(() => {
+    if (!predictions.length) return [] as { round: string; latestKickoff: number }[];
 
     const byRound: Record<string, { round: string; latestKickoff: number }> = {};
 
@@ -127,126 +124,105 @@ const WeeklyGameweekPage: React.FC = () => {
     }
 
     const rounds = Object.values(byRound);
-    if (!rounds.length) {
-      setCurrentRound(null);
-      return;
-    }
-
     rounds.sort((a, b) => a.latestKickoff - b.latestKickoff);
-    const current = rounds[rounds.length - 1];
-    setCurrentRound(current.round);
+    return rounds;
   }, [predictions]);
 
-  /* 3) For the current round, decide earliest kickoff and
-        whether to reveal predictions, using shared fixturesById.
-        ❗ Now we ONLY reveal when a match is actually not NS anymore.
-  */
-  React.useEffect(() => {
-    if (!currentRound) {
-      setEarliestKickoff(null);
-      setRevealPredictions(false);
-      return;
-    }
+  const currentRound =
+    roundsOrdered.length > 0 ? roundsOrdered[roundsOrdered.length - 1].round : null;
+  const previousRound =
+    roundsOrdered.length > 1 ? roundsOrdered[roundsOrdered.length - 2].round : null;
 
-    const roundFixtures = Object.values(fixturesById).filter(
-      (f) => f.round === currentRound
-    );
-
-    if (!roundFixtures.length) {
-      setEarliestKickoff(null);
-      setRevealPredictions(false);
-      return;
-    }
-
-    const earliest = Math.min(
-      ...roundFixtures.map((f) => new Date(f.kickoff).getTime())
-    );
-    setEarliestKickoff(new Date(earliest));
-
-    // Only unlock once at least one game is not NS (i.e. live or FT)
-    const anyStarted = roundFixtures.some((f) => f.statusShort !== "NS");
-    setRevealPredictions(anyStarted);
-  }, [currentRound, fixturesById]);
-
-  /* 4) Compute *this gameweek* totals per user */
-  React.useEffect(() => {
-    if (!currentRound) {
-      setWeeklyRows([]);
-      return;
-    }
-
-    const roundPreds = predictions.filter((p) => p.round === currentRound);
-    if (!roundPreds.length) {
-      setWeeklyRows([]);
-      return;
-    }
-
-    const byUser: Record<string, WeeklyRow> = {};
-
-    for (const p of roundPreds) {
-      const fixture: Fixture | undefined = fixturesById[p.fixtureId];
-
-      let points: number | null = null;
-      if (fixture) {
-        const scored = scorePrediction(
-          p.predHome,
-          p.predAway,
-          fixture.homeGoals,
-          fixture.awayGoals
-        );
-        points = scored.points;
-      }
-
-      if (!byUser[p.userId]) {
-        byUser[p.userId] = {
-          userId: p.userId,
-          userDisplayName: p.userDisplayName,
-          totalPoints: 0,
+  const buildRoundData = React.useCallback(
+    (roundName: string | null): RoundData => {
+      if (!roundName) {
+        return {
+          fixturesList: [],
+          earliestKickoff: null,
+          revealPredictions: false,
+          weeklyRows: [],
+          predsByUserFixture: {},
+          leaderPoints: 0,
         };
       }
 
-      if (points != null) {
-        byUser[p.userId].totalPoints += points;
+      const fixturesList = Object.values(fixturesById)
+        .filter((f) => f.round === roundName)
+        .sort(
+          (a, b) =>
+            new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
+        );
+
+      const earliestKickoff = fixturesList.length
+        ? new Date(
+            Math.min(...fixturesList.map((f) => new Date(f.kickoff).getTime()))
+          )
+        : null;
+
+      const revealPredictions = fixturesList.some(
+        (f) => f.statusShort !== "NS"
+      );
+
+      const roundPreds = predictions.filter((p) => p.round === roundName);
+      const byUser: Record<string, WeeklyRow> = {};
+      const predsByUserFixture: Record<string, PredictionDoc> = {};
+
+      for (const p of roundPreds) {
+        predsByUserFixture[`${p.userId}_${p.fixtureId}`] = p;
+
+        const fixture: Fixture | undefined = fixturesById[p.fixtureId];
+
+        let points: number | null = null;
+        if (fixture) {
+          const scored = scorePrediction(
+            p.predHome,
+            p.predAway,
+            fixture.homeGoals,
+            fixture.awayGoals
+          );
+          points = scored.points;
+        }
+
+        if (!byUser[p.userId]) {
+          byUser[p.userId] = {
+            userId: p.userId,
+            userDisplayName: p.userDisplayName,
+            totalPoints: 0,
+          };
+        }
+
+        if (points != null) {
+          byUser[p.userId].totalPoints += points;
+        }
       }
-    }
 
-    const sorted = Object.values(byUser).sort(
-      (a, b) => b.totalPoints - a.totalPoints
-    );
-    setWeeklyRows(sorted);
-  }, [currentRound, predictions, fixturesById]);
+      const weeklyRows = Object.values(byUser).sort(
+        (a, b) => b.totalPoints - a.totalPoints
+      );
 
-  // Fixtures for this round, in kickoff order
-  const fixturesList = React.useMemo(() => {
-    if (!currentRound) return [] as Fixture[];
-    return Object.values(fixturesById)
-      .filter((f) => f.round === currentRound)
-      .sort(
-        (a, b) =>
-          new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
-    );
-  }, [fixturesById, currentRound]);
+      const leaderPoints =
+        weeklyRows.length > 0 ? weeklyRows[0].totalPoints : 0;
 
-  const paidCount = React.useMemo(
-    () => userProfiles.filter((u) => u.hasPaid).length,
-    [userProfiles]
+      return {
+        fixturesList,
+        earliestKickoff,
+        revealPredictions,
+        weeklyRows,
+        predsByUserFixture,
+        leaderPoints,
+      };
+    },
+    [fixturesById, predictions]
   );
-  const prizePot = paidCount * 5;
-  const firstPrize = prizePot;
 
-  // Lookup: user+fixture -> prediction
-  const predsByUserFixture = React.useMemo(() => {
-    const map: Record<string, PredictionDoc> = {};
-    if (!currentRound) return map;
-    for (const p of predictions) {
-      if (p.round !== currentRound) continue;
-      map[`${p.userId}_${p.fixtureId}`] = p;
-    }
-    return map;
-  }, [predictions, currentRound]);
-
-  const leaderPoints =
-    weeklyRows.length > 0 ? weeklyRows[0].totalPoints : 0;
+  const currentRoundData = React.useMemo(
+    () => buildRoundData(currentRound),
+    [buildRoundData, currentRound]
+  );
+  const previousRoundData = React.useMemo(
+    () => buildRoundData(previousRound),
+    [buildRoundData, previousRound]
+  );
 
   const loading = predictionsLoading || loadingFixtures;
   const combinedError = predictionsError || fixturesError;
@@ -268,8 +244,8 @@ const WeeklyGameweekPage: React.FC = () => {
   }
 
   const kickoffLabel =
-    earliestKickoff &&
-    earliestKickoff.toLocaleString("en-GB", {
+    currentRoundData.earliestKickoff &&
+    currentRoundData.earliestKickoff.toLocaleString("en-GB", {
       timeZone: "Europe/London",
       weekday: "short",
       day: "2-digit",
@@ -278,9 +254,38 @@ const WeeklyGameweekPage: React.FC = () => {
       minute: "2-digit",
     });
 
-  return (
-    <div>
-      {/* Header card */}
+  const previousKickoffLabel =
+    previousRoundData.earliestKickoff &&
+    previousRoundData.earliestKickoff.toLocaleString("en-GB", {
+      timeZone: "Europe/London",
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const renderRoundTable = (
+    title: string,
+    roundName: string | null,
+    roundData: RoundData,
+    kickoffLabelText: string | null,
+    subtitle: React.ReactNode,
+    isCollapsible = false
+  ) => {
+    if (!roundName) {
+      return (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>{title}</h2>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            No gameweek predictions found yet. Once everyone starts predicting,
+            this view will show the live weekly race.
+          </p>
+        </div>
+      );
+    }
+
+    const content = (
       <div
         className="card"
         style={{
@@ -290,7 +295,7 @@ const WeeklyGameweekPage: React.FC = () => {
           gap: 6,
         }}
       >
-        <h2 style={{ margin: 0 }}>This Gameweek</h2>
+        <h2 style={{ margin: 0 }}>{title}</h2>
         <p
           style={{
             fontSize: 13,
@@ -298,11 +303,10 @@ const WeeklyGameweekPage: React.FC = () => {
             margin: 0,
           }}
         >
-          Live points for <strong>{currentRound}</strong>. Weekly prize goes
-          to whoever tops this table.
+          {subtitle}
         </p>
 
-        {kickoffLabel && (
+        {kickoffLabelText && (
           <p
             style={{
               fontSize: 11,
@@ -310,61 +314,25 @@ const WeeklyGameweekPage: React.FC = () => {
               margin: 0,
             }}
           >
-            First kick-off: {kickoffLabel}
+            First kick-off: {kickoffLabelText}
           </p>
         )}
 
-        {leaderPoints > 0 && weeklyRows.length > 0 && (
-          <p
+        {roundData.leaderPoints > 0 && roundData.weeklyRows.length > 0 && (
+          <div
             style={{
               fontSize: 12,
               color: "var(--text-muted)",
               marginTop: 6,
+              padding: "10px 12px",
+              borderRadius: 12,
+              background: "linear-gradient(90deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))",
             }}
           >
-            Current leader:{" "}
-            <strong>{weeklyRows[0].userDisplayName}</strong> (
-            {weeklyRows[0].totalPoints} pts)
-          </p>
-        )}
-
-        <div className="gw-points-row">
-          <div>
-            <div className="gw-points-label">Prize pot</div>
-            <div className="gw-points-value">
-              {usersLoading ? "Loading…" : formatCurrencyGBP(prizePot)}
-            </div>
-            <div className="gw-round-label" style={{ marginTop: 2 }}>
-              {usersLoading
-                ? "Checking payments"
-                : `${paidCount} paid player${paidCount === 1 ? "" : "s"}`}
-            </div>
+            Winner:{" "}
+            <strong>{roundData.weeklyRows[0].userDisplayName}</strong> (
+            {roundData.weeklyRows[0].totalPoints} pts)
           </div>
-          <div
-            style={{
-              textAlign: "right",
-              fontSize: 12,
-              color: "var(--text-muted)",
-              lineHeight: 1.5,
-            }}
-          >
-            <div>Winner takes all</div>
-            <div>
-              1st: {usersLoading ? "…" : formatCurrencyGBP(firstPrize)} (100%)
-            </div>
-          </div>
-        </div>
-
-        {usersError && (
-          <p
-            style={{
-              fontSize: 12,
-              color: "var(--red)",
-              marginTop: 4,
-            }}
-          >
-            {usersError}
-          </p>
         )}
 
         {combinedError && (
@@ -372,334 +340,379 @@ const WeeklyGameweekPage: React.FC = () => {
             style={{
               fontSize: 12,
               color: "var(--red)",
-              marginTop: 4,
+              margin: 0,
             }}
           >
             {combinedError}
           </p>
         )}
       </div>
+    );
 
-      {/* If we haven't actually kicked off yet, hide predictions */}
-      {!revealPredictions ? (
-        <div className="card">
-          <p
+    const tableContent = roundData.revealPredictions ? (
+      <div className="card" style={{ padding: 0 }}>
+        {/* Horizontal scroll container */}
+        <div style={{ overflowX: "auto" }}>
+          <table
             style={{
+              width: "100%",
+              minWidth: 500,
+              borderCollapse: "collapse",
               fontSize: 13,
-              color: "var(--text-muted)",
-              marginBottom: 4,
             }}
           >
-            Predictions are hidden until the first match of{" "}
-            <strong>{currentRound}</strong> is live. No copying lineups
-            this week 😉
-          </p>
-          {kickoffLabel && (
-            <p
-              style={{
-                fontSize: 12,
-                color: "var(--text-muted)",
-                marginTop: 4,
-              }}
-            >
-              They&apos;ll unlock once the early kick-off starts.
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="card" style={{ padding: 0 }}>
-          {/* Horizontal scroll container */}
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                minWidth: 500,
-                borderCollapse: "collapse",
-                fontSize: 13,
-              }}
-            >
-              <thead>
-                <tr
+            <thead>
+              <tr
+                style={{
+                  textAlign: "left",
+                  color: "var(--text-muted)",
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                }}
+              >
+                <th
                   style={{
-                    textAlign: "left",
-                    color: "var(--text-muted)",
-                    fontSize: 11,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
+                    padding: "10px 12px",
+                    position: "sticky",
+                    left: 0,
+                    background: "var(--card-bg)",
+                    width: playerColWidth,
+                    minWidth: playerColWidth,
+                    zIndex: 3,
                   }}
                 >
-                  <th
-                    style={{
-                      padding: "10px 12px",
-                      position: "sticky",
-                      left: 0,
-                      background: "var(--card-bg)",
-                      width: playerColWidth,
-                      minWidth: playerColWidth,
-                      zIndex: 3,
-                    }}
-                  >
-                    Player
-                  </th>
-                  <th
-                    style={{
-                      padding: "10px 8px",
-                      textAlign: "right",
-                      position: "sticky",
-                      left: playerColWidth,
-                      background: "var(--card-bg)",
-                      width: ptsColWidth,
-                      minWidth: ptsColWidth,
-                      zIndex: 3,
-                    }}
-                  >
-                    Pts
-                  </th>
-                  {fixturesList.map((f) => {
-                    const hasScore =
-                      f.homeGoals != null && f.awayGoals != null;
-
-                    return (
-                      <th
-                        key={f.id}
-                        style={{
-                          padding: "8px 4px",
-                          textAlign: "center",
-                          borderLeft: "1px solid rgba(148,163,184,0.18)",
-                          width: FIXTURE_COL_WIDTH,
-                          minWidth: FIXTURE_COL_WIDTH,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          {/* bigger badges row only */}
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 6,
-                            }}
-                          >
-                            {f.homeLogo && (
-                              <img
-                                src={f.homeLogo}
-                                alt={f.homeTeam}
-                                style={{ width: 24, height: 24 }}
-                              />
-                            )}
-                            <span style={{ fontSize: 11, opacity: 0.8 }}>vs</span>
-                            {f.awayLogo && (
-                              <img
-                                src={f.awayLogo}
-                                alt={f.awayTeam}
-                                style={{ width: 24, height: 24 }}
-                              />
-                            )}
-                          </div>
-
-                          {/* current score under badges (actual, not predictions) */}
-                          <div
-                            style={{
-                              fontSize: 13,
-                              fontWeight: 700,
-                              color: hasScore
-                                ? "var(--text)"
-                                : "var(--text-muted)",
-                            }}
-                          >
-                            {hasScore
-                              ? `${f.homeGoals}–${f.awayGoals}`
-                              : "–"}
-                          </div>
-                        </div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {weeklyRows.map((row) => {
-                  const isLeader =
-                    leaderPoints > 0 &&
-                    row.totalPoints === leaderPoints;
+                  Player
+                </th>
+                <th
+                  style={{
+                    padding: "10px 8px",
+                    textAlign: "right",
+                    position: "sticky",
+                    left: playerColWidth,
+                    background: "var(--card-bg)",
+                    width: ptsColWidth,
+                    minWidth: ptsColWidth,
+                    zIndex: 3,
+                  }}
+                >
+                  Pts
+                </th>
+                {roundData.fixturesList.map((f) => {
+                  const hasScore = f.homeGoals != null && f.awayGoals != null;
 
                   return (
-                    <tr
-                      key={row.userId}
+                    <th
+                      key={f.id}
                       style={{
-                        borderTop: "1px solid rgba(148,163,184,0.18)",
-                        background: isLeader
-                          ? "linear-gradient(to right, rgba(34,197,94,0.12), transparent)"
-                          : "transparent",
+                        padding: "8px 4px",
+                        textAlign: "center",
+                        borderLeft: "1px solid rgba(148,163,184,0.18)",
+                        width: FIXTURE_COL_WIDTH,
+                        minWidth: FIXTURE_COL_WIDTH,
                       }}
                     >
-                      {/* Player cell with trophy for leader */}
-                      <td
+                      <div
                         style={{
-                          padding: "8px 12px",
-                          position: "sticky",
-                          left: 0,
-                          background: "var(--card-bg)",
-                          width: playerColWidth,
-                          minWidth: playerColWidth,
-                          zIndex: 2,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 6,
                         }}
                       >
+                        {/* bigger badges row only */}
                         <div
                           style={{
                             display: "flex",
                             alignItems: "center",
+                            justifyContent: "center",
                             gap: 6,
-                            fontWeight: 600,
                           }}
                         >
-                          {isLeader && (
-                            <span
-                              style={{
-                                fontSize: 16,
-                              }}
-                            >
-                              🏆
-                            </span>
+                          {f.homeLogo && (
+                            <img
+                              src={f.homeLogo}
+                              alt={f.homeTeam}
+                              style={{ width: 24, height: 24 }}
+                            />
                           )}
-                          <span>{row.userDisplayName}</span>
+                          <span style={{ fontSize: 11, opacity: 0.8 }}>vs</span>
+                          {f.awayLogo && (
+                            <img
+                              src={f.awayLogo}
+                              alt={f.awayTeam}
+                              style={{ width: 24, height: 24 }}
+                            />
+                          )}
                         </div>
-                      </td>
 
-                      {/* Weekly points */}
-                      <td
+                        {/* current score under badges (actual, not predictions) */}
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: hasScore
+                              ? "var(--text)"
+                              : "var(--text-muted)",
+                          }}
+                        >
+                          {hasScore
+                            ? `${f.homeGoals}–${f.awayGoals}`
+                            : "–"}
+                        </div>
+                      </div>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {roundData.weeklyRows.map((row) => {
+                const isLeader =
+                  roundData.leaderPoints > 0 &&
+                  row.totalPoints === roundData.leaderPoints;
+
+                return (
+                  <tr
+                    key={row.userId}
+                    style={{
+                      borderTop: "1px solid rgba(148,163,184,0.18)",
+                      background: isLeader
+                        ? "linear-gradient(to right, rgba(34,197,94,0.12), transparent)"
+                        : "transparent",
+                    }}
+                  >
+                    {/* Player cell with trophy for leader */}
+                    <td
+                      style={{
+                        padding: "8px 12px",
+                        position: "sticky",
+                        left: 0,
+                        background: "var(--card-bg)",
+                        width: playerColWidth,
+                        minWidth: playerColWidth,
+                        zIndex: 2,
+                      }}
+                    >
+                      <div
                         style={{
-                          padding: "8px 8px",
-                          textAlign: "right",
-                          position: "sticky",
-                          left: playerColWidth,
-                          background: "var(--card-bg)",
-                          fontWeight: 700,
-                          width: ptsColWidth,
-                          minWidth: ptsColWidth,
-                          zIndex: 2,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontWeight: 600,
                         }}
                       >
-                        {row.totalPoints}
-                      </td>
+                        {isLeader && (
+                          <span
+                            style={{
+                              fontSize: 16,
+                            }}
+                          >
+                            🏆
+                          </span>
+                        )}
+                        <span>{row.userDisplayName}</span>
+                      </div>
+                    </td>
 
-                      {/* Predictions for each fixture */}
-                      {fixturesList.map((f) => {
-                        const key = `${row.userId}_${f.id}`;
-                        const p = predsByUserFixture[key];
+                    {/* Weekly points */}
+                    <td
+                      style={{
+                        padding: "8px 8px",
+                        textAlign: "right",
+                        position: "sticky",
+                        left: playerColWidth,
+                        background: "var(--card-bg)",
+                        fontWeight: 700,
+                        width: ptsColWidth,
+                        minWidth: ptsColWidth,
+                        zIndex: 2,
+                      }}
+                    >
+                      {row.totalPoints}
+                    </td>
 
-                        if (!p) {
-                          return (
-                            <td
-                              key={f.id}
-                              style={{
-                                padding: "6px 4px",
-                                textAlign: "center",
-                                fontSize: 12,
-                                color: "var(--text-muted)",
-                                borderLeft:
-                                  "1px solid rgba(148,163,184,0.18)",
-                                width: FIXTURE_COL_WIDTH,
-                                minWidth: FIXTURE_COL_WIDTH,
-                              }}
-                            >
-                              –
-                            </td>
-                          );
-                        }
+                    {/* Predictions for each fixture */}
+                    {roundData.fixturesList.map((f) => {
+                      const key = `${row.userId}_${f.id}`;
+                      const p = roundData.predsByUserFixture[key];
 
-                        const { points, status } = scorePrediction(
-                          p.predHome,
-                          p.predAway,
-                          f.homeGoals,
-                          f.awayGoals
-                        );
-
-                        let bg = "transparent";
-                        let badge = "";
-                        if (status === "exact") {
-                          bg = "rgba(34,197,94,0.22)";
-                          badge = "★"; // star for exact score
-                        } else if (status === "result") {
-                          bg = "rgba(59,130,246,0.18)";
-                        } else if (status === "wrong") {
-                          bg = "rgba(148,163,184,0.08)";
-                        }
-
+                      if (!p) {
                         return (
                           <td
                             key={f.id}
                             style={{
                               padding: "6px 4px",
                               textAlign: "center",
-                              borderLeft:
-                                "1px solid rgba(148,163,184,0.18)",
+                              fontSize: 12,
+                              color: "var(--text-muted)",
+                              borderLeft: "1px solid rgba(148,163,184,0.18)",
                               width: FIXTURE_COL_WIDTH,
                               minWidth: FIXTURE_COL_WIDTH,
                             }}
                           >
-                            {/* Prediction pill */}
-                            <div
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 4,
-                                padding:
-                                  status === "pending"
-                                    ? "0"
-                                    : "4px 10px",
-                                borderRadius: 999,
-                                background: bg,
-                                fontSize: 13,
-                              }}
-                            >
-                              {badge && (
-                                <span
-                                  style={{
-                                    fontSize: 12,
-                                    marginRight: 2,
-                                  }}
-                                >
-                                  {badge}
-                                </span>
-                              )}
-                              <span>
-                                {p.predHome ?? "–"}–{p.predAway ?? "–"}
-                              </span>
-                            </div>
-
-                            {/* Points (only once matches have started/finished) */}
-                            {points != null && (
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  color: "var(--text-muted)",
-                                  marginTop: 2,
-                                }}
-                              >
-                                <strong>
-                                  {points} pt{points === 1 ? "" : "s"}
-                                </strong>
-                              </div>
-                            )}
+                            –
                           </td>
                         );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      }
+
+                      const { points, status } = scorePrediction(
+                        p.predHome,
+                        p.predAway,
+                        f.homeGoals,
+                        f.awayGoals
+                      );
+
+                      let bg = "transparent";
+                      let badge = "";
+                      if (status === "exact") {
+                        bg = "rgba(34,197,94,0.22)";
+                        badge = "★"; // star for exact score
+                      } else if (status === "result") {
+                        bg = "rgba(59,130,246,0.18)";
+                      } else if (status === "wrong") {
+                        bg = "rgba(148,163,184,0.08)";
+                      }
+
+                      return (
+                        <td
+                          key={f.id}
+                          style={{
+                            padding: "6px 4px",
+                            textAlign: "center",
+                            borderLeft: "1px solid rgba(148,163,184,0.18)",
+                            width: FIXTURE_COL_WIDTH,
+                            minWidth: FIXTURE_COL_WIDTH,
+                          }}
+                        >
+                          {/* Prediction pill */}
+                          <div
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 4,
+                              padding:
+                                status === "pending" ? "0" : "4px 10px",
+                              borderRadius: 999,
+                              background: bg,
+                              fontSize: 13,
+                            }}
+                          >
+                            {badge && (
+                              <span
+                                style={{
+                                  fontSize: 12,
+                                  marginRight: 2,
+                                }}
+                              >
+                                {badge}
+                              </span>
+                            )}
+                            <span>
+                              {p.predHome ?? "–"}–{p.predAway ?? "–"}
+                            </span>
+                          </div>
+
+                          {/* Points (only once matches have started/finished) */}
+                          {points != null && (
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: "var(--text-muted)",
+                                marginTop: 2,
+                              }}
+                            >
+                              <strong>
+                                {points} pt{points === 1 ? "" : "s"}
+                              </strong>
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+      </div>
+    ) : (
+      <div className="card" style={{ marginTop: 8 }}>
+        <h3 style={{ marginTop: 0, marginBottom: 8 }}>Predictions hidden</h3>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
+          Predictions stay hidden until the first fixture of the gameweek starts.
+        </p>
+        {kickoffLabelText && (
+          <p
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              marginTop: 4,
+            }}
+          >
+            They&apos;ll unlock once the early kick-off starts.
+          </p>
+        )}
+      </div>
+    );
+
+    if (isCollapsible) {
+      return (
+        <details style={{ marginTop: 16 }}>
+          <summary
+            style={{
+              cursor: "pointer",
+              fontWeight: 700,
+              marginBottom: 12,
+            }}
+          >
+            {title}
+          </summary>
+          {content}
+          {tableContent}
+        </details>
+      );
+    }
+
+    return (
+      <div>
+        {content}
+        {tableContent}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {renderRoundTable(
+        "This Gameweek",
+        currentRound,
+        currentRoundData,
+        kickoffLabel,
+        (
+          <>
+            Live points for <strong>{currentRound}</strong>. Whoever tops this
+            table takes the week.
+          </>
+        )
+      )}
+
+      {renderRoundTable(
+        "Previous Gameweek",
+        previousRound,
+        previousRoundData,
+        previousKickoffLabel,
+        previousRound ? (
+          <>
+            Final points for <strong>{previousRound}</strong>. Relive how the
+            week finished.
+          </>
+        ) : (
+          "No previous gameweek yet. Once a matchday finishes you can revisit it here."
+        ),
+        true
       )}
     </div>
   );
