@@ -6,8 +6,6 @@ import { scorePrediction } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import type { Fixture } from "../../api/football";
 import { formatFirstName } from "../../utils/displayName";
-import { useUsers } from "../../hooks/useUsers";
-import { formatCurrencyGBP } from "../../utils/currency";
 
 interface PredictionDoc {
   userId: string;
@@ -51,8 +49,6 @@ const WeeklyGameweekPage: React.FC = () => {
     null
   );
   const [isCompactLayout, setIsCompactLayout] = React.useState(false);
-  const { users: userProfiles, loading: usersLoading, error: usersError } =
-    useUsers();
 
   // Use narrower sticky columns on smaller screens so fixture columns stay visible
   React.useEffect(() => {
@@ -228,13 +224,6 @@ const WeeklyGameweekPage: React.FC = () => {
     [buildRoundData, previousRound]
   );
 
-  const paidCount = React.useMemo(
-    () => userProfiles.filter((u) => u.hasPaid).length,
-    [userProfiles]
-  );
-  const prizePot = paidCount * 5;
-  const firstPrize = prizePot;
-
   const loading = predictionsLoading || loadingFixtures;
   const combinedError = predictionsError || fixturesError;
 
@@ -330,56 +319,20 @@ const WeeklyGameweekPage: React.FC = () => {
         )}
 
         {roundData.leaderPoints > 0 && roundData.weeklyRows.length > 0 && (
-          <p
+          <div
             style={{
               fontSize: 12,
               color: "var(--text-muted)",
               marginTop: 6,
+              padding: "10px 12px",
+              borderRadius: 12,
+              background: "linear-gradient(90deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))",
             }}
           >
-            Current leader:{" "}
+            Winner:{" "}
             <strong>{roundData.weeklyRows[0].userDisplayName}</strong> (
             {roundData.weeklyRows[0].totalPoints} pts)
-          </p>
-        )}
-
-        <div className="gw-points-row">
-          <div>
-            <div className="gw-points-label">Prize pot</div>
-            <div className="gw-points-value">
-              {usersLoading ? "Loading…" : formatCurrencyGBP(prizePot)}
-            </div>
-            <div className="gw-round-label" style={{ marginTop: 2 }}>
-              {usersLoading
-                ? "Checking payments"
-                : `${paidCount} paid player${paidCount === 1 ? "" : "s"}`}
-            </div>
           </div>
-          <div
-            style={{
-              textAlign: "right",
-              fontSize: 12,
-              color: "var(--text-muted)",
-              lineHeight: 1.5,
-            }}
-          >
-            <div>Winner takes all</div>
-            <div>
-              1st: {usersLoading ? "…" : formatCurrencyGBP(firstPrize)} (100%)
-            </div>
-          </div>
-        </div>
-
-        {usersError && (
-          <p
-            style={{
-              fontSize: 12,
-              color: "var(--red)",
-              margin: 0,
-            }}
-          >
-            {usersError}
-          </p>
         )}
 
         {combinedError && (
@@ -740,8 +693,8 @@ const WeeklyGameweekPage: React.FC = () => {
         kickoffLabel,
         (
           <>
-            Live points for <strong>{currentRound}</strong>. Weekly prize goes
-            to whoever tops this table.
+            Live points for <strong>{currentRound}</strong>. Whoever tops this
+            table takes the week.
           </>
         )
       )}
