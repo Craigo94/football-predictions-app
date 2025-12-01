@@ -16,7 +16,6 @@ interface Props {
   onChangePrediction: (p: Prediction) => void;
   gameweekLocked: boolean;
   required?: boolean;
-  cardRef?: (node: HTMLDivElement | null) => void;
 }
 
 const FixtureCard: React.FC<Props> = ({
@@ -25,7 +24,6 @@ const FixtureCard: React.FC<Props> = ({
   onChangePrediction,
   gameweekLocked,
   required = false,
-  cardRef,
 }) => {
   const ko = timeUK(fixture.kickoff);
   const [editing, setEditing] = React.useState(false);
@@ -110,7 +108,6 @@ const FixtureCard: React.FC<Props> = ({
 
   return (
     <div
-      ref={cardRef}
       className={`fx-card card ${required && !hasPrediction ? "fx-card--required" : ""}`}
       style={{ borderColor }}
     >
