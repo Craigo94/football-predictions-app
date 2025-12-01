@@ -757,8 +757,9 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .alert-banner {
-  border: 1px solid var(--card-border);
+  border: 1px solid #cbd5e1;
   background: #f8fafc;
+  color: #0f172a;
 }
 
 .alert-banner .alert-row {
@@ -768,14 +769,22 @@ input[type="number"]::-webkit-inner-spin-button {
   justify-content: space-between;
 }
 
+.alert-banner strong {
+  color: #0f172a;
+}
+
+.alert-banner p {
+  color: #334155;
+}
+
 .alert-banner--incomplete {
-  border-color: #ef4444;
-  background: #fff7f7;
+  border-color: #f43f5e;
+  background: #ffe4e6;
 }
 
 .alert-banner--prelock {
-  border-color: #ea580c;
-  background: #fff7ed;
+  border-color: #f97316;
+  background: #fff4e5;
 }
 
 .alert-banner--success {

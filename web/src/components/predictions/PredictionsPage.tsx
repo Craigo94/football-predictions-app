@@ -309,32 +309,12 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
           <div className="alert-row">
             <div>
               <strong>Predictions needed</strong>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#334155" }}>
                 {completion.missing.length} of {completion.total} fixtures still need scores before kickoff.
               </p>
             </div>
             <button className="fx-btn" onClick={jumpToNextIncomplete}>
               Jump to next
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!gameweekLocked && completion.missing.length > 0 && (
-        <div
-          className="card alert-banner alert-banner--prelock"
-          role="alert"
-          style={{ marginBottom: 12 }}
-        >
-          <div className="alert-row">
-            <div>
-              <strong>Complete picks before kickoff</strong>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
-                Predictions lock once the first match starts. Finish the remaining fixtures to avoid missing out.
-              </p>
-            </div>
-            <button className="fx-btn" onClick={jumpToNextIncomplete}>
-              Go to first missing
             </button>
           </div>
         </div>
