@@ -612,8 +612,9 @@ input[type="number"]::-webkit-inner-spin-button {
   margin-bottom: 12px;
 }
 .fx-card--required {
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.1);
-  background: linear-gradient(180deg, #fff7f7 0%, #ffffff 70%);
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 10px 26px rgba(239, 68, 68, 0.12);
+  background: var(--card-bg);
 }
 
 /* Header row */
@@ -768,17 +769,17 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .alert-banner--incomplete {
-  border-color: rgba(239, 68, 68, 0.3);
-  background: #fff2f2;
+  border-color: #ef4444;
+  background: #fff7f7;
 }
 
 .alert-banner--prelock {
-  border-color: rgba(234, 179, 8, 0.45);
-  background: #fffbeb;
+  border-color: #ea580c;
+  background: #fff7ed;
 }
 
 .alert-banner--success {
-  border-color: rgba(34, 197, 94, 0.35);
+  border-color: #16a34a;
   background: #f0fdf4;
 }
 

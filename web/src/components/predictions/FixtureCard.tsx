@@ -200,11 +200,6 @@ const FixtureCard: React.FC<Props> = ({
       {!hasPrediction && (
         <div className="fx-meta fx-meta--required" style={{ marginTop: 10 }}>
           <span className="fx-required-pill">Required</span>
-          {canEdit ? (
-            <span className="fx-required-note">Add a score to save and clear this card.</span>
-          ) : (
-            <span className="fx-required-note">Predictions are locked for this fixture.</span>
-          )}
         </div>
       )}
     </div>
