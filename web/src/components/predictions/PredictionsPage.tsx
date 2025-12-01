@@ -38,6 +38,21 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = React.useState<string | null>(null);
+  const [lastAttempt, setLastAttempt] = React.useState<{
+    fixture: Fixture;
+    prediction: Prediction;
+  } | null>(null);
+  const saveNoticeTimeout = React.useRef<number | null>(null);
+  const fixtureRefs = React.useRef<Record<number, HTMLDivElement | null>>({});
+
+  React.useEffect(() => {
+    return () => {
+      if (saveNoticeTimeout.current) {
+        window.clearTimeout(saveNoticeTimeout.current);
+      }
+    };
+  }, []);
 
   // Load ALL fixtures in the next gameweek (entire matchday)
   React.useEffect(() => {
@@ -103,6 +118,8 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
       round: fixture.round,
     };
 
+    setLastAttempt({ fixture, prediction: p });
+
     // Optimistic update
     let previousValue: PredictionDoc | null = null;
     setPredictions((prev) => {
@@ -113,6 +130,13 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
     try {
       await setDoc(doc(db, "predictions", docId), data, { merge: true });
       setSaveError(null);
+      if (saveNoticeTimeout.current) {
+        window.clearTimeout(saveNoticeTimeout.current);
+      }
+      setSaveNotice("Prediction saved");
+      saveNoticeTimeout.current = window.setTimeout(() => {
+        setSaveNotice(null);
+      }, 2500);
     } catch (err) {
       console.error("Failed to save prediction", err);
       setSaveError(
@@ -127,6 +151,11 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
         return next;
       });
     }
+  };
+
+  const retryLastAttempt = () => {
+    if (!lastAttempt) return;
+    handleChangePrediction(lastAttempt.fixture, lastAttempt.prediction);
   };
 
   const totalPoints = fixtures.reduce((sum, f) => {
@@ -175,6 +204,25 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
     return startedByStatus || startedByTime;
   }, [fixtures]);
 
+  const completion = React.useMemo(() => {
+    const missing = fixtures.filter((f) => {
+      const p = predictions[f.id];
+      return !(p && p.predHome !== null && p.predAway !== null);
+    });
+    return {
+      missing,
+      completed: fixtures.length - missing.length,
+      total: fixtures.length,
+    };
+  }, [fixtures, predictions]);
+
+  const jumpToNextIncomplete = () => {
+    const next = completion.missing[0];
+    if (!next) return;
+    const ref = fixtureRefs.current[next.id];
+    ref?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   if (loading) {
     return <div>Loading fixtures…</div>;
   }
@@ -206,6 +254,21 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
 
   return (
     <div>
+      {saveNotice && (
+        <div
+          className="card alert-banner alert-banner--success"
+          role="status"
+          style={{ marginBottom: 12 }}
+        >
+          <div className="alert-row">
+            <strong>{saveNotice}</strong>
+            <button className="fx-btn" onClick={() => setSaveNotice(null)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {saveError && (
         <div
           className="card"
@@ -223,8 +286,55 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
                 {saveError}
               </p>
             </div>
-            <button className="fx-btn" onClick={() => setSaveError(null)}>
-              Dismiss
+            <div style={{ display: "flex", gap: 8 }}>
+              {lastAttempt && (
+                <button className="fx-btn" onClick={retryLastAttempt}>
+                  Retry save
+                </button>
+              )}
+              <button className="fx-btn" onClick={() => setSaveError(null)}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {completion.missing.length > 0 && (
+        <div
+          className="card alert-banner alert-banner--incomplete"
+          role="alert"
+          style={{ marginBottom: 12 }}
+        >
+          <div className="alert-row">
+            <div>
+              <strong>Predictions needed</strong>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
+                {completion.missing.length} of {completion.total} fixtures still need scores before kickoff.
+              </p>
+            </div>
+            <button className="fx-btn" onClick={jumpToNextIncomplete}>
+              Jump to next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!gameweekLocked && completion.missing.length > 0 && (
+        <div
+          className="card alert-banner alert-banner--prelock"
+          role="alert"
+          style={{ marginBottom: 12 }}
+        >
+          <div className="alert-row">
+            <div>
+              <strong>Complete picks before kickoff</strong>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
+                Predictions lock once the first match starts. Finish the remaining fixtures to avoid missing out.
+              </p>
+            </div>
+            <button className="fx-btn" onClick={jumpToNextIncomplete}>
+              Go to first missing
             </button>
           </div>
         </div>
@@ -264,15 +374,31 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
             {items.map((f) => (
               <FixtureCard
                 key={f.id}
+                cardRef={(node) => {
+                  fixtureRefs.current[f.id] = node;
+                }}
                 fixture={f}
                 prediction={predictions[f.id] || null}
                 onChangePrediction={(p) => handleChangePrediction(f, p)}
                 gameweekLocked={gameweekLocked}
+                required={completion.missing.some((m) => m.id === f.id)}
               />
             ))}
           </div>
         </section>
       ))}
+
+      {completion.total > 0 && completion.missing.length > 0 && (
+        <div className="sticky-cta">
+          <div>
+            <strong>{completion.completed} of {completion.total} predictions saved</strong>
+            <p className="sticky-cta__sub">Finish the remaining fixtures to clear this banner.</p>
+          </div>
+          <button className="fx-btn" onClick={jumpToNextIncomplete}>
+            Jump to next match
+          </button>
+        </div>
+      )}
     </div>
   );
 };

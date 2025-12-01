@@ -15,6 +15,8 @@ interface Props {
   prediction: Prediction | null;
   onChangePrediction: (p: Prediction) => void;
   gameweekLocked: boolean;
+  required?: boolean;
+  cardRef?: (node: HTMLDivElement | null) => void;
 }
 
 const FixtureCard: React.FC<Props> = ({
@@ -22,6 +24,8 @@ const FixtureCard: React.FC<Props> = ({
   prediction,
   onChangePrediction,
   gameweekLocked,
+  required = false,
+  cardRef,
 }) => {
   const ko = timeUK(fixture.kickoff);
   const [editing, setEditing] = React.useState(false);
@@ -98,12 +102,18 @@ const FixtureCard: React.FC<Props> = ({
       ? "var(--blue)"
       : hasActual && status === "wrong"
       ? "var(--red)"
+      : required && !hasPrediction
+      ? "rgba(239, 68, 68, 0.6)"
       : "var(--card-border)";
 
   const badge = isLive ? "LIVE" : isFT ? "Full time" : `KO ${ko}`;
 
   return (
-    <div className="fx-card card" style={{ borderColor }}>
+    <div
+      ref={cardRef}
+      className={`fx-card card ${required && !hasPrediction ? "fx-card--required" : ""}`}
+      style={{ borderColor }}
+    >
       {/* Header */}
       <div className="fx-header">
         <div className="fx-team fx-team--home">
@@ -184,6 +194,17 @@ const FixtureCard: React.FC<Props> = ({
       {(isLive || isFT) && (
         <div className="fx-meta" style={{ marginTop: 6, justifyContent: "center" }}>
           {hasPrediction && <PredictionStatusPill status={status} />}
+        </div>
+      )}
+
+      {!hasPrediction && (
+        <div className="fx-meta fx-meta--required" style={{ marginTop: 10 }}>
+          <span className="fx-required-pill">Required</span>
+          {canEdit ? (
+            <span className="fx-required-note">Add a score to save and clear this card.</span>
+          ) : (
+            <span className="fx-required-note">Predictions are locked for this fixture.</span>
+          )}
         </div>
       )}
     </div>
