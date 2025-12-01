@@ -355,10 +355,17 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
       ))}
 
       {completion.total > 0 && completion.missing.length > 0 && (
-        <div className="sticky-cta">
-          <div>
-            <strong>{completion.completed} of {completion.total} predictions saved</strong>
-            <p className="sticky-cta__sub">Finish the remaining fixtures to clear this banner.</p>
+        <div
+          className="sticky-cta alert-banner alert-banner--incomplete"
+          role="alert"
+        >
+          <div className="alert-row">
+            <div>
+              <strong>Predictions needed</strong>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#334155" }}>
+                {completion.missing.length} of {completion.total} fixtures still need scores before kickoff.
+              </p>
+            </div>
           </div>
         </div>
       )}
