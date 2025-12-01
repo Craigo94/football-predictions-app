@@ -44,7 +44,6 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
     prediction: Prediction;
   } | null>(null);
   const saveNoticeTimeout = React.useRef<number | null>(null);
-  const fixtureRefs = React.useRef<Record<number, HTMLDivElement | null>>({});
 
   React.useEffect(() => {
     return () => {
@@ -216,13 +215,6 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
     };
   }, [fixtures, predictions]);
 
-  const jumpToNextIncomplete = () => {
-    const next = completion.missing[0];
-    if (!next) return;
-    const ref = fixtureRefs.current[next.id];
-    ref?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
   if (loading) {
     return <div>Loading fixtures…</div>;
   }
@@ -309,33 +301,10 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
           <div className="alert-row">
             <div>
               <strong>Predictions needed</strong>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#334155" }}>
                 {completion.missing.length} of {completion.total} fixtures still need scores before kickoff.
               </p>
             </div>
-            <button className="fx-btn" onClick={jumpToNextIncomplete}>
-              Jump to next
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!gameweekLocked && completion.missing.length > 0 && (
-        <div
-          className="card alert-banner alert-banner--prelock"
-          role="alert"
-          style={{ marginBottom: 12 }}
-        >
-          <div className="alert-row">
-            <div>
-              <strong>Complete picks before kickoff</strong>
-              <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
-                Predictions lock once the first match starts. Finish the remaining fixtures to avoid missing out.
-              </p>
-            </div>
-            <button className="fx-btn" onClick={jumpToNextIncomplete}>
-              Go to first missing
-            </button>
           </div>
         </div>
       )}
@@ -374,9 +343,6 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
             {items.map((f) => (
               <FixtureCard
                 key={f.id}
-                cardRef={(node) => {
-                  fixtureRefs.current[f.id] = node;
-                }}
                 fixture={f}
                 prediction={predictions[f.id] || null}
                 onChangePrediction={(p) => handleChangePrediction(f, p)}
@@ -394,9 +360,6 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
             <strong>{completion.completed} of {completion.total} predictions saved</strong>
             <p className="sticky-cta__sub">Finish the remaining fixtures to clear this banner.</p>
           </div>
-          <button className="fx-btn" onClick={jumpToNextIncomplete}>
-            Jump to next match
-          </button>
         </div>
       )}
     </div>
