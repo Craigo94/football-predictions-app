@@ -6,6 +6,8 @@ import { scorePrediction } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import type { Fixture } from "../../api/football";
 import { formatFirstName } from "../../utils/displayName";
+import { useUsers } from "../../hooks/useUsers";
+import { formatCurrencyGBP } from "../../utils/currency";
 
 interface PredictionDoc {
   userId: string;
@@ -69,6 +71,7 @@ const WeeklyGameweekPage: React.FC = () => {
     loadingFixtures,
     fixturesError,
   } = useLiveFixtures();
+  const { users, loading: loadingUsers, error: usersError } = useUsers();
 
   const playerColWidth = isCompactLayout
     ? COMPACT_PLAYER_COL_WIDTH
@@ -225,7 +228,7 @@ const WeeklyGameweekPage: React.FC = () => {
   );
 
   const loading = predictionsLoading || loadingFixtures;
-  const combinedError = predictionsError || fixturesError;
+  const combinedError = predictionsError || fixturesError || usersError;
 
   if (loading) {
     return <div>Loading weekly gameweek view…</div>;
@@ -265,13 +268,31 @@ const WeeklyGameweekPage: React.FC = () => {
       minute: "2-digit",
     });
 
+  const paidCount = React.useMemo(
+    () => users.filter((u) => u.hasPaid).length,
+    [users]
+  );
+  const prizePot = paidCount * 5;
+
+  const prizePotLabel = loadingUsers
+    ? "…"
+    : formatCurrencyGBP(prizePot);
+  const prizePotSubtext = loadingUsers
+    ? "Loading players…"
+    : `${paidCount} paid player${paidCount === 1 ? "" : "s"}`;
+
+  const isRoundComplete = (roundData: RoundData) =>
+    roundData.fixturesList.length > 0 &&
+    roundData.fixturesList.every((f) => f.statusShort === "FT");
+
   const renderRoundTable = (
     title: string,
     roundName: string | null,
     roundData: RoundData,
     kickoffLabelText: string | null,
     subtitle: React.ReactNode,
-    isCollapsible = false
+    isCollapsible = false,
+    showPrizePot = false
   ) => {
     if (!roundName) {
       return (
@@ -318,6 +339,52 @@ const WeeklyGameweekPage: React.FC = () => {
           </p>
         )}
 
+        {showPrizePot && (
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              marginTop: 6,
+            }}
+          >
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                background: "rgba(59,130,246,0.08)",
+                minWidth: 200,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  marginBottom: 4,
+                }}
+              >
+                Total prize pot (this gameweek)
+              </div>
+              <div style={{ fontWeight: 700 }}>{prizePotLabel}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                {prizePotSubtext}
+              </div>
+              {usersError && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 12,
+                    color: "var(--red)",
+                  }}
+                  role="alert"
+                >
+                  Failed to load prize pot.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {roundData.leaderPoints > 0 && roundData.weeklyRows.length > 0 && (
           <div
             style={{
@@ -329,7 +396,7 @@ const WeeklyGameweekPage: React.FC = () => {
               background: "linear-gradient(90deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))",
             }}
           >
-            Winner:{" "}
+            {isRoundComplete(roundData) ? "Winner" : "Winning"}:{" "}
             <strong>{roundData.weeklyRows[0].userDisplayName}</strong> (
             {roundData.weeklyRows[0].totalPoints} pts)
           </div>
@@ -696,7 +763,9 @@ const WeeklyGameweekPage: React.FC = () => {
             Live points for <strong>{currentRound}</strong>. Whoever tops this
             table takes the week.
           </>
-        )
+        ),
+        false,
+        true
       )}
 
       {renderRoundTable(
