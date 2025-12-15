@@ -1,4 +1,17 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+type FootballRequest = {
+  url?: string;
+  headers: { host?: string };
+  query?: {
+    competition?: string | string[];
+    [key: string]: string | string[] | undefined;
+  };
+};
+
+type FootballResponse = {
+  status: (statusCode: number) => FootballResponse;
+  json: (body: unknown) => void;
+  send: (body: unknown) => void;
+};
 
 const API_BASE = "https://api.football-data.org/v4";
 const CACHE_TTL_MS = 60 * 1000;
@@ -12,8 +25,8 @@ type CacheEntry = {
 const cache = new Map<string, CacheEntry>();
 
 export default async function handler(
-  request: NextApiRequest,
-  response: NextApiResponse,
+  request: FootballRequest,
+  response: FootballResponse,
 ) {
   try {
     const token = process.env.FOOTBALL_DATA_TOKEN;
