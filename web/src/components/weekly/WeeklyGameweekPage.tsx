@@ -268,10 +268,7 @@ const WeeklyGameweekPage: React.FC = () => {
       minute: "2-digit",
     });
 
-  const paidCount = React.useMemo(
-    () => users.filter((u) => u.hasPaid).length,
-    [users]
-  );
+  const paidCount = users.filter((u) => u.hasPaid).length;
   const prizePot = paidCount * 5;
 
   const prizePotLabel = loadingUsers
