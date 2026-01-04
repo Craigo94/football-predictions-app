@@ -44,37 +44,57 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
     prediction: Prediction;
   } | null>(null);
   const saveNoticeTimeout = React.useRef<number | null>(null);
+  const fixturesPollInterval = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     return () => {
       if (saveNoticeTimeout.current) {
         window.clearTimeout(saveNoticeTimeout.current);
       }
+      if (fixturesPollInterval.current) {
+        window.clearInterval(fixturesPollInterval.current);
+      }
     };
   }, []);
 
   // Load ALL fixtures in the next gameweek (entire matchday)
   React.useEffect(() => {
+    let cancelled = false;
+    const firstRun = { current: true } as { current: boolean };
     const loadFixtures = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        if (firstRun.current) {
+          setLoading(true);
+        }
         const data = await getNextPremierLeagueGameweekFixtures();
+        if (cancelled) return;
         // sort by kickoff just in case
         data.sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime());
         setFixtures(data);
+        setError(null);
       } catch (err: unknown) {
         console.error(err);
         const message =
           err instanceof Error
             ? err.message
             : "Failed to load fixtures from the Football API. Check your API key or plan.";
-        setError(message);
+        if (!cancelled) {
+          setError(message);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled && firstRun.current) {
+          setLoading(false);
+          firstRun.current = false;
+        }
       }
     };
     loadFixtures();
+
+    fixturesPollInterval.current = window.setInterval(loadFixtures, 60_000);
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Subscribe to current user's predictions
