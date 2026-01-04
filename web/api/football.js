@@ -20,6 +20,11 @@ export default async function handler(request, response) {
         .json({ error: "Missing Football API token on the server" });
     }
 
+    response.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, max-age=0"
+    );
+
     // Full URL that the function was called with (after rewrite)
     const url = new URL(request.url, `https://${request.headers.host}`);
 

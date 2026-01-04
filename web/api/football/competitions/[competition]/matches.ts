@@ -11,6 +11,7 @@ type FootballResponse = {
   status: (statusCode: number) => FootballResponse;
   json: (body: unknown) => void;
   send: (body: unknown) => void;
+  setHeader: (name: string, value: string) => void;
 };
 
 const API_BASE = "https://api.football-data.org/v4";
@@ -37,6 +38,11 @@ export default async function handler(
         .status(500)
         .json({ error: "Missing Football API token on the server" });
     }
+
+    response.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, max-age=0"
+    );
 
     const url = new URL(
       request.url ?? "/api/football/competitions/PL/matches",

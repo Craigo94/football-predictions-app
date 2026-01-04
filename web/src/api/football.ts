@@ -94,7 +94,7 @@ async function fetchMatches(
 ): Promise<ApiMatch[]> {
   const url = buildMatchesUrl(params);
 
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: "no-store" });
   const text = await res.text();
 
   let data: ApiMatchResponse;
