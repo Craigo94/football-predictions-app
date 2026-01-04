@@ -1,5 +1,6 @@
 // web/src/api/football.ts
 import { CURRENT_SEASON } from "../config/football";
+import { UK_TZ } from "../utils/dates";
 
 interface ApiTeam {
   name?: string;
@@ -50,8 +51,19 @@ export interface Fixture {
 
 // ---- helpers ------------------------------------------------------
 
+const UK_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  timeZone: UK_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 function formatDate(date: Date): string {
-  return date.toISOString().slice(0, 10); // YYYY-MM-DD
+  const parts = UK_DATE_FORMATTER.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  return `${year}-${month}-${day}`;
 }
 
 /**
