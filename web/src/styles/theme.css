@@ -1146,6 +1146,7 @@ input[type="number"]::-webkit-inner-spin-button {
   text-align: center;
   border-bottom: 1px solid var(--card-border);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .league-table th {
@@ -1161,11 +1162,18 @@ input[type="number"]::-webkit-inner-spin-button {
   align-items: center;
   gap: 10px;
   font-weight: 600;
+  min-width: 0;
 }
 
 .league-table__crest {
   width: 22px;
   height: 22px;
+}
+
+.league-table__team span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .league-table__points {
@@ -1183,6 +1191,16 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 
   .league-table {
-    min-width: 640px;
+    min-width: 620px;
+    font-size: 12px;
+  }
+
+  .league-table th,
+  .league-table td {
+    padding: 8px 6px;
+  }
+
+  .league-table__team span {
+    max-width: 140px;
   }
 }
