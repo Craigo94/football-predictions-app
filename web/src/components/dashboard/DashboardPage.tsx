@@ -357,7 +357,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                       </span>
                     </div>
                     <div className="timeline-sub">
-                      {fixture.venue || "Premier League"}
+                      {timeUK(fixture.kickoff)} • Premier League
                     </div>
                   </div>
                   <div className="timeline-score">
