@@ -114,7 +114,7 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
 
       {/* Nav links row */}
       <nav
-        className="navbar-links"
+        className="navbar-links navbar-links--dock"
         aria-label="Primary navigation"
         style={navStyleVars}
       >

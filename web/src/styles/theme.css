@@ -249,13 +249,11 @@ input[type="number"]::-webkit-inner-spin-button {
 /* ⚽ Navbar – centred, spaced, bigger ball */
 
 .navbar {
-  margin-bottom: 16px;
-  padding: 10px 18px 0;
+  margin-bottom: 0;
+  padding: 16px 18px 0;
   background: transparent;
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 50;
-  backdrop-filter: blur(6px);
 }
 
 .navbar-shell {
@@ -349,6 +347,22 @@ input[type="number"]::-webkit-inner-spin-button {
   gap: var(--nav-gap);
   margin-top: 16px;
   width: 100%;
+}
+
+.navbar-links--dock {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, calc(100% - 32px));
+  padding: 12px 14px;
+  border-radius: 999px;
+  background: rgba(6, 18, 10, 0.95);
+  border: 1px solid rgba(0, 255, 100, 0.2);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  z-index: 70;
+  margin-top: 0;
+  backdrop-filter: blur(12px);
 }
 
 /* Each nav item = pill */
@@ -517,10 +531,7 @@ input[type="number"]::-webkit-inner-spin-button {
 /* Tablet/desktop – still centred, just a bit roomier */
 @media (min-width: 768px) {
   .navbar-links {
-    margin-top: 18px;
-    max-width: 520px;
-    margin-left: auto;
-    margin-right: auto;
+    max-width: 620px;
   }
 
   .nav-link {
@@ -539,7 +550,7 @@ input[type="number"]::-webkit-inner-spin-button {
 .app-shell {
   max-width: 850px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 1.5rem 1.5rem 140px;
 }
 
 @media (max-width: 640px) {
@@ -1062,7 +1073,8 @@ input[type="number"]::-webkit-inner-spin-button {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(3, 7, 18, 0.82);
+  backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -1456,6 +1468,34 @@ input[type="number"]::-webkit-inner-spin-button {
   font-weight: 600;
 }
 
+.timeline-teams {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.timeline-team img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.timeline-vs {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
 .timeline-status {
   font-size: 11px;
   text-transform: uppercase;
@@ -1479,6 +1519,12 @@ input[type="number"]::-webkit-inner-spin-button {
 .timeline-score {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.timeline-score--upcoming {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .sparkline {
