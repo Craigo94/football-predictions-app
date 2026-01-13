@@ -31,6 +31,38 @@ interface ApiMatchResponse {
   error?: unknown;
 }
 
+interface ApiStandingsTeam {
+  id: number;
+  name?: string;
+  shortName?: string;
+  tla?: string;
+  crest?: string;
+}
+
+interface ApiStandingsRow {
+  position: number;
+  team: ApiStandingsTeam;
+  playedGames: number;
+  form?: string;
+  won: number;
+  draw: number;
+  lost: number;
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+}
+
+interface ApiStandingsEntry {
+  type?: string;
+  table?: ApiStandingsRow[];
+}
+
+interface ApiStandingsResponse {
+  standings?: ApiStandingsEntry[];
+  error?: unknown;
+}
+
 export interface Fixture {
   id: number;
   kickoff: string;            // ISO datetime string (UTC)
@@ -47,6 +79,26 @@ export interface Fixture {
   awayLogo: string;
   homeGoals: number | null;
   awayGoals: number | null;
+}
+
+export interface LeagueTableRow {
+  position: number;
+  team: {
+    id: number;
+    name: string;
+    shortName: string;
+    tla: string;
+    crest: string;
+  };
+  playedGames: number;
+  form: string;
+  won: number;
+  draw: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
 }
 
 // ---- helpers ------------------------------------------------------
@@ -77,6 +129,22 @@ function buildMatchesUrl(
   params: Record<string, string | number | undefined>
 ): string {
   const basePath = "/api/football/competitions/PL/matches";
+  const search = new URLSearchParams();
+
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) {
+      search.set(k, String(v));
+    }
+  }
+
+  const query = search.toString();
+  return query ? `${basePath}?${query}` : basePath;
+}
+
+function buildStandingsUrl(
+  params: Record<string, string | number | undefined>
+): string {
+  const basePath = "/api/football/competitions/PL/standings";
   const search = new URLSearchParams();
 
   for (const [k, v] of Object.entries(params)) {
@@ -120,6 +188,38 @@ async function fetchMatches(
   }
 
   return data.matches;
+}
+
+async function fetchStandings(
+  params: Record<string, string | number | undefined>
+): Promise<ApiStandingsEntry[]> {
+  const url = buildStandingsUrl(params);
+  const res = await fetch(url, { cache: "no-store" });
+  const text = await res.text();
+
+  let data: ApiStandingsResponse;
+  try {
+    data = JSON.parse(text) as ApiStandingsResponse;
+  } catch {
+    console.error("Non-JSON response from Football API:", text);
+    throw new Error("Football API returned non-JSON response");
+  }
+
+  if (!res.ok) {
+    console.error("Football API HTTP error:", res.status, data);
+    throw new Error(
+      `Football API error ${res.status}: ${JSON.stringify(
+        (data && data.error) || data
+      )}`
+    );
+  }
+
+  if (!Array.isArray(data.standings)) {
+    console.error("Football API returned unexpected payload", data);
+    throw new Error("Football API returned an unexpected response shape.");
+  }
+
+  return data.standings;
 }
 
 // ---- Public API ----------------------------------------------------
@@ -199,6 +299,42 @@ export async function getPremierLeagueMatchesForRange(
     const roundLabel = md ? `Matchday ${md}` : m.group || "Premier League";
     return mapApiMatchToFixture(roundLabel, md, CURRENT_SEASON)(m);
   });
+}
+
+/**
+ * Fetch Premier League standings for the current season.
+ */
+export async function getPremierLeagueTable(): Promise<LeagueTableRow[]> {
+  const standings = await fetchStandings({
+    season: CURRENT_SEASON,
+    standingType: "TOTAL",
+  });
+
+  const totalTable = standings.find((entry) => entry.type === "TOTAL");
+
+  if (!totalTable?.table?.length) {
+    throw new Error("No standings returned for the Premier League table.");
+  }
+
+  return totalTable.table.map((row) => ({
+    position: row.position,
+    team: {
+      id: row.team.id,
+      name: row.team.name ?? "Unknown",
+      shortName: row.team.shortName ?? row.team.name ?? "Unknown",
+      tla: row.team.tla ?? row.team.shortName ?? row.team.name ?? "",
+      crest: row.team.crest ?? "/badge-fallback.png",
+    },
+    playedGames: row.playedGames,
+    form: row.form ?? "",
+    won: row.won,
+    draw: row.draw,
+    lost: row.lost,
+    goalsFor: row.goalsFor,
+    goalsAgainst: row.goalsAgainst,
+    goalDifference: row.goalDifference,
+    points: row.points,
+  }));
 }
 
 // ---- Mapping -------------------------------------------------------
