@@ -89,6 +89,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
   const [predictionsError, setPredictionsError] = React.useState<string | null>(
     null
   );
+  const [selectedFixture, setSelectedFixture] = React.useState<Fixture | null>(
+    null
+  );
 
   React.useEffect(() => {
     const ref = query(collection(db, "predictions"), where("userId", "==", user.uid));
@@ -250,6 +253,74 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
   const loading = loadingFixtures || predictionsLoading;
 
+  const getTeamRecentFixtures = React.useCallback(
+    (team: string) =>
+      Object.values(fixturesById)
+        .filter(
+          (fixture) =>
+            fixture.statusShort === "FT" &&
+            (fixture.homeTeam === team || fixture.awayTeam === team)
+        )
+        .sort(
+          (a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime()
+        )
+        .slice(0, 5),
+    [fixturesById]
+  );
+
+  const getHeadToHead = React.useCallback(
+    (homeTeam: string, awayTeam: string) =>
+      Object.values(fixturesById)
+        .filter(
+          (fixture) =>
+            fixture.statusShort === "FT" &&
+            ((fixture.homeTeam === homeTeam &&
+              fixture.awayTeam === awayTeam) ||
+              (fixture.homeTeam === awayTeam &&
+                fixture.awayTeam === homeTeam))
+        )
+        .sort(
+          (a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime()
+        )
+        .slice(0, 5),
+    [fixturesById]
+  );
+
+  const renderFormBadge = (
+    fixture: Fixture,
+    team: string
+  ): { label: string; result: string } => {
+    const isHome = fixture.homeTeam === team;
+    const teamGoals = isHome ? fixture.homeGoals : fixture.awayGoals;
+    const oppGoals = isHome ? fixture.awayGoals : fixture.homeGoals;
+
+    if (teamGoals == null || oppGoals == null) {
+      return { label: "—", result: "pending" };
+    }
+
+    if (teamGoals > oppGoals) {
+      return { label: "W", result: "win" };
+    }
+
+    if (teamGoals < oppGoals) {
+      return { label: "L", result: "loss" };
+    }
+
+    return { label: "D", result: "draw" };
+  };
+
+  const selectedTeamHome = selectedFixture?.homeTeam ?? "";
+  const selectedTeamAway = selectedFixture?.awayTeam ?? "";
+  const selectedHomeRecent = selectedFixture
+    ? getTeamRecentFixtures(selectedTeamHome)
+    : [];
+  const selectedAwayRecent = selectedFixture
+    ? getTeamRecentFixtures(selectedTeamAway)
+    : [];
+  const selectedHeadToHead = selectedFixture
+    ? getHeadToHead(selectedTeamHome, selectedTeamAway)
+    : [];
+
   return (
     <div className="dashboard">
       <section className="dashboard-hero card">
@@ -342,28 +413,33 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                 ? "LIVE"
                 : isFinished
                 ? "FT"
-                : `KO ${timeUK(fixture.kickoff)}`;
+                : "UPCOMING";
 
               return (
-                <div className="timeline-item" key={fixture.id}>
+                <button
+                  type="button"
+                  className="timeline-item"
+                  key={fixture.id}
+                  onClick={() => setSelectedFixture(fixture)}
+                >
                   <div className={`timeline-dot ${isLive ? "is-live" : isFinished ? "is-finished" : ""}`} />
                   <div className="timeline-content">
                     <div className="timeline-row">
                       <span className="timeline-fixture">
-                        {fixture.homeShort} vs {fixture.awayShort}
+                        {fixture.homeTeam} vs {fixture.awayTeam}
                       </span>
                       <span className={`timeline-status ${isLive ? "is-live" : isFinished ? "is-finished" : ""}`}>
                         {statusLabel}
                       </span>
                     </div>
                     <div className="timeline-sub">
-                      {timeUK(fixture.kickoff)} • Premier League
+                      {timeUK(fixture.kickoff)} • Matchday preview
                     </div>
                   </div>
                   <div className="timeline-score">
                     {hasScore ? `${fixture.homeGoals}–${fixture.awayGoals}` : "–"}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -393,6 +469,116 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
           </div>
         </div>
       </section>
+
+      {selectedFixture && (
+        <div className="modal-backdrop" onClick={() => setSelectedFixture(null)}>
+          <div
+            className="modal-card dashboard-modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal-header">
+              <div>
+                <p className="modal-eyebrow">Match preview</p>
+                <h3>
+                  {selectedFixture.homeTeam} vs {selectedFixture.awayTeam}
+                </h3>
+                <p className="modal-description">
+                  {timeUK(selectedFixture.kickoff)} • {selectedFixture.round}
+                </p>
+              </div>
+              <button
+                className="fx-btn"
+                type="button"
+                onClick={() => setSelectedFixture(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="dashboard-modal__grid">
+              <div className="dashboard-modal__panel">
+                <h4>{selectedTeamHome} form</h4>
+                <ul>
+                  {selectedHomeRecent.length === 0 && (
+                    <li>No finished matches yet.</li>
+                  )}
+                  {selectedHomeRecent.map((fixture) => {
+                    const badge = renderFormBadge(fixture, selectedTeamHome);
+                    const opponent =
+                      fixture.homeTeam === selectedTeamHome
+                        ? fixture.awayTeam
+                        : fixture.homeTeam;
+                    const score = `${fixture.homeGoals ?? "–"}-${
+                      fixture.awayGoals ?? "–"
+                    }`;
+                    return (
+                      <li key={fixture.id}>
+                        <span className={`form-pill form-pill--${badge.result}`}>
+                          {badge.label}
+                        </span>
+                        <span className="form-team">vs {opponent}</span>
+                        <span className="form-score">{score}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+
+              <div className="dashboard-modal__panel">
+                <h4>{selectedTeamAway} form</h4>
+                <ul>
+                  {selectedAwayRecent.length === 0 && (
+                    <li>No finished matches yet.</li>
+                  )}
+                  {selectedAwayRecent.map((fixture) => {
+                    const badge = renderFormBadge(fixture, selectedTeamAway);
+                    const opponent =
+                      fixture.homeTeam === selectedTeamAway
+                        ? fixture.awayTeam
+                        : fixture.homeTeam;
+                    const score = `${fixture.homeGoals ?? "–"}-${
+                      fixture.awayGoals ?? "–"
+                    }`;
+                    return (
+                      <li key={fixture.id}>
+                        <span className={`form-pill form-pill--${badge.result}`}>
+                          {badge.label}
+                        </span>
+                        <span className="form-team">vs {opponent}</span>
+                        <span className="form-score">{score}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+
+            <div className="dashboard-modal__panel">
+              <h4>Recent head-to-heads</h4>
+              <ul>
+                {selectedHeadToHead.length === 0 && (
+                  <li>No recent head-to-head fixtures.</li>
+                )}
+                {selectedHeadToHead.map((fixture) => (
+                  <li key={fixture.id}>
+                    <span className="form-team">
+                      {fixture.homeTeam} vs {fixture.awayTeam}
+                    </span>
+                    <span className="form-score">
+                      {fixture.homeGoals ?? "–"}-{fixture.awayGoals ?? "–"}
+                    </span>
+                    <span className="form-meta">
+                      {timeUK(fixture.kickoff)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
