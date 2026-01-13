@@ -32,8 +32,8 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
   const navItems = [
     { to: "/predictions", icon: "🎯", label: "Predictions" },
     { to: "/weekly", icon: "🗓️", label: "Gameweek" },
-    { to: "/leaderboard", icon: "🏆", label: "Leaderboard" },
     { to: "/league-table", icon: "📋", label: "Table" },
+    { to: "/leaderboard", icon: "🏆", label: "Leaderboard" },
     { to: "/stats", icon: "📊", label: "My Stats" },
   ];
 

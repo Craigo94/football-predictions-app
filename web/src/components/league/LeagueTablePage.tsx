@@ -78,12 +78,6 @@ const LeagueTablePage: React.FC = () => {
     <div className="page-shell">
       <header className="page-header">
         <h1>Premier League Table</h1>
-        <p className="page-subtitle">
-          Full standings with every stat from the Football Data API.
-        </p>
-        {highlightedTeams.length > 0 && (
-          <p className="page-subtitle">Highlighted teams from your matchup.</p>
-        )}
       </header>
 
       <div className="card league-table-card">
@@ -121,7 +115,7 @@ const LeagueTablePage: React.FC = () => {
                       src={row.team.crest}
                       alt={row.team.name}
                     />
-                    <span>{row.team.name}</span>
+                    <span>{row.team.shortName || row.team.name}</span>
                   </td>
                   <td>{row.playedGames}</td>
                   <td>{row.form ? row.form.split(",").join(" ") : "—"}</td>
