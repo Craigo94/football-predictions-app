@@ -414,6 +414,18 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                 : isFinished
                 ? "FT"
                 : "UPCOMING";
+              const kickoffTime = timeUK(fixture.kickoff);
+              const scoreLabel = hasScore
+                ? `${fixture.homeGoals}–${fixture.awayGoals}`
+                : `KO ${kickoffTime}`;
+              const scoreClassName = `timeline-score${
+                hasScore ? "" : " timeline-score--upcoming"
+              }`;
+              const subLabel = isLive
+                ? `Live now • ${kickoffTime}`
+                : isFinished
+                ? `Full time • ${kickoffTime}`
+                : `Kickoff ${kickoffTime}`;
 
               return (
                 <button
@@ -425,20 +437,26 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                   <div className={`timeline-dot ${isLive ? "is-live" : isFinished ? "is-finished" : ""}`} />
                   <div className="timeline-content">
                     <div className="timeline-row">
-                      <span className="timeline-fixture">
-                        {fixture.homeTeam} vs {fixture.awayTeam}
+                      <span className="timeline-fixture" title={`${fixture.homeTeam} vs ${fixture.awayTeam}`}>
+                        <span className="timeline-teams">
+                          <span className="timeline-team">
+                            <img src={fixture.homeLogo} alt={fixture.homeTeam} />
+                            <span>{fixture.homeShort}</span>
+                          </span>
+                          <span className="timeline-vs">vs</span>
+                          <span className="timeline-team">
+                            <img src={fixture.awayLogo} alt={fixture.awayTeam} />
+                            <span>{fixture.awayShort}</span>
+                          </span>
+                        </span>
                       </span>
                       <span className={`timeline-status ${isLive ? "is-live" : isFinished ? "is-finished" : ""}`}>
                         {statusLabel}
                       </span>
                     </div>
-                    <div className="timeline-sub">
-                      {timeUK(fixture.kickoff)} • Matchday preview
-                    </div>
+                    <div className="timeline-sub">{subLabel}</div>
                   </div>
-                  <div className="timeline-score">
-                    {hasScore ? `${fixture.homeGoals}–${fixture.awayGoals}` : "–"}
-                  </div>
+                  <div className={scoreClassName}>{scoreLabel}</div>
                 </button>
               );
             })}

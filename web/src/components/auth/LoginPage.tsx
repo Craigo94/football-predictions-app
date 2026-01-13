@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -10,6 +11,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import "./LoginPage.css";
 
 const LoginPage: React.FC = () => {
+  const navigate = useNavigate();
   const [isRegister, setIsRegister] = React.useState(false);
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
@@ -106,6 +108,7 @@ const LoginPage: React.FC = () => {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         await ensureUserProfile(cred.user);
       }
+      navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
       console.error(err);
       const message = err instanceof Error ? err.message : "Something went wrong";
