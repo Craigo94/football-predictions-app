@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import PredictionStatusPill from "./PredictionStatusPill";
 import type { Fixture } from "../../api/football";
 import { scorePrediction } from "../../utils/scoring";
@@ -105,6 +106,10 @@ const FixtureCard: React.FC<Props> = ({
       : "var(--card-border)";
 
   const badge = isLive ? "LIVE" : isFT ? "Full time" : `KO ${ko}`;
+  const leagueParams = new URLSearchParams({
+    home: fixture.homeTeam,
+    away: fixture.awayTeam,
+  }).toString();
 
   return (
     <div
@@ -193,6 +198,16 @@ const FixtureCard: React.FC<Props> = ({
           {hasPrediction && <PredictionStatusPill status={status} />}
         </div>
       )}
+
+      <div className="fx-meta fx-meta--table" style={{ marginTop: 10 }}>
+        <Link
+          className="fx-table-link"
+          to={`/league-table?${leagueParams}`}
+          aria-label={`View league table for ${fixture.homeTeam} vs ${fixture.awayTeam}`}
+        >
+          League table →
+        </Link>
+      </div>
 
       {!hasPrediction && (
         <div className="fx-meta fx-meta--required" style={{ marginTop: 10 }}>

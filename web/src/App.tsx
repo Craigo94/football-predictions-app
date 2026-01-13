@@ -14,6 +14,7 @@ import PredictionsPage from "./components/predictions/PredictionsPage";
 import LeaderboardPage from "./components/leaderboard/LeaderboardPage";
 import WeeklyGameweekPage from "./components/weekly/WeeklyGameweekPage";
 import MyStatsPage from "./components/stats/MyStatsPage";
+import LeagueTablePage from "./components/league/LeagueTablePage";
 import LoginPage from "./components/auth/LoginPage";
 import { LiveFixturesProvider } from "./context/LiveFixturesContext";
 import EditNamePage from "./components/profile/EditNamePage";
@@ -163,6 +164,7 @@ const App: React.FC = () => {
                 element={<PredictionsPage user={user} />}
               />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/league-table" element={<LeagueTablePage />} />
               <Route path="/weekly" element={<WeeklyGameweekPage />} />
               <Route path="/stats" element={<MyStatsPage user={user} />} />
               <Route
