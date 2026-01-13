@@ -20,6 +20,7 @@ import { LiveFixturesProvider } from "./context/LiveFixturesContext";
 import EditNamePage from "./components/profile/EditNamePage";
 import AdminPage from "./components/admin/AdminPage";
 import { PRIMARY_ADMIN_EMAIL, normalizeEmail } from "./config/admin";
+import DashboardPage from "./components/dashboard/DashboardPage";
 
 interface UserProfile {
   displayName?: string;
@@ -160,6 +161,11 @@ const App: React.FC = () => {
             <Navbar user={user} isAdmin={isAdmin} />
             <Routes>
               <Route
+                path="/dashboard"
+                element={<DashboardPage user={user} />}
+              />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route
                 path="/predictions"
                 element={<PredictionsPage user={user} />}
               />
@@ -183,7 +189,7 @@ const App: React.FC = () => {
                   <EditNamePage user={user} onUserUpdated={refreshUser} />
                 }
               />
-              <Route path="*" element={<Navigate to="/predictions" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </div>
         </LiveFixturesProvider>
