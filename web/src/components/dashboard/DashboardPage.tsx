@@ -505,16 +505,6 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             <span className="stat-subtext">Results locked in</span>
           </div>
         </div>
-        <div className="card stat-card">
-          <div className="stat-card__header">
-            <span className="stat-label">Prediction pace</span>
-            <span className="stat-pill stat-pill--ghost">{completionPercent}%</span>
-          </div>
-          <div className="stat-card__body">
-            <span className="stat-value">{completionPercent}%</span>
-            <span className="stat-subtext">Stay on top of entries</span>
-          </div>
-        </div>
       </section>
 
       <section className="dashboard-panels">
