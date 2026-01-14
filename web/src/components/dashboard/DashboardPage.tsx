@@ -1,11 +1,12 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import type { User } from "firebase/auth";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import type { Fixture } from "../../api/football";
 import { scorePrediction } from "../../utils/scoring";
-import { timeUK } from "../../utils/dates";
+import { timeUK, UK_TZ } from "../../utils/dates";
 
 interface Props {
   user: User;
@@ -78,6 +79,63 @@ const Sparkline: React.FC<{ values: number[] }> = ({ values }) => {
         points={`${points.join(" ")} ${width - 6},${height - 8} 6,${height - 8}`}
       />
     </svg>
+  );
+};
+
+const ResultBreakdownChart: React.FC<{
+  data: { round: string; exact: number; result: number }[];
+}> = ({ data }) => {
+  if (data.length === 0) {
+    return (
+      <div className="sparkline-empty">
+        <span>No results yet</span>
+      </div>
+    );
+  }
+
+  const maxTotal = Math.max(
+    ...data.map((entry) => entry.exact + entry.result)
+  );
+
+  return (
+    <div className="result-chart" role="img" aria-label="Exact scores and results by gameweek">
+      {data.map((entry) => {
+        const total = entry.exact + entry.result;
+        const exactHeight = maxTotal ? (entry.exact / maxTotal) * 100 : 0;
+        const resultHeight = maxTotal ? (entry.result / maxTotal) * 100 : 0;
+        const roundNumber = parseRoundNumber(entry.round);
+        const label = Number.isNaN(roundNumber)
+          ? entry.round.replace("Matchday", "MD")
+          : `MD ${roundNumber}`;
+
+        return (
+          <div className="result-bar" key={entry.round}>
+            <div className="result-bar__stack" aria-hidden="true">
+              <div
+                className="result-bar__segment result-bar__segment--exact"
+                style={{ height: `${exactHeight}%` }}
+              />
+              <div
+                className="result-bar__segment result-bar__segment--result"
+                style={{ height: `${resultHeight}%` }}
+              />
+            </div>
+            <span className="result-bar__value">{total}</span>
+            <span className="result-bar__label">{label}</span>
+          </div>
+        );
+      })}
+      <div className="result-chart__legend">
+        <span>
+          <span className="legend-swatch legend-swatch--exact" />
+          Exact score
+        </span>
+        <span>
+          <span className="legend-swatch legend-swatch--result" />
+          Correct result
+        </span>
+      </div>
+    </div>
   );
 };
 
@@ -230,6 +288,47 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     return ordered.slice(-6).map(([, value]) => value);
   }, [fixturesById, predictions]);
 
+  const resultBreakdown = React.useMemo(() => {
+    const countsByRound = new Map<string, { exact: number; result: number }>();
+
+    predictions.forEach((prediction) => {
+      const fixture = fixturesById[prediction.fixtureId];
+      if (!fixture) return;
+
+      const scored = scorePrediction(
+        prediction.predHome,
+        prediction.predAway,
+        fixture.homeGoals,
+        fixture.awayGoals
+      );
+
+      if (scored.status === "pending") return;
+
+      const current = countsByRound.get(prediction.round) ?? {
+        exact: 0,
+        result: 0,
+      };
+
+      if (scored.status === "exact") current.exact += 1;
+      if (scored.status === "result") current.result += 1;
+
+      countsByRound.set(prediction.round, current);
+    });
+
+    const ordered = Array.from(countsByRound.entries()).sort((a, b) => {
+      const numA = parseRoundNumber(a[0]);
+      const numB = parseRoundNumber(b[0]);
+      if (Number.isNaN(numA) || Number.isNaN(numB)) {
+        return a[0].localeCompare(b[0]);
+      }
+      return numA - numB;
+    });
+
+    return ordered
+      .slice(-6)
+      .map(([round, values]) => ({ round, ...values }));
+  }, [fixturesById, predictions]);
+
   const kickoffLabel = nextFixture
     ? `${nextFixture.homeShort} vs ${nextFixture.awayShort} • ${timeUK(
         nextFixture.kickoff
@@ -311,6 +410,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
   const selectedTeamHome = selectedFixture?.homeTeam ?? "";
   const selectedTeamAway = selectedFixture?.awayTeam ?? "";
+  const selectedTeamHomeShort =
+    selectedFixture?.homeShort ?? selectedTeamHome;
+  const selectedTeamAwayShort =
+    selectedFixture?.awayShort ?? selectedTeamAway;
   const selectedHomeRecent = selectedFixture
     ? getTeamRecentFixtures(selectedTeamHome)
     : [];
@@ -320,6 +423,14 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
   const selectedHeadToHead = selectedFixture
     ? getHeadToHead(selectedTeamHome, selectedTeamAway)
     : [];
+
+  const formatFixtureDate = (kickoff: string) =>
+    new Date(kickoff).toLocaleDateString("en-GB", {
+      timeZone: UK_TZ,
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+    });
 
   return (
     <div className="dashboard">
@@ -342,11 +453,13 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         </div>
         <div className="dashboard-hero__right">
           <div className="hero-highlight">
-            <span className="hero-label">Next fixture</span>
+            <span className="hero-label">Prediction deadline</span>
             <span className="hero-value">{kickoffLabel}</span>
-            <span className="hero-sub">Stay ahead of lock-in deadlines.</span>
+            <span className="hero-sub">
+              This is the deadline to submit your scores.
+            </span>
           </div>
-          <div className="hero-progress">
+          <Link className="hero-progress hero-progress--link" to="/predictions">
             <span className="hero-label">Predictions complete</span>
             <div className="progress-bar" role="progressbar" aria-valuenow={completionPercent} aria-valuemin={0} aria-valuemax={100}>
               <div className="progress-bar__fill" style={{ width: `${completionPercent}%` }} />
@@ -356,7 +469,8 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                 ? `${predictionStatus.predictedCount}/${predictionStatus.total} fixtures predicted`
                 : "No gameweek loaded"}
             </span>
-          </div>
+            <span className="hero-sub hero-sub--link">Go to predictions</span>
+          </Link>
         </div>
       </section>
 
@@ -368,23 +482,38 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
       <section className="dashboard-grid">
         <div className="card stat-card">
-          <span className="stat-label">Live matches</span>
-          <span className="stat-value">
-            {loading ? "…" : liveFixtures.length}
-          </span>
-          <span className="stat-subtext">Matches happening now</span>
+          <div className="stat-card__header">
+            <span className="stat-label">Live matches</span>
+            <span className="stat-pill stat-pill--live">Now</span>
+          </div>
+          <div className="stat-card__body">
+            <span className="stat-value">
+              {loading ? "…" : liveFixtures.length}
+            </span>
+            <span className="stat-subtext">Matches happening now</span>
+          </div>
         </div>
         <div className="card stat-card">
-          <span className="stat-label">Finished</span>
-          <span className="stat-value">
-            {loading ? "…" : finishedFixtures.length}
-          </span>
-          <span className="stat-subtext">Results locked in</span>
+          <div className="stat-card__header">
+            <span className="stat-label">Finished</span>
+            <span className="stat-pill">Final</span>
+          </div>
+          <div className="stat-card__body">
+            <span className="stat-value">
+              {loading ? "…" : finishedFixtures.length}
+            </span>
+            <span className="stat-subtext">Results locked in</span>
+          </div>
         </div>
         <div className="card stat-card">
-          <span className="stat-label">Prediction pace</span>
-          <span className="stat-value">{completionPercent}%</span>
-          <span className="stat-subtext">Stay on top of entries</span>
+          <div className="stat-card__header">
+            <span className="stat-label">Prediction pace</span>
+            <span className="stat-pill stat-pill--ghost">{completionPercent}%</span>
+          </div>
+          <div className="stat-card__body">
+            <span className="stat-value">{completionPercent}%</span>
+            <span className="stat-subtext">Stay on top of entries</span>
+          </div>
         </div>
       </section>
 
@@ -394,6 +523,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             <div>
               <p className="eyebrow">Live gameweek flow</p>
               <h3>Timeline</h3>
+              <p className="panel-subtitle">
+                Click a game to view recent form.
+              </p>
             </div>
             <span className="pill pill--live">
               {liveFixtures.length ? "Live" : "Upcoming"}
@@ -415,17 +547,18 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                 ? "FT"
                 : "UPCOMING";
               const kickoffTime = timeUK(fixture.kickoff);
+              const kickoffDate = formatFixtureDate(fixture.kickoff);
               const scoreLabel = hasScore
                 ? `${fixture.homeGoals}–${fixture.awayGoals}`
-                : `KO ${kickoffTime}`;
+                : "Scheduled";
               const scoreClassName = `timeline-score${
                 hasScore ? "" : " timeline-score--upcoming"
               }`;
               const subLabel = isLive
-                ? `Live now • ${kickoffTime}`
+                ? `${kickoffDate} • ${kickoffTime} • ${fixture.round}`
                 : isFinished
-                ? `Full time • ${kickoffTime}`
-                : `Kickoff ${kickoffTime}`;
+                ? `${kickoffDate} • ${kickoffTime} • ${fixture.round}`
+                : `${kickoffDate} • ${kickoffTime} • ${fixture.round}`;
 
               return (
                 <button
@@ -485,6 +618,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                 : 0} avg
             </span>
           </div>
+          <div className="trend-secondary">
+            <h4>Exact scores & results</h4>
+            <ResultBreakdownChart data={resultBreakdown} />
+          </div>
         </div>
       </section>
 
@@ -517,7 +654,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
             <div className="dashboard-modal__grid">
               <div className="dashboard-modal__panel">
-                <h4>{selectedTeamHome} form</h4>
+                <h4>{selectedTeamHomeShort} form</h4>
                 <ul>
                   {selectedHomeRecent.length === 0 && (
                     <li>No finished matches yet.</li>
@@ -528,6 +665,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                       fixture.homeTeam === selectedTeamHome
                         ? fixture.awayTeam
                         : fixture.homeTeam;
+                    const opponentShort =
+                      fixture.homeTeam === selectedTeamHome
+                        ? fixture.awayShort
+                        : fixture.homeShort;
                     const score = `${fixture.homeGoals ?? "–"}-${
                       fixture.awayGoals ?? "–"
                     }`;
@@ -536,7 +677,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                         <span className={`form-pill form-pill--${badge.result}`}>
                           {badge.label}
                         </span>
-                        <span className="form-team">vs {opponent}</span>
+                        <span className="form-team">
+                          vs {opponentShort || opponent}
+                        </span>
                         <span className="form-score">{score}</span>
                       </li>
                     );
@@ -545,7 +688,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               </div>
 
               <div className="dashboard-modal__panel">
-                <h4>{selectedTeamAway} form</h4>
+                <h4>{selectedTeamAwayShort} form</h4>
                 <ul>
                   {selectedAwayRecent.length === 0 && (
                     <li>No finished matches yet.</li>
@@ -556,6 +699,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                       fixture.homeTeam === selectedTeamAway
                         ? fixture.awayTeam
                         : fixture.homeTeam;
+                    const opponentShort =
+                      fixture.homeTeam === selectedTeamAway
+                        ? fixture.awayShort
+                        : fixture.homeShort;
                     const score = `${fixture.homeGoals ?? "–"}-${
                       fixture.awayGoals ?? "–"
                     }`;
@@ -564,7 +711,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                         <span className={`form-pill form-pill--${badge.result}`}>
                           {badge.label}
                         </span>
-                        <span className="form-team">vs {opponent}</span>
+                        <span className="form-team">
+                          vs {opponentShort || opponent}
+                        </span>
                         <span className="form-score">{score}</span>
                       </li>
                     );
@@ -575,21 +724,21 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
             <div className="dashboard-modal__panel">
               <h4>Recent head-to-heads</h4>
-              <ul>
+              <ul className="head-to-head-list">
                 {selectedHeadToHead.length === 0 && (
                   <li>No recent head-to-head fixtures.</li>
                 )}
                 {selectedHeadToHead.map((fixture) => (
-                  <li key={fixture.id}>
-                    <span className="form-team">
-                      {fixture.homeTeam} vs {fixture.awayTeam}
-                    </span>
-                    <span className="form-score">
-                      {fixture.homeGoals ?? "–"}-{fixture.awayGoals ?? "–"}
-                    </span>
-                    <span className="form-meta">
-                      {timeUK(fixture.kickoff)}
-                    </span>
+                  <li key={fixture.id} className="head-to-head-item">
+                    <div className="head-to-head-row">
+                      <span className="form-team">
+                        {fixture.homeShort} vs {fixture.awayShort}
+                      </span>
+                      <span className="form-score">
+                        {fixture.homeGoals ?? "–"}-{fixture.awayGoals ?? "–"}
+                      </span>
+                    </div>
+                    <span className="form-meta">{timeUK(fixture.kickoff)}</span>
                   </li>
                 ))}
               </ul>
