@@ -210,8 +210,28 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
   }, [fixturesById]);
 
   const currentRound = React.useMemo(() => {
-    const earliestIncompleteRound = roundSummaries.find((round) =>
-      round.fixtures.some((fixture) => fixture.statusShort !== "FT")
+    const now = Date.now();
+    const detectionWindowEnd = now + 14 * 24 * 60 * 60 * 1000;
+
+    // Match the gameweek picker used by the prediction screen:
+    // select the earliest round with at least one fixture that is either live,
+    // or still to be played in the next two weeks.
+    const roundWithLiveOrUpcomingFixture = roundSummaries.find((round) =>
+      round.fixtures.some((fixture) => {
+        if (fixture.statusShort === "LIVE") return true;
+        if (fixture.statusShort !== "NS") return false;
+
+        const kickoffTime = new Date(fixture.kickoff).getTime();
+        return kickoffTime >= now && kickoffTime <= detectionWindowEnd;
+      })
+    );
+
+    if (roundWithLiveOrUpcomingFixture) {
+      return roundWithLiveOrUpcomingFixture;
+    }
+
+    const earliestIncompleteRound = roundSummaries.find(
+      (round) => round.latestKickoff >= now && round.fixtures.some((fixture) => fixture.statusShort !== "FT")
     );
 
     if (earliestIncompleteRound) {
