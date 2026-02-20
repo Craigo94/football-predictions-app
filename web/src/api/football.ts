@@ -236,6 +236,13 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
 
   console.log("[Football API] Detect next GW (range):", { dateFrom, dateTo });
 
+  // Include TIMED fixtures (most scheduled PL matches), plus matches already
+  // underway (IN_PLAY/PAUSED), so we don't skip the current weekend.
+  //
+  // Football-Data marks most upcoming fixtures as TIMED rather than SCHEDULED.
+  // If TIMED is missing here, matchday detection can jump ahead to a later
+  // round that still has SCHEDULED status entries.
+  //
   // Include fixtures that have already kicked off (IN_PLAY/PAUSED) so that
   // once a gameweek begins we still treat it as the "current" one until the
   // next scheduled matchday arrives. If we only fetch SCHEDULED games then as
@@ -244,7 +251,7 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
   const upcoming = await fetchMatches({
     dateFrom,
     dateTo,
-    status: "SCHEDULED,IN_PLAY,PAUSED",
+    status: "TIMED,SCHEDULED,IN_PLAY,PAUSED",
   });
 
   const matchdays = upcoming
