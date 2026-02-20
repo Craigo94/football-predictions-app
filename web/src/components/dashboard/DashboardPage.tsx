@@ -211,13 +211,28 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
   const currentRound = React.useMemo(() => {
     const now = Date.now();
+    const liveStatuses = new Set([
+      "1H",
+      "HT",
+      "2H",
+      "ET",
+      "BT",
+      "P",
+      "SUSP",
+      "INT",
+    ]);
     const active = roundSummaries.find((round) =>
-      round.fixtures.some((fixture) => fixture.statusShort !== "FT")
+      round.fixtures.some((fixture) => liveStatuses.has(fixture.statusShort))
     );
 
     if (active) return active;
 
-    const future = roundSummaries.find((round) => round.latestKickoff >= now);
+    const inWindow = roundSummaries.find(
+      (round) => round.earliestKickoff <= now && round.latestKickoff >= now
+    );
+    if (inWindow) return inWindow;
+
+    const future = roundSummaries.find((round) => round.earliestKickoff > now);
     return future ?? roundSummaries[roundSummaries.length - 1] ?? null;
   }, [roundSummaries]);
 
