@@ -210,30 +210,15 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
   }, [fixturesById]);
 
   const currentRound = React.useMemo(() => {
-    const now = Date.now();
-    const liveStatuses = new Set([
-      "1H",
-      "HT",
-      "2H",
-      "ET",
-      "BT",
-      "P",
-      "SUSP",
-      "INT",
-    ]);
-    const active = roundSummaries.find((round) =>
-      round.fixtures.some((fixture) => liveStatuses.has(fixture.statusShort))
+    const earliestIncompleteRound = roundSummaries.find((round) =>
+      round.fixtures.some((fixture) => fixture.statusShort !== "FT")
     );
 
-    if (active) return active;
+    if (earliestIncompleteRound) {
+      return earliestIncompleteRound;
+    }
 
-    const inWindow = roundSummaries.find(
-      (round) => round.earliestKickoff <= now && round.latestKickoff >= now
-    );
-    if (inWindow) return inWindow;
-
-    const future = roundSummaries.find((round) => round.earliestKickoff > now);
-    return future ?? roundSummaries[roundSummaries.length - 1] ?? null;
+    return roundSummaries[roundSummaries.length - 1] ?? null;
   }, [roundSummaries]);
 
   const fixturesForRound = React.useMemo(() => {
