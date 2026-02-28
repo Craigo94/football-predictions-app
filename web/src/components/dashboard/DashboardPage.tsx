@@ -140,8 +140,17 @@ const ResultBreakdownChart: React.FC<{
 };
 
 const DashboardPage: React.FC<Props> = ({ user }) => {
-  const { fixturesById, loadingFixtures, fixturesError, lastUpdated } =
-    useLiveFixtures();
+  const {
+    fixturesById,
+    loadingFixtures,
+    fixturesError,
+    lastUpdated,
+    notificationsSupported,
+    notificationPermission,
+    notificationsEnabled,
+    requestNotificationPermission,
+    disableNotifications,
+  } = useLiveFixtures();
   const [predictions, setPredictions] = React.useState<PredictionDoc[]>([]);
   const [predictionsLoading, setPredictionsLoading] = React.useState(true);
   const [predictionsError, setPredictionsError] = React.useState<string | null>(
@@ -372,6 +381,29 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
   const loading = loadingFixtures || predictionsLoading;
 
+  const notificationHelperText = !notificationsSupported
+    ? "This browser does not support notifications."
+    : notificationPermission === "denied"
+    ? "Notifications are blocked in browser settings for this device."
+    : notificationsEnabled
+    ? "You will get alerts for goals and full-time results."
+        : "Turn on notifications to get alerts even when the app is closed.";
+
+  const handleNotificationToggle = async () => {
+    if (!notificationsSupported) return;
+
+    if (notificationsEnabled) {
+      await disableNotifications();
+      return;
+    }
+
+    try {
+      await requestNotificationPermission();
+    } catch (error) {
+      console.error("Failed to enable notifications", error);
+    }
+  };
+
   const getTeamRecentFixtures = React.useCallback(
     (team: string) =>
       Object.values(fixturesById)
@@ -499,6 +531,21 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
           {fixturesError || predictionsError}
         </section>
       )}
+
+      <section className="card dashboard-alert dashboard-alert--notifications" role="status" aria-live="polite">
+        <div>
+          <strong>Live notifications</strong>
+          <p>{notificationHelperText}</p>
+        </div>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={handleNotificationToggle}
+          disabled={!notificationsSupported}
+        >
+          {notificationsEnabled ? "Turn off" : "Turn on"}
+        </button>
+      </section>
 
       <section className="dashboard-grid">
         <div className="card stat-card">

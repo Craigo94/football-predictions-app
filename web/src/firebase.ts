@@ -55,6 +55,7 @@ try {
   console.error(firebaseInitializationError.message);
 }
 
+export const firebaseApp: FirebaseApp = app as FirebaseApp;
 export const auth: Auth = app ? getAuth(app) : (null as unknown as Auth);
 export const db: Firestore = app ? getFirestore(app) : (null as unknown as Firestore);
 export const isFirebaseConfigured = Boolean(app && !firebaseInitializationError);
