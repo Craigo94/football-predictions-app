@@ -15,7 +15,7 @@ Add these variables in Vercel (Project Settings → Environment Variables) for t
 | `VITE_FIREBASE_APP_ID` | Firebase app ID |
 | `VITE_PRIMARY_ADMIN_EMAIL` | Optional. Email allowed to view the admin dashboard; other users are redirected. |
 | `VITE_FOOTBALL_SEASON` | Optional. Numeric season override; defaults to current PL season. |
-| `VITE_WEB_PUSH_PUBLIC_KEY` | Firebase Web Push certificate key (VAPID public key) for browser token registration. |
+| `VITE_FIREBASE_VAPID_KEY` | Firebase Web Push certificate key (VAPID public key) for browser token registration. |
 
 If any of the `VITE_FIREBASE_*` values are missing, the UI renders a configuration error before the router loads.
 
@@ -23,7 +23,8 @@ If any of the `VITE_FIREBASE_*` values are missing, the UI renders a configurati
 1. Create a Firebase project and enable **Authentication** and **Cloud Firestore**.
 2. Copy client config from Firebase Project Settings → Your apps and set all `VITE_FIREBASE_*` values.
 3. Ensure your Firestore rules support the app collections (`users`, predictions data, etc.).
-4. (Optional) Configure Firebase Cloud Messaging if you later want true push while the app is closed.
+4. Enable Firebase Cloud Messaging (free tier supported) and create a Web Push certificate key.
+5. Add `VITE_FIREBASE_VAPID_KEY` (public key) so browser devices can register push tokens.
 
 ## Local development
 Create `.env.local` next to `package.json`, then run:
@@ -33,11 +34,17 @@ npm install
 npm run dev
 ```
 
-## Free in-app live notifications
-Notifications now run fully in the client with no Vercel cron usage:
+## Free notifications (no paid services required)
 
-1. User taps **Turn on** on Dashboard and grants notification permission.
-2. The app checks live fixtures on the existing 2-minute polling interval.
-3. When a score changes or a match reaches full-time, the browser shows a notification.
+The app supports two free notification modes:
 
-> Note: these alerts are free and require no background jobs, but they only work while the app is open in a browser tab.
+1. **In-app alerts (default)**
+   - User taps **Turn on** and grants permission.
+   - The app polls fixtures every 2 minutes and shows alerts for goals/full-time while the app is open.
+
+2. **Background push (recommended for home-screen installs)**
+   - Add `VITE_FIREBASE_VAPID_KEY` and keep Firebase Cloud Messaging enabled.
+   - User token is saved to Firestore in `users.notificationTokens`.
+   - Call `/api/notifications/send-live-updates` from a free scheduler (for example GitHub Actions cron) to trigger FCM pushes when scores change.
+
+This keeps everything on free tiers (Firebase + your existing serverless endpoint) and works when the app is closed.
