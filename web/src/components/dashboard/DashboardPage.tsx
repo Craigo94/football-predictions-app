@@ -387,7 +387,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     ? "Notifications are blocked in browser settings for this device."
     : notificationsEnabled
     ? "You will get alerts for goals and full-time results."
-        : "Turn on notifications to get alerts even when the app is closed.";
+        : "Turn on notifications to get free in-app alerts while this tab is open.";
 
   const handleNotificationToggle = async () => {
     if (!notificationsSupported) return;

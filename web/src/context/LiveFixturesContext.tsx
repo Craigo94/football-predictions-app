@@ -1,22 +1,9 @@
 import React from "react";
 import {
-  arrayRemove,
-  arrayUnion,
-  doc,
-  setDoc,
-} from "firebase/firestore";
-import {
-  deleteToken,
-  getMessaging,
-  getToken,
-  isSupported,
-} from "firebase/messaging";
-import {
   getPremierLeagueMatchesForRange,
   type Fixture,
 } from "../api/football";
 import { CURRENT_SEASON } from "../config/football";
-import { db, firebaseApp } from "../firebase";
 
 interface LiveFixturesProviderProps {
   children: React.ReactNode;
@@ -49,9 +36,7 @@ const POLL_INTERVAL_MS = 120_000;
 const NOTIFICATION_PREF_KEY = "fp-live-notifications-enabled";
 
 const hasBaseNotificationSupport =
-  typeof window !== "undefined" &&
-  "Notification" in window &&
-  "serviceWorker" in navigator;
+  typeof window !== "undefined" && "Notification" in window;
 
 const getStoredPreference = () => {
   if (!hasBaseNotificationSupport) return false;
@@ -60,7 +45,6 @@ const getStoredPreference = () => {
 
 export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
   children,
-  userId,
 }) => {
   const [fixturesById, setFixturesById] = React.useState<Record<number, Fixture>>(
     {}
@@ -72,22 +56,12 @@ export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
   const [notificationPermission, setNotificationPermission] = React.useState<
     NotificationPermission | "unsupported"
   >(hasBaseNotificationSupport ? Notification.permission : "unsupported");
-  const [notificationsSupported, setNotificationsSupported] =
-    React.useState(hasBaseNotificationSupport);
+  const [notificationsSupported] = React.useState(hasBaseNotificationSupport);
+  const previousFixturesRef = React.useRef<Record<number, Fixture>>({});
+  const deliveredEventsRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     setNotificationsEnabled(getStoredPreference());
-
-    let cancelled = false;
-    if (hasBaseNotificationSupport) {
-      isSupported().then((supported) => {
-        if (!cancelled) setNotificationsSupported(supported);
-      });
-    }
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   React.useEffect(() => {
@@ -141,75 +115,80 @@ export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
     };
   }, []);
 
+  React.useEffect(() => {
+    const previousFixtures = previousFixturesRef.current;
+
+    if (!Object.keys(previousFixtures).length) {
+      previousFixturesRef.current = fixturesById;
+      return;
+    }
+
+    if (!notificationsEnabled || notificationPermission !== "granted") {
+      previousFixturesRef.current = fixturesById;
+      return;
+    }
+
+    Object.values(fixturesById).forEach((fixture) => {
+      const previous = previousFixtures[fixture.id];
+      if (!previous) return;
+
+      const scoreChanged =
+        fixture.homeGoals != null &&
+        fixture.awayGoals != null &&
+        (fixture.homeGoals !== previous.homeGoals ||
+          fixture.awayGoals !== previous.awayGoals);
+
+      if (scoreChanged) {
+        const scoreTag = `score-${fixture.id}-${fixture.homeGoals}-${fixture.awayGoals}`;
+        if (!deliveredEventsRef.current.has(scoreTag)) {
+          deliveredEventsRef.current.add(scoreTag);
+          new Notification(
+            `Goal: ${fixture.homeShort} ${fixture.homeGoals}–${fixture.awayGoals} ${fixture.awayShort}`,
+            {
+              body: `${fixture.homeTeam} vs ${fixture.awayTeam}`,
+              tag: scoreTag,
+              icon: "/128px-Soccer_ball.png",
+            }
+          );
+        }
+      }
+
+      const movedToFullTime =
+        previous.statusShort !== "FT" && fixture.statusShort === "FT";
+      if (movedToFullTime) {
+        const fullTimeTag = `fulltime-${fixture.id}`;
+        if (!deliveredEventsRef.current.has(fullTimeTag)) {
+          deliveredEventsRef.current.add(fullTimeTag);
+          new Notification(
+            `Full-time: ${fixture.homeShort} ${fixture.homeGoals ?? "-"}–${fixture.awayGoals ?? "-"} ${fixture.awayShort}`,
+            {
+              body: `${fixture.homeTeam} vs ${fixture.awayTeam}`,
+              tag: fullTimeTag,
+              icon: "/128px-Soccer_ball.png",
+            }
+          );
+        }
+      }
+    });
+
+    previousFixturesRef.current = fixturesById;
+  }, [fixturesById, notificationsEnabled, notificationPermission]);
+
   const requestNotificationPermission = React.useCallback(async () => {
     if (!notificationsSupported) return;
-
-    const vapidPublicKey = import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY;
-    if (!vapidPublicKey) {
-      throw new Error("Missing VITE_WEB_PUSH_PUBLIC_KEY env var.");
-    }
 
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
 
-    if (permission !== "granted") {
-      setNotificationsEnabled(false);
-      window.localStorage.setItem(NOTIFICATION_PREF_KEY, "false");
-      return;
-    }
-
-    const registration = await navigator.serviceWorker.ready;
-    const messaging = getMessaging(firebaseApp);
-    const token = await getToken(messaging, {
-      vapidKey: vapidPublicKey,
-      serviceWorkerRegistration: registration,
-    });
-
-    if (!token) {
-      throw new Error("Failed to create a push token for this device.");
-    }
-
-    await setDoc(
-      doc(db, "users", userId),
-      {
-        notificationTokens: arrayUnion(token),
-      },
-      { merge: true }
-    );
-
-    setNotificationsEnabled(true);
-    window.localStorage.setItem(NOTIFICATION_PREF_KEY, "true");
-  }, [notificationsSupported, userId]);
+    const enabled = permission === "granted";
+    setNotificationsEnabled(enabled);
+    window.localStorage.setItem(NOTIFICATION_PREF_KEY, enabled ? "true" : "false");
+  }, [notificationsSupported]);
 
   const disableNotifications = React.useCallback(async () => {
     setNotificationsEnabled(false);
-    if (!notificationsSupported) return;
-
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const messaging = getMessaging(firebaseApp);
-      const token = await getToken(messaging, {
-        vapidKey: import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY,
-        serviceWorkerRegistration: registration,
-      });
-
-      if (token) {
-        await setDoc(
-          doc(db, "users", userId),
-          {
-            notificationTokens: arrayRemove(token),
-          },
-          { merge: true }
-        );
-      }
-
-      await deleteToken(messaging);
-    } catch (error) {
-      console.error("Failed to disable notifications", error);
-    }
-
     window.localStorage.setItem(NOTIFICATION_PREF_KEY, "false");
-  }, [notificationsSupported, userId]);
+  }, []);
 
   const value: LiveFixturesContextValue = {
     fixturesById,
