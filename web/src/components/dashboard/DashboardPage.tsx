@@ -258,8 +258,14 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     );
   }, [currentRound]);
 
-  const nextFixture = fixturesForRound.find(
-    (fixture) => fixture.statusShort === "NS"
+  const firstFixture = fixturesForRound[0] ?? null;
+  const firstFixtureKickoffTime = firstFixture
+    ? new Date(firstFixture.kickoff).getTime()
+    : Number.NaN;
+  const firstFixtureStarted = Boolean(
+    firstFixture &&
+      (firstFixture.statusShort !== "NS" ||
+        (Number.isFinite(firstFixtureKickoffTime) && Date.now() >= firstFixtureKickoffTime))
   );
 
   const liveFixtures = fixturesForRound.filter(
@@ -359,11 +365,11 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       .map(([round, values]) => ({ round, ...values }));
   }, [fixturesById, predictions]);
 
-  const kickoffLabel = nextFixture
-    ? `${nextFixture.homeShort} vs ${nextFixture.awayShort} • ${timeUK(
-        nextFixture.kickoff
+  const kickoffLabel = firstFixture
+    ? `${firstFixture.homeShort} vs ${firstFixture.awayShort} • ${timeUK(
+        firstFixture.kickoff
       )}`
-    : "No upcoming fixture";
+    : "No fixtures loaded";
 
   const completionPercent = predictionStatus
     ? Math.round(
@@ -511,7 +517,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             <span className="hero-label">Prediction deadline</span>
             <span className="hero-value">{kickoffLabel}</span>
             <span className="hero-sub">
-              This is the deadline to submit your scores.
+              {firstFixtureStarted
+                ? "Deadline passed for new entries and amendments."
+                : "This is the deadline for new entries and amendments."}
             </span>
           </div>
           <Link className="hero-progress hero-progress--link" to="/predictions">
@@ -595,7 +603,8 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             {fixturesForRound.length === 0 && (
               <p className="dashboard-empty">No fixtures loaded yet.</p>
             )}
-            {fixturesForRound.map((fixture) => {
+            {!firstFixtureStarted && firstFixture && (() => {
+              const fixture = firstFixture;
               const hasScore =
                 fixture.homeGoals != null && fixture.awayGoals != null;
               const isLive =
@@ -652,7 +661,12 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                   <div className={scoreClassName}>{scoreLabel}</div>
                 </button>
               );
-            })}
+            })()}
+            {firstFixtureStarted && (
+              <p className="dashboard-empty">
+                Deadline passed for new entries and amendments.
+              </p>
+            )}
           </div>
         </div>
 
