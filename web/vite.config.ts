@@ -22,6 +22,9 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: "autoUpdate",
+        strategies: "injectManifest",
+        srcDir: "src",
+        filename: "sw.ts",
         includeAssets: [
           "/64px-Soccer_ball.png",
           "/128px-Soccer_ball.png",

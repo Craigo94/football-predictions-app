@@ -156,7 +156,7 @@ const App: React.FC = () => {
   return (
     <Router>
       {user ? (
-        <LiveFixturesProvider>
+        <LiveFixturesProvider userId={user.uid}>
           <div className="app-shell">
             <Navbar user={user} isAdmin={isAdmin} />
             <Routes>
