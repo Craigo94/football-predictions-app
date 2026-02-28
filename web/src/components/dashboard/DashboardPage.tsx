@@ -150,6 +150,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     notificationsEnabled,
     requestNotificationPermission,
     disableNotifications,
+    backgroundPushEnabled,
   } = useLiveFixtures();
   const [predictions, setPredictions] = React.useState<PredictionDoc[]>([]);
   const [predictionsLoading, setPredictionsLoading] = React.useState(true);
@@ -386,8 +387,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     : notificationPermission === "denied"
     ? "Notifications are blocked in browser settings for this device."
     : notificationsEnabled
-    ? "You will get alerts for goals and full-time results."
-        : "Turn on notifications to get free in-app alerts while this tab is open.";
+    ? backgroundPushEnabled
+      ? "Background push is active (works even when the app is closed)."
+      : "Live alerts are on while this app is open. Add VITE_FIREBASE_VAPID_KEY to enable background push."
+    : "Turn on notifications to get free alerts for goals and full-time results.";
 
   const handleNotificationToggle = async () => {
     if (!notificationsSupported) return;
