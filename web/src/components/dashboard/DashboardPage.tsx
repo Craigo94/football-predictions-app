@@ -603,8 +603,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             {fixturesForRound.length === 0 && (
               <p className="dashboard-empty">No fixtures loaded yet.</p>
             )}
-            {!firstFixtureStarted && firstFixture && (() => {
-              const fixture = firstFixture;
+            {fixturesForRound.map((fixture) => {
               const hasScore =
                 fixture.homeGoals != null && fixture.awayGoals != null;
               const isLive =
@@ -623,11 +622,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               const scoreClassName = `timeline-score${
                 hasScore ? "" : " timeline-score--upcoming"
               }`;
-              const subLabel = isLive
-                ? `${kickoffDate} • ${kickoffTime} • ${fixture.round}`
-                : isFinished
-                ? `${kickoffDate} • ${kickoffTime} • ${fixture.round}`
-                : `${kickoffDate} • ${kickoffTime} • ${fixture.round}`;
+              const subLabel = `${kickoffDate} • ${kickoffTime} • ${fixture.round}`;
 
               return (
                 <button
@@ -661,10 +656,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                   <div className={scoreClassName}>{scoreLabel}</div>
                 </button>
               );
-            })()}
+            })}
             {firstFixtureStarted && (
               <p className="dashboard-empty">
-                Deadline passed for new entries and amendments.
+                Predictions are now locked for this gameweek.
               </p>
             )}
           </div>
