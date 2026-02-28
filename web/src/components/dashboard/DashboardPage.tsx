@@ -389,7 +389,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     : notificationsEnabled
     ? backgroundPushEnabled
       ? "Background push is active (works even when the app is closed)."
-      : "Live alerts are on while this app is open. Add VITE_FIREBASE_VAPID_KEY to enable background push."
+      : "Live alerts are on while this app is open."
     : "Turn on notifications to get free alerts for goals and full-time results.";
 
   const handleNotificationToggle = async () => {
