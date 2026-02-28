@@ -52,6 +52,27 @@ const getStoredPreference = () => {
   return window.localStorage.getItem(NOTIFICATION_PREF_KEY) === "true";
 };
 
+const formatScoreLine = (fixture: Fixture) => {
+  const homeGoals = fixture.homeGoals ?? "-";
+  const awayGoals = fixture.awayGoals ?? "-";
+  return `${fixture.homeTeam} ${homeGoals} - ${awayGoals} ${fixture.awayTeam}`;
+};
+
+const resolveScoringTeam = (previous: Fixture, next: Fixture) => {
+  const homeIncreased =
+    previous.homeGoals != null &&
+    next.homeGoals != null &&
+    next.homeGoals > previous.homeGoals;
+  const awayIncreased =
+    previous.awayGoals != null &&
+    next.awayGoals != null &&
+    next.awayGoals > previous.awayGoals;
+
+  if (homeIncreased) return next.homeTeam;
+  if (awayIncreased) return next.awayTeam;
+  return "Goal update";
+};
+
 export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
   children,
   userId,
@@ -124,7 +145,7 @@ export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
     onMessageUnsubscribeRef.current?.();
     onMessageUnsubscribeRef.current = onMessage(messaging, (payload) => {
       const title = payload.notification?.title || "Live score update";
-      const body = payload.notification?.body || "A Premier League score just changed.";
+      const body = payload.notification?.body || "A score changed in a live match.";
       registration.showNotification(title, {
         body,
         icon: "/128px-Soccer_ball.png",
@@ -249,14 +270,12 @@ export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
         const scoreTag = `score-${fixture.id}-${fixture.homeGoals}-${fixture.awayGoals}`;
         if (!deliveredEventsRef.current.has(scoreTag)) {
           deliveredEventsRef.current.add(scoreTag);
-          new Notification(
-            `Goal: ${fixture.homeShort} ${fixture.homeGoals}–${fixture.awayGoals} ${fixture.awayShort}`,
-            {
-              body: `${fixture.homeTeam} vs ${fixture.awayTeam}`,
-              tag: scoreTag,
-              icon: "/128px-Soccer_ball.png",
-            }
-          );
+          const scoringTeam = resolveScoringTeam(previous, fixture);
+          new Notification(`${scoringTeam} scores!`, {
+            body: formatScoreLine(fixture),
+            tag: scoreTag,
+            icon: "/128px-Soccer_ball.png",
+          });
         }
       }
 
@@ -266,14 +285,11 @@ export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
         const fullTimeTag = `fulltime-${fixture.id}`;
         if (!deliveredEventsRef.current.has(fullTimeTag)) {
           deliveredEventsRef.current.add(fullTimeTag);
-          new Notification(
-            `Full-time: ${fixture.homeShort} ${fixture.homeGoals ?? "-"}–${fixture.awayGoals ?? "-"} ${fixture.awayShort}`,
-            {
-              body: `${fixture.homeTeam} vs ${fixture.awayTeam}`,
-              tag: fullTimeTag,
-              icon: "/128px-Soccer_ball.png",
-            }
-          );
+          new Notification("Full-time", {
+            body: formatScoreLine(fixture),
+            tag: fullTimeTag,
+            icon: "/128px-Soccer_ball.png",
+          });
         }
       }
     });
