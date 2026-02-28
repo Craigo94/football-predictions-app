@@ -106,6 +106,12 @@ const normalizeFixture = (raw) => ({
   awayGoals: raw.score?.fullTime?.away,
 });
 
+const formatScoreLine = (fixture) => {
+  const homeGoals = fixture.homeGoals ?? "-";
+  const awayGoals = fixture.awayGoals ?? "-";
+  return `${fixture.homeTeam} ${homeGoals} - ${awayGoals} ${fixture.awayTeam}`;
+};
+
 const isAuthValid = (request) => {
   const secret = process.env.CRON_SECRET;
   if (!secret) return true;
@@ -206,19 +212,33 @@ const changedEvents = (previous, next) => {
     next.awayGoals != null &&
     (next.homeGoals !== previous.homeGoals || next.awayGoals !== previous.awayGoals);
   if (scoreChanged) {
+    const scoreLine = formatScoreLine(next);
+    const homeIncreased =
+      previous.homeGoals != null && next.homeGoals > previous.homeGoals;
+    const awayIncreased =
+      previous.awayGoals != null && next.awayGoals > previous.awayGoals;
+    const scorer = homeIncreased
+      ? next.homeTeam
+      : awayIncreased
+        ? next.awayTeam
+        : "Goal update";
+
     events.push({
-      title: `Goal: ${next.homeTeam} ${next.homeGoals}–${next.awayGoals} ${next.awayTeam}`,
-      body: `${next.homeTeam} vs ${next.awayTeam}`,
+      title: `${scorer} scores!`,
+      body: scoreLine,
       tag: `score-${next.id}-${next.homeGoals}-${next.awayGoals}`,
+      url: `/dashboard?fixture=${next.id}`,
     });
   }
 
   const switchedToFt = previous.status !== "FINISHED" && next.status === "FINISHED";
   if (switchedToFt) {
+    const scoreLine = formatScoreLine(next);
     events.push({
-      title: `Full-time: ${next.homeTeam} ${next.homeGoals ?? "-"}–${next.awayGoals ?? "-"} ${next.awayTeam}`,
-      body: `${next.homeTeam} vs ${next.awayTeam}`,
+      title: "Full-time",
+      body: scoreLine,
       tag: `fulltime-${next.id}`,
+      url: `/dashboard?fixture=${next.id}`,
     });
   }
 
@@ -242,14 +262,23 @@ const sendFcmNotification = async ({ projectId, accessToken, token, event }) => 
             body: event.body,
           },
           webpush: {
+            headers: {
+              Urgency: "high",
+              TTL: "300",
+            },
             fcm_options: {
-              link: "/dashboard",
+              link: event.url || "/dashboard",
             },
             notification: {
               icon: "/128px-Soccer_ball.png",
               badge: "/64px-Soccer_ball.png",
               tag: event.tag,
+              renotify: true,
             },
+          },
+          data: {
+            tag: event.tag,
+            link: event.url || "/dashboard",
           },
         },
       }),
