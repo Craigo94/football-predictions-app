@@ -4,11 +4,5 @@
       "source": "/api/football/(.*)",
       "destination": "/api/football?path=$1"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/notifications/send-live-updates",
-      "schedule": "*/2 * * * *"
-    }
   ]
 }
