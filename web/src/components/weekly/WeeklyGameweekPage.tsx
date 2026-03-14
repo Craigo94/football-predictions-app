@@ -35,6 +35,13 @@ interface RoundData {
   leaderPoints: number;
 }
 
+const hasCompletedPrediction = (prediction?: PredictionDoc): boolean =>
+  Boolean(
+    prediction &&
+      prediction.predHome != null &&
+      prediction.predAway != null
+  );
+
 // Fixed column widths so sticky cols don't overlap
 const PLAYER_COL_WIDTH = 100;
 const PTS_COL_WIDTH = 60;
@@ -721,20 +728,32 @@ const WeeklyGameweekPage: React.FC = () => {
                 gap: 8,
               }}
             >
-              {roundData.weeklyRows.map((row) => (
-                <span
-                  key={row.userId}
-                  style={{
-                    padding: "5px 10px",
-                    borderRadius: 999,
-                    background: "rgba(148,163,184,0.14)",
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
-                >
-                  {row.userDisplayName}
-                </span>
-              ))}
+              {roundData.weeklyRows.map((row) => {
+                const completedPredictionCount = roundData.fixturesList.reduce(
+                  (count, fixture) => {
+                    const prediction =
+                      roundData.predsByUserFixture[`${row.userId}_${fixture.id}`];
+                    return hasCompletedPrediction(prediction) ? count + 1 : count;
+                  },
+                  0
+                );
+
+                return (
+                  <span
+                    key={row.userId}
+                    style={{
+                      padding: "5px 10px",
+                      borderRadius: 999,
+                      background: "rgba(148,163,184,0.14)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {row.userDisplayName} {completedPredictionCount}/
+                    {roundData.fixturesList.length}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
