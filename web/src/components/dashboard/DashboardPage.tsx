@@ -4,7 +4,7 @@ import type { User } from "firebase/auth";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
-import type { Fixture } from "../../api/football";
+import { getNextPremierLeagueGameweekFixtures, type Fixture } from "../../api/football";
 import { scorePrediction } from "../../utils/scoring";
 import { timeUK, UK_TZ } from "../../utils/dates";
 
@@ -18,13 +18,6 @@ interface PredictionDoc {
   predAway: number | null;
   kickoff: string;
   round: string;
-}
-
-interface RoundSummary {
-  round: string;
-  fixtures: Fixture[];
-  earliestKickoff: number;
-  latestKickoff: number;
 }
 
 const parseRoundNumber = (round: string) => {
@@ -160,6 +153,51 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
   const [selectedFixture, setSelectedFixture] = React.useState<Fixture | null>(
     null
   );
+  const [gameweekFixtures, setGameweekFixtures] = React.useState<Fixture[]>([]);
+  const [gameweekLoading, setGameweekLoading] = React.useState(true);
+  const [gameweekError, setGameweekError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const firstRun = { current: true } as { current: boolean };
+
+    const loadGameweek = async () => {
+      try {
+        if (firstRun.current) {
+          setGameweekLoading(true);
+        }
+        const fixtures = await getNextPremierLeagueGameweekFixtures();
+        if (cancelled) return;
+        fixtures.sort(
+          (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
+        );
+        setGameweekFixtures(fixtures);
+        setGameweekError(null);
+      } catch (err: unknown) {
+        console.error("Failed to load dashboard gameweek fixtures", err);
+        if (!cancelled) {
+          setGameweekError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load the next gameweek fixtures."
+          );
+        }
+      } finally {
+        if (!cancelled && firstRun.current) {
+          setGameweekLoading(false);
+          firstRun.current = false;
+        }
+      }
+    };
+
+    loadGameweek();
+    const intervalId = window.setInterval(loadGameweek, 60_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   React.useEffect(() => {
     const ref = query(collection(db, "predictions"), where("userId", "==", user.uid));
@@ -190,73 +228,15 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     return () => unsub();
   }, [user.uid]);
 
-  const roundSummaries = React.useMemo(() => {
-    const grouped: Record<string, RoundSummary> = {};
-    Object.values(fixturesById).forEach((fixture) => {
-      if (!fixture.round) return;
-      if (!grouped[fixture.round]) {
-        grouped[fixture.round] = {
-          round: fixture.round,
-          fixtures: [],
-          earliestKickoff: Number.POSITIVE_INFINITY,
-          latestKickoff: 0,
-        };
-      }
-      const kickoffTime = new Date(fixture.kickoff).getTime();
-      grouped[fixture.round].fixtures.push(fixture);
-      grouped[fixture.round].earliestKickoff = Math.min(
-        grouped[fixture.round].earliestKickoff,
-        kickoffTime
-      );
-      grouped[fixture.round].latestKickoff = Math.max(
-        grouped[fixture.round].latestKickoff,
-        kickoffTime
-      );
-    });
-
-    return Object.values(grouped).sort(
-      (a, b) => a.earliestKickoff - b.earliestKickoff
-    );
-  }, [fixturesById]);
-
-  const currentRound = React.useMemo(() => {
-    const now = Date.now();
-    const detectionWindowEnd = now + 14 * 24 * 60 * 60 * 1000;
-
-    // Match the gameweek picker used by the prediction screen:
-    // select the earliest round with at least one fixture that is either live,
-    // or still to be played in the next two weeks.
-    const roundWithLiveOrUpcomingFixture = roundSummaries.find((round) =>
-      round.fixtures.some((fixture) => {
-        if (fixture.statusShort === "LIVE") return true;
-        if (fixture.statusShort !== "NS") return false;
-
-        const kickoffTime = new Date(fixture.kickoff).getTime();
-        return kickoffTime >= now && kickoffTime <= detectionWindowEnd;
-      })
-    );
-
-    if (roundWithLiveOrUpcomingFixture) {
-      return roundWithLiveOrUpcomingFixture;
-    }
-
-    const earliestIncompleteRound = roundSummaries.find(
-      (round) => round.latestKickoff >= now && round.fixtures.some((fixture) => fixture.statusShort !== "FT")
-    );
-
-    if (earliestIncompleteRound) {
-      return earliestIncompleteRound;
-    }
-
-    return roundSummaries[roundSummaries.length - 1] ?? null;
-  }, [roundSummaries]);
-
   const fixturesForRound = React.useMemo(() => {
-    if (!currentRound) return [] as Fixture[];
-    return [...currentRound.fixtures].sort(
+    return [...gameweekFixtures]
+      .map((fixture) => fixturesById[fixture.id] ?? fixture)
+      .sort(
       (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
     );
-  }, [currentRound]);
+  }, [fixturesById, gameweekFixtures]);
+
+  const currentRoundLabel = fixturesForRound[0]?.round ?? null;
 
   const firstFixture = fixturesForRound[0] ?? null;
   const firstFixtureKickoffTime = firstFixture
@@ -276,19 +256,18 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
   );
 
   const predictionStatus = React.useMemo(() => {
-    if (!currentRound) return null;
-    const roundPredictions = predictions.filter(
-      (prediction) => prediction.round === currentRound.round
-    );
-    const predictedCount = roundPredictions.filter(
+    if (!fixturesForRound.length) return null;
+    const fixtureIds = new Set(fixturesForRound.map((fixture) => fixture.id));
+    const predictedCount = predictions.filter(
       (prediction) => prediction.predHome != null && prediction.predAway != null
+        && fixtureIds.has(prediction.fixtureId)
     ).length;
 
     return {
       predictedCount,
-      total: fixturesForRound.length,
+      total: fixtureIds.size,
     };
-  }, [currentRound, fixturesForRound.length, predictions]);
+  }, [fixturesForRound, predictions]);
 
   const trendValues = React.useMemo(() => {
     if (!predictions.length) return [] as number[];
@@ -386,7 +365,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       })
     : "–";
 
-  const loading = loadingFixtures || predictionsLoading;
+  const loading = loadingFixtures || predictionsLoading || gameweekLoading;
 
   const notificationHelperText = !notificationsSupported
     ? "This browser does not support notifications."
@@ -503,9 +482,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             Track live action, keep predictions up to date, and see how the
             week is unfolding in real time.
           </p>
-          {currentRound && (
+          {currentRoundLabel && (
             <div className="dashboard-hero__meta">
-              <span className="pill">{currentRound.round}</span>
+              <span className="pill">{currentRoundLabel}</span>
               <span className="pill pill--ghost">
                 Live update {lastUpdatedLabel}
               </span>
@@ -537,9 +516,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         </div>
       </section>
 
-      {(fixturesError || predictionsError) && (
+      {(fixturesError || predictionsError || gameweekError) && (
         <section className="card dashboard-alert" role="alert">
-          {fixturesError || predictionsError}
+          {gameweekError || fixturesError || predictionsError}
         </section>
       )}
 
