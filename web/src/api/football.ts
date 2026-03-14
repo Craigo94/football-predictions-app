@@ -254,15 +254,18 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
     status: "TIMED,SCHEDULED,IN_PLAY,PAUSED",
   });
 
-  const matchdays = upcoming
-    .map((m) => m.matchday)
-    .filter((md) => typeof md === "number") as number[];
+  const nextKickoffMatch = [...upcoming]
+    .filter((m) => typeof m.matchday === "number")
+    .sort(
+      (a, b) =>
+        new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime()
+    )[0];
 
-  if (!matchdays.length) {
+  if (!nextKickoffMatch || typeof nextKickoffMatch.matchday !== "number") {
     throw new Error("No upcoming PL matchdays found in the detection window.");
   }
 
-  const nextMatchday = Math.min(...matchdays);
+  const nextMatchday = nextKickoffMatch.matchday;
   const roundLabel = `Matchday ${nextMatchday}`;
 
   console.log("[Football API] Fetch full GW:", {
@@ -279,7 +282,27 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
     throw new Error("No matches returned for the detected matchday.");
   }
 
-  return matches.map(
+  // Matchdays can occasionally contain a much older rearranged fixture.
+  // Keep only fixtures close to the first upcoming kickoff for this matchday
+  // so "next gameweek" doesn't get anchored to stale dates.
+  const firstUpcomingKickoff = [...upcoming]
+    .filter((m) => m.matchday === nextMatchday)
+    .sort(
+      (a, b) =>
+        new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime()
+    )[0]?.utcDate;
+
+  const STALE_FIXTURE_BUFFER_MS = 3 * 24 * 60 * 60 * 1000;
+  const filteredMatches = firstUpcomingKickoff
+    ? matches.filter((m) => {
+        const kickoff = new Date(m.utcDate).getTime();
+        const cutoff =
+          new Date(firstUpcomingKickoff).getTime() - STALE_FIXTURE_BUFFER_MS;
+        return kickoff >= cutoff;
+      })
+    : matches;
+
+  return filteredMatches.map(
     mapApiMatchToFixture(roundLabel, nextMatchday, CURRENT_SEASON)
   );
 }
