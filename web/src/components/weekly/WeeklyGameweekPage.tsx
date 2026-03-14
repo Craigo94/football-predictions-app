@@ -708,6 +708,36 @@ const WeeklyGameweekPage: React.FC = () => {
         <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
           Predictions stay hidden until the first fixture of the gameweek starts.
         </p>
+        {roundData.weeklyRows.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
+              Players who have submitted predictions:
+            </p>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
+              {roundData.weeklyRows.map((row) => (
+                <span
+                  key={row.userId}
+                  style={{
+                    padding: "5px 10px",
+                    borderRadius: 999,
+                    background: "rgba(148,163,184,0.14)",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {row.userDisplayName}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         {kickoffLabelText && (
           <p
             style={{
