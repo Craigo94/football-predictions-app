@@ -256,10 +256,16 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     (fixture) => isFixtureFinished(fixture)
   );
   const postponedFixtures = fixturesForRound.filter((fixture) => isFixturePostponed(fixture));
+  const countableFixturesForRound = React.useMemo(
+    () => fixturesForRound.filter((fixture) => !isFixturePostponed(fixture)),
+    [fixturesForRound]
+  );
 
   const predictionStatus = React.useMemo(() => {
-    if (!fixturesForRound.length) return null;
-    const fixtureIds = new Set(fixturesForRound.map((fixture) => fixture.id));
+    if (!countableFixturesForRound.length) return null;
+    const fixtureIds = new Set(
+      countableFixturesForRound.map((fixture) => fixture.id)
+    );
     const predictedCount = predictions.filter(
       (prediction) => prediction.predHome != null && prediction.predAway != null
         && fixtureIds.has(prediction.fixtureId)
@@ -269,7 +275,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       predictedCount,
       total: fixtureIds.size,
     };
-  }, [fixturesForRound, predictions]);
+  }, [countableFixturesForRound, predictions]);
 
   const trendValues = React.useMemo(() => {
     if (!predictions.length) return [] as number[];

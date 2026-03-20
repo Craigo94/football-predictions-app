@@ -7,6 +7,7 @@ import {
   type Fixture,
 } from "../../api/football";
 import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
+import { isFixturePostponed } from "../../utils/fixtures";
 
 interface Props {
   user: User;
@@ -185,6 +186,10 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
           // We don't have API data for this fixture yet
           allFinished = false;
           pendingCount += 1;
+          continue;
+        }
+
+        if (isFixturePostponed(fixture)) {
           continue;
         }
 
