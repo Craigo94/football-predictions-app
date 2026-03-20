@@ -15,6 +15,7 @@ import FixtureCard, { type Prediction } from "./FixtureCard";
 import { scorePrediction } from "../../utils/scoring";
 import { formatFirstName } from "../../utils/displayName";
 import { ymdUK, dayHeading } from "../../utils/dates";
+import { hasFixtureStarted, isFixturePostponed } from "../../utils/fixtures";
 
 interface Props {
   user: User;
@@ -216,22 +217,20 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
   // Lock all predictions once the first fixture of the gameweek kicks off
   const gameweekLocked = React.useMemo(() => {
     if (!fixtures.length) return false;
-    const firstFixture = fixtures[0];
-    const kickoffTime = new Date(firstFixture.kickoff).getTime();
-    const startedByTime = Number.isFinite(kickoffTime) && Date.now() >= kickoffTime;
-    const startedByStatus = firstFixture.statusShort !== "NS";
-    return startedByStatus || startedByTime;
+    return hasFixtureStarted(fixtures[0]);
   }, [fixtures]);
 
   const completion = React.useMemo(() => {
     const missing = fixtures.filter((f) => {
+      if (isFixturePostponed(f)) return false;
       const p = predictions[f.id];
       return !(p && p.predHome !== null && p.predAway !== null);
     });
+    const requiredFixtures = fixtures.filter((fixture) => !isFixturePostponed(fixture));
     return {
       missing,
-      completed: fixtures.length - missing.length,
-      total: fixtures.length,
+      completed: requiredFixtures.length - missing.length,
+      total: requiredFixtures.length,
     };
   }, [fixtures, predictions]);
 

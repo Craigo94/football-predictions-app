@@ -4,10 +4,14 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
 import { scorePrediction } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
-import type { Fixture } from "../../api/football";
+import {
+  getNextPremierLeagueGameweekFixtures,
+  type Fixture,
+} from "../../api/football";
 import { formatFirstName } from "../../utils/displayName";
 import { useUsers } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
+import { hasFixtureStarted, isFixtureFinished } from "../../utils/fixtures";
 
 interface PredictionDoc {
   userId: string;
@@ -58,6 +62,11 @@ const WeeklyGameweekPage: React.FC = () => {
     null
   );
   const [isCompactLayout, setIsCompactLayout] = React.useState(false);
+  const [currentGameweekFixtures, setCurrentGameweekFixtures] = React.useState<
+    Fixture[]
+  >([]);
+  const [currentGameweekLoading, setCurrentGameweekLoading] = React.useState(true);
+  const [currentGameweekError, setCurrentGameweekError] = React.useState<string | null>(null);
 
   // Use narrower sticky columns on smaller screens so fixture columns stay visible
   React.useEffect(() => {
@@ -120,28 +129,70 @@ const WeeklyGameweekPage: React.FC = () => {
     return () => unsub();
   }, []);
 
-  const roundsOrdered = React.useMemo(() => {
-    if (!predictions.length) return [] as { round: string; latestKickoff: number }[];
+  React.useEffect(() => {
+    let cancelled = false;
+    const firstRun = { current: true } as { current: boolean };
 
-    const byRound: Record<string, { round: string; latestKickoff: number }> = {};
+    const loadCurrentGameweek = async () => {
+      try {
+        if (firstRun.current) {
+          setCurrentGameweekLoading(true);
+        }
 
-    for (const p of predictions) {
-      const t = new Date(p.kickoff).getTime();
-      if (isNaN(t)) continue;
-      if (!byRound[p.round] || t > byRound[p.round].latestKickoff) {
-        byRound[p.round] = { round: p.round, latestKickoff: t };
+        const fixtures = await getNextPremierLeagueGameweekFixtures();
+        if (cancelled) return;
+
+        fixtures.sort(
+          (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
+        );
+        setCurrentGameweekFixtures(fixtures);
+        setCurrentGameweekError(null);
+      } catch (err: unknown) {
+        console.error("Failed to load weekly gameweek fixtures", err);
+        if (!cancelled) {
+          setCurrentGameweekError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load the current gameweek fixtures."
+          );
+        }
+      } finally {
+        if (!cancelled && firstRun.current) {
+          setCurrentGameweekLoading(false);
+          firstRun.current = false;
+        }
       }
-    }
+    };
 
-    const rounds = Object.values(byRound);
-    rounds.sort((a, b) => a.latestKickoff - b.latestKickoff);
-    return rounds;
-  }, [predictions]);
+    loadCurrentGameweek();
+    const intervalId = window.setInterval(loadCurrentGameweek, 60_000);
 
-  const currentRound =
-    roundsOrdered.length > 0 ? roundsOrdered[roundsOrdered.length - 1].round : null;
-  const previousRound =
-    roundsOrdered.length > 1 ? roundsOrdered[roundsOrdered.length - 2].round : null;
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const currentRound = currentGameweekFixtures[0]?.round ?? null;
+
+  const previousRound = React.useMemo(() => {
+    const latestKickoffByRound = new Map<string, number>();
+    predictions.forEach((prediction) => {
+      if (!prediction.round || prediction.round === currentRound) return;
+
+      const kickoffTime = new Date(prediction.kickoff).getTime();
+      if (!Number.isFinite(kickoffTime)) return;
+
+      const previousLatest = latestKickoffByRound.get(prediction.round) ?? Number.NEGATIVE_INFINITY;
+      if (kickoffTime > previousLatest) {
+        latestKickoffByRound.set(prediction.round, kickoffTime);
+      }
+    });
+
+    return Array.from(latestKickoffByRound.entries()).sort(
+      (a, b) => a[1] - b[1]
+    ).at(-1)?.[0] ?? null;
+  }, [currentRound, predictions]);
 
   const buildRoundData = React.useCallback(
     (roundName: string | null): RoundData => {
@@ -156,8 +207,13 @@ const WeeklyGameweekPage: React.FC = () => {
         };
       }
 
+      const currentRoundFixtureIds = new Set(currentGameweekFixtures.map((fixture) => fixture.id));
       const fixturesList = Object.values(fixturesById)
-        .filter((f) => f.round === roundName)
+        .filter((f) =>
+          roundName === currentRound
+            ? currentRoundFixtureIds.has(f.id)
+            : f.round === roundName
+        )
         .sort(
           (a, b) =>
             new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
@@ -170,7 +226,7 @@ const WeeklyGameweekPage: React.FC = () => {
         : null;
 
       const revealPredictions = fixturesList.some(
-        (f) => f.statusShort !== "NS"
+        (f) => hasFixtureStarted(f)
       );
 
       const roundPreds = predictions.filter((p) => p.round === roundName);
@@ -222,7 +278,7 @@ const WeeklyGameweekPage: React.FC = () => {
         leaderPoints,
       };
     },
-    [fixturesById, predictions]
+    [currentGameweekFixtures, currentRound, fixturesById, predictions]
   );
 
   const currentRoundData = React.useMemo(
@@ -234,8 +290,9 @@ const WeeklyGameweekPage: React.FC = () => {
     [buildRoundData, previousRound]
   );
 
-  const loading = predictionsLoading || loadingFixtures;
-  const combinedError = predictionsError || fixturesError || usersError;
+  const loading = predictionsLoading || loadingFixtures || currentGameweekLoading;
+  const combinedError =
+    predictionsError || fixturesError || currentGameweekError || usersError;
 
   if (loading) {
     return <div>Loading weekly gameweek view…</div>;
@@ -287,7 +344,7 @@ const WeeklyGameweekPage: React.FC = () => {
 
   const isRoundComplete = (roundData: RoundData) =>
     roundData.fixturesList.length > 0 &&
-    roundData.fixturesList.every((f) => f.statusShort === "FT");
+    roundData.fixturesList.every((f) => isFixtureFinished(f));
 
   const renderRoundTable = (
     title: string,
