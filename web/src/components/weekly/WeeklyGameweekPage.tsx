@@ -11,7 +11,7 @@ import {
 import { formatFirstName } from "../../utils/displayName";
 import { useUsers } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
-import { hasFixtureStarted, isFixtureFinished } from "../../utils/fixtures";
+import { hasFixtureStarted, isFixtureFinished, isFixturePostponed } from "../../utils/fixtures";
 
 interface PredictionDoc {
   userId: string;
@@ -786,7 +786,10 @@ const WeeklyGameweekPage: React.FC = () => {
               }}
             >
               {roundData.weeklyRows.map((row) => {
-                const completedPredictionCount = roundData.fixturesList.reduce(
+                const countableFixtures = roundData.fixturesList.filter(
+                  (fixture) => !isFixturePostponed(fixture)
+                );
+                const completedPredictionCount = countableFixtures.reduce(
                   (count, fixture) => {
                     const prediction =
                       roundData.predsByUserFixture[`${row.userId}_${fixture.id}`];
@@ -807,7 +810,7 @@ const WeeklyGameweekPage: React.FC = () => {
                     }}
                   >
                     {row.userDisplayName} {completedPredictionCount}/
-                    {roundData.fixturesList.length}
+                    {countableFixtures.length}
                   </span>
                 );
               })}
