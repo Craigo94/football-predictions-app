@@ -7,6 +7,14 @@ import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import { getNextPremierLeagueGameweekFixtures, type Fixture } from "../../api/football";
 import { scorePrediction } from "../../utils/scoring";
 import { timeUK, UK_TZ } from "../../utils/dates";
+import {
+  getFixtureStatusLabel,
+  hasFixtureStarted,
+  hasFixtureScore,
+  isFixtureFinished,
+  isFixtureLive,
+  isFixturePostponed,
+} from "../../utils/fixtures";
 
 interface Props {
   user: User;
@@ -239,21 +247,15 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
   const currentRoundLabel = fixturesForRound[0]?.round ?? null;
 
   const firstFixture = fixturesForRound[0] ?? null;
-  const firstFixtureKickoffTime = firstFixture
-    ? new Date(firstFixture.kickoff).getTime()
-    : Number.NaN;
-  const firstFixtureStarted = Boolean(
-    firstFixture &&
-      (firstFixture.statusShort !== "NS" ||
-        (Number.isFinite(firstFixtureKickoffTime) && Date.now() >= firstFixtureKickoffTime))
-  );
+  const firstFixtureStarted = Boolean(firstFixture && hasFixtureStarted(firstFixture));
 
   const liveFixtures = fixturesForRound.filter(
-    (fixture) => fixture.statusShort !== "NS" && fixture.statusShort !== "FT"
+    (fixture) => isFixtureLive(fixture)
   );
   const finishedFixtures = fixturesForRound.filter(
-    (fixture) => fixture.statusShort === "FT"
+    (fixture) => isFixtureFinished(fixture)
   );
+  const postponedFixtures = fixturesForRound.filter((fixture) => isFixturePostponed(fixture));
 
   const predictionStatus = React.useMemo(() => {
     if (!fixturesForRound.length) return null;
@@ -562,6 +564,18 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             <span className="stat-subtext">Results locked in</span>
           </div>
         </div>
+        <div className="card stat-card">
+          <div className="stat-card__header">
+            <span className="stat-label">Postponed</span>
+            <span className="stat-pill pill--ghost">PST</span>
+          </div>
+          <div className="stat-card__body">
+            <span className="stat-value">
+              {loading ? "…" : postponedFixtures.length}
+            </span>
+            <span className="stat-subtext">Matches moved to a later date</span>
+          </div>
+        </div>
       </section>
 
       <section className="dashboard-panels">
@@ -583,12 +597,13 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               <p className="dashboard-empty">No fixtures loaded yet.</p>
             )}
             {fixturesForRound.map((fixture) => {
-              const hasScore =
-                fixture.homeGoals != null && fixture.awayGoals != null;
-              const isLive =
-                fixture.statusShort !== "NS" && fixture.statusShort !== "FT" && hasScore;
-              const isFinished = fixture.statusShort === "FT";
-              const statusLabel = isLive
+              const hasScore = hasFixtureScore(fixture);
+              const isLive = isFixtureLive(fixture) && hasScore;
+              const isFinished = isFixtureFinished(fixture);
+              const isPostponed = isFixturePostponed(fixture);
+              const statusLabel = isPostponed
+                ? "PST"
+                : isLive
                 ? "LIVE"
                 : isFinished
                 ? "FT"
@@ -597,7 +612,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               const kickoffDate = formatFixtureDate(fixture.kickoff);
               const scoreLabel = hasScore
                 ? `${fixture.homeGoals}–${fixture.awayGoals}`
-                : "Scheduled";
+                : getFixtureStatusLabel(fixture, kickoffTime);
               const scoreClassName = `timeline-score${
                 hasScore ? "" : " timeline-score--upcoming"
               }`;

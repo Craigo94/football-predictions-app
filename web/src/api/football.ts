@@ -31,6 +31,9 @@ interface ApiMatchResponse {
   error?: unknown;
 }
 
+const CURRENT_GAMEWEEK_STATUSES = "TIMED,SCHEDULED,IN_PLAY,PAUSED";
+const STALE_FIXTURE_BUFFER_MS = 3 * 24 * 60 * 60 * 1000;
+
 interface ApiStandingsTeam {
   id: number;
   name?: string;
@@ -251,7 +254,7 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
   const upcoming = await fetchMatches({
     dateFrom,
     dateTo,
-    status: "TIMED,SCHEDULED,IN_PLAY,PAUSED",
+    status: CURRENT_GAMEWEEK_STATUSES,
   });
 
   const nextKickoffMatch = [...upcoming]
@@ -292,7 +295,6 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
         new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime()
     )[0]?.utcDate;
 
-  const STALE_FIXTURE_BUFFER_MS = 3 * 24 * 60 * 60 * 1000;
   const filteredMatches = firstUpcomingKickoff
     ? matches.filter((m) => {
         const kickoff = new Date(m.utcDate).getTime();

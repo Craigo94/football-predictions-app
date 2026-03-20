@@ -4,6 +4,14 @@ import PredictionStatusPill from "./PredictionStatusPill";
 import type { Fixture } from "../../api/football";
 import { scorePrediction } from "../../utils/scoring";
 import { timeUK } from "../../utils/dates";
+import {
+  getFixtureStatusLabel,
+  hasFixtureScore,
+  isFixtureFinished,
+  isFixtureLive,
+  isFixturePostponed,
+  isFixtureUpcoming,
+} from "../../utils/fixtures";
 
 export interface Prediction {
   predHome: number | null;
@@ -33,10 +41,11 @@ const FixtureCard: React.FC<Props> = ({
   const predHome = prediction?.predHome ?? null;
   const predAway = prediction?.predAway ?? null;
 
-  const hasActual = fixture.homeGoals != null && fixture.awayGoals != null;
-  const isLive    = fixture.statusShort !== "NS" && fixture.statusShort !== "FT" && hasActual;
-  const isFT      = fixture.statusShort === "FT";
-  const preKO     = fixture.statusShort === "NS";
+  const hasActual = hasFixtureScore(fixture);
+  const isLive = isFixtureLive(fixture) && hasActual;
+  const isFT = isFixtureFinished(fixture);
+  const isPostponed = isFixturePostponed(fixture);
+  const preKO = isFixtureUpcoming(fixture);
   const canEdit   = preKO && !gameweekLocked;
 
   const hasPrediction = predHome != null && predAway != null;
@@ -105,7 +114,7 @@ const FixtureCard: React.FC<Props> = ({
       ? "rgba(239, 68, 68, 0.6)"
       : "var(--card-border)";
 
-  const badge = isLive ? "LIVE" : isFT ? "Full time" : `KO ${ko}`;
+  const badge = getFixtureStatusLabel(fixture, ko);
   const leagueParams = new URLSearchParams({
     home: fixture.homeTeam,
     away: fixture.awayTeam,
@@ -123,7 +132,7 @@ const FixtureCard: React.FC<Props> = ({
           <span className="fx-tla">{fixture.homeShort}</span>
         </div>
 
-        <div className={`fx-badge ${isLive ? "fx-badge--live" : isFT ? "fx-badge--ft" : "fx-badge--ko"}`}>
+        <div className={`fx-badge ${isLive ? "fx-badge--live" : isFT || isPostponed ? "fx-badge--ft" : "fx-badge--ko"}`}>
           {badge}
         </div>
 
@@ -212,6 +221,14 @@ const FixtureCard: React.FC<Props> = ({
       {!hasPrediction && (
         <div className="fx-meta fx-meta--required" style={{ marginTop: 10 }}>
           <span className="fx-required-pill">Required</span>
+        </div>
+      )}
+
+      {isPostponed && (
+        <div className="fx-meta" style={{ marginTop: 10, justifyContent: "center" }}>
+          <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+            This match has been postponed and will be rescheduled.
+          </span>
         </div>
       )}
     </div>
