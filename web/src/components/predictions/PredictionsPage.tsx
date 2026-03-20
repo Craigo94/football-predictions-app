@@ -213,16 +213,6 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
       });
   }, [fixtures]);
 
-  // Lock all predictions once the first fixture of the gameweek kicks off
-  const gameweekLocked = React.useMemo(() => {
-    if (!fixtures.length) return false;
-    const firstFixture = fixtures[0];
-    const kickoffTime = new Date(firstFixture.kickoff).getTime();
-    const startedByTime = Number.isFinite(kickoffTime) && Date.now() >= kickoffTime;
-    const startedByStatus = firstFixture.statusShort !== "NS";
-    return startedByStatus || startedByTime;
-  }, [fixtures]);
-
   const completion = React.useMemo(() => {
     const missing = fixtures.filter((f) => {
       const p = predictions[f.id];
@@ -322,7 +312,7 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
             <div>
               <strong>Predictions needed</strong>
               <p style={{ margin: "4px 0 0", fontSize: 13, color: "#334155" }}>
-                {completion.missing.length} of {completion.total} fixtures still need scores before kickoff.
+                {completion.missing.length} of {completion.total} fixtures still need scores before their kickoff.
               </p>
             </div>
           </div>
@@ -334,8 +324,8 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
         <div className="gw-header-top">
           <div>
             <p className="gw-header-text">
-              Predict the next Premier League matches. Once games kick off,
-              predictions lock.
+              Predict the next Premier League matches. Each fixture stays
+              editable until its own kickoff time.
             </p>
             {fixtures[0] && <p className="gw-round-label">{fixtures[0].round}</p>}
           </div>
@@ -366,7 +356,6 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
                 fixture={f}
                 prediction={predictions[f.id] || null}
                 onChangePrediction={(p) => handleChangePrediction(f, p)}
-                gameweekLocked={gameweekLocked}
                 required={completion.missing.some((m) => m.id === f.id)}
               />
             ))}
@@ -383,7 +372,7 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
             <div>
               <strong>Predictions needed</strong>
               <p style={{ margin: "4px 0 0", fontSize: 13, color: "#334155" }}>
-                {completion.missing.length} of {completion.total} fixtures still need scores before kickoff.
+                {completion.missing.length} of {completion.total} fixtures still need scores before their kickoff.
               </p>
             </div>
           </div>

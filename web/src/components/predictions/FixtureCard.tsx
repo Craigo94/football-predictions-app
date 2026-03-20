@@ -15,7 +15,6 @@ interface Props {
   fixture: Fixture;
   prediction: Prediction | null;
   onChangePrediction: (p: Prediction) => void;
-  gameweekLocked: boolean;
   required?: boolean;
 }
 
@@ -23,7 +22,6 @@ const FixtureCard: React.FC<Props> = ({
   fixture,
   prediction,
   onChangePrediction,
-  gameweekLocked,
   required = false,
 }) => {
   const ko = timeUK(fixture.kickoff);
@@ -34,10 +32,14 @@ const FixtureCard: React.FC<Props> = ({
   const predAway = prediction?.predAway ?? null;
 
   const hasActual = fixture.homeGoals != null && fixture.awayGoals != null;
-  const isLive    = fixture.statusShort !== "NS" && fixture.statusShort !== "FT" && hasActual;
+  const kickoffTime = new Date(fixture.kickoff).getTime();
+  const hasStartedByTime = Number.isFinite(kickoffTime) && Date.now() >= kickoffTime;
+  const isLive    =
+    fixture.statusShort === "LIVE" ||
+    (hasStartedByTime && fixture.statusShort !== "FT" && !hasActual);
   const isFT      = fixture.statusShort === "FT";
-  const preKO     = fixture.statusShort === "NS";
-  const canEdit   = preKO && !gameweekLocked;
+  const preKO     = !hasStartedByTime && !isFT && fixture.statusShort !== "LIVE";
+  const canEdit   = preKO;
 
   const hasPrediction = predHome != null && predAway != null;
 
@@ -83,7 +85,7 @@ const FixtureCard: React.FC<Props> = ({
     }
   };
 
-  // Close any open editor if the fixture or gameweek locks while editing
+  // Close any open editor if the fixture locks while editing
   React.useEffect(() => {
     if (editing && !canEdit) {
       setEditing(false);
