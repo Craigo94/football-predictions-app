@@ -247,27 +247,10 @@ const WeeklyGameweekPage: React.FC = () => {
     [predictions]
   );
 
-  const currentRound = React.useMemo(() => {
-    if (detectedCurrentRound && predictionRounds.has(detectedCurrentRound)) {
-      return detectedCurrentRound;
-    }
-
-    const activeRound = [...orderedRounds]
-      .reverse()
-      .find((round) => round.hasStartedFixture && round.hasUnfinishedFixture);
-    if (activeRound && predictionRounds.has(activeRound.round)) {
-      return activeRound.round;
-    }
-
-    const mostRecentPredictedRound = [...orderedRounds]
-      .reverse()
-      .find((round) => predictionRounds.has(round.round));
-    if (mostRecentPredictedRound) {
-      return mostRecentPredictedRound.round;
-    }
-
-    return detectedCurrentRound;
-  }, [detectedCurrentRound, orderedRounds, predictionRounds]);
+  // Always use whatever the API says is the next/current gameweek.
+  // The old fallback logic would show the previous gameweek as "This Gameweek"
+  // whenever the next round had no predictions yet, which was confusing.
+  const currentRound = detectedCurrentRound;
 
   const previousRound = React.useMemo(() => {
     if (!currentRound) return null;
