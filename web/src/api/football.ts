@@ -234,8 +234,8 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
   const now = new Date();
   const dateFrom = formatDate(now);
   const dateTo = formatDate(
-    new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
-  ); // 14 days ahead
+    new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+  ); // 30 days ahead — wide enough to cover international-break gaps (up to ~3 weeks)
 
   console.log("[Football API] Detect next GW (range):", { dateFrom, dateTo });
 

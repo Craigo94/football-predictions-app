@@ -52,9 +52,6 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
       if (saveNoticeTimeout.current) {
         window.clearTimeout(saveNoticeTimeout.current);
       }
-      if (fixturesPollInterval.current) {
-        window.clearInterval(fixturesPollInterval.current);
-      }
     };
   }, []);
 
@@ -95,6 +92,9 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
 
     return () => {
       cancelled = true;
+      if (fixturesPollInterval.current) {
+        window.clearInterval(fixturesPollInterval.current);
+      }
     };
   }, []);
 
@@ -214,10 +214,12 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
       });
   }, [fixtures]);
 
-  // Lock all predictions once the first fixture of the gameweek kicks off
+  // Lock all predictions once any non-postponed fixture of the gameweek kicks off.
+  // Checking only fixtures[0] is insufficient: if the earliest fixture is postponed,
+  // hasFixtureStarted returns false for it even after later fixtures have kicked off.
   const gameweekLocked = React.useMemo(() => {
     if (!fixtures.length) return false;
-    return hasFixtureStarted(fixtures[0]);
+    return fixtures.some(hasFixtureStarted);
   }, [fixtures]);
 
   const completion = React.useMemo(() => {
