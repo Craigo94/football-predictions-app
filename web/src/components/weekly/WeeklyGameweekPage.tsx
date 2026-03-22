@@ -13,6 +13,15 @@ import { useUsers } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
 import { hasFixtureStarted, isFixtureFinished, isFixturePostponed } from "../../utils/fixtures";
 
+interface RoundSummary {
+  round: string;
+  earliestKickoff: number;
+  latestKickoff: number;
+  hasStartedFixture: boolean;
+  hasFinishedFixture: boolean;
+  hasUnfinishedFixture: boolean;
+}
+
 interface PredictionDoc {
   userId: string;
   userDisplayName: string;
@@ -173,26 +182,108 @@ const WeeklyGameweekPage: React.FC = () => {
     };
   }, []);
 
-  const currentRound = currentGameweekFixtures[0]?.round ?? null;
+  const detectedCurrentRound = currentGameweekFixtures[0]?.round ?? null;
 
-  const previousRound = React.useMemo(() => {
-    const latestKickoffByRound = new Map<string, number>();
+  const orderedRounds = React.useMemo(() => {
+    const summaryByRound = new Map<string, RoundSummary>();
+
+    const includeFixture = (fixture: Fixture) => {
+      if (!fixture.round) return;
+
+      const kickoffTime = new Date(fixture.kickoff).getTime();
+      if (!Number.isFinite(kickoffTime)) return;
+
+      const existing = summaryByRound.get(fixture.round);
+      const hasStartedFixture = hasFixtureStarted(fixture);
+      const hasFinishedFixture = isFixtureFinished(fixture);
+      const isCountableFixture = !isFixturePostponed(fixture);
+
+      if (existing) {
+        existing.earliestKickoff = Math.min(existing.earliestKickoff, kickoffTime);
+        existing.latestKickoff = Math.max(existing.latestKickoff, kickoffTime);
+        existing.hasStartedFixture = existing.hasStartedFixture || hasStartedFixture;
+        existing.hasFinishedFixture = existing.hasFinishedFixture || hasFinishedFixture;
+        existing.hasUnfinishedFixture =
+          existing.hasUnfinishedFixture || (isCountableFixture && !hasFinishedFixture);
+        return;
+      }
+
+      summaryByRound.set(fixture.round, {
+        round: fixture.round,
+        earliestKickoff: kickoffTime,
+        latestKickoff: kickoffTime,
+        hasStartedFixture,
+        hasFinishedFixture,
+        hasUnfinishedFixture: isCountableFixture && !hasFinishedFixture,
+      });
+    };
+
+    Object.values(fixturesById).forEach(includeFixture);
+    currentGameweekFixtures.forEach(includeFixture);
+
     predictions.forEach((prediction) => {
-      if (!prediction.round || prediction.round === currentRound) return;
+      if (!prediction.round || summaryByRound.has(prediction.round)) return;
 
       const kickoffTime = new Date(prediction.kickoff).getTime();
       if (!Number.isFinite(kickoffTime)) return;
 
-      const previousLatest = latestKickoffByRound.get(prediction.round) ?? Number.NEGATIVE_INFINITY;
-      if (kickoffTime > previousLatest) {
-        latestKickoffByRound.set(prediction.round, kickoffTime);
-      }
+      summaryByRound.set(prediction.round, {
+        round: prediction.round,
+        earliestKickoff: kickoffTime,
+        latestKickoff: kickoffTime,
+        hasStartedFixture: kickoffTime <= Date.now(),
+        hasFinishedFixture: false,
+        hasUnfinishedFixture: true,
+      });
     });
 
-    return Array.from(latestKickoffByRound.entries()).sort(
-      (a, b) => a[1] - b[1]
-    ).at(-1)?.[0] ?? null;
-  }, [currentRound, predictions]);
+    return Array.from(summaryByRound.values()).sort(
+      (a, b) => a.earliestKickoff - b.earliestKickoff
+    );
+  }, [currentGameweekFixtures, fixturesById, predictions]);
+
+  const predictionRounds = React.useMemo(
+    () => new Set(predictions.map((prediction) => prediction.round).filter(Boolean)),
+    [predictions]
+  );
+
+  const currentRound = React.useMemo(() => {
+    if (detectedCurrentRound && predictionRounds.has(detectedCurrentRound)) {
+      return detectedCurrentRound;
+    }
+
+    const activeRound = [...orderedRounds]
+      .reverse()
+      .find((round) => round.hasStartedFixture && round.hasUnfinishedFixture);
+    if (activeRound && predictionRounds.has(activeRound.round)) {
+      return activeRound.round;
+    }
+
+    const mostRecentPredictedRound = [...orderedRounds]
+      .reverse()
+      .find((round) => predictionRounds.has(round.round));
+    if (mostRecentPredictedRound) {
+      return mostRecentPredictedRound.round;
+    }
+
+    return detectedCurrentRound;
+  }, [detectedCurrentRound, orderedRounds, predictionRounds]);
+
+  const previousRound = React.useMemo(() => {
+    if (!currentRound) return null;
+
+    const currentRoundIndex = orderedRounds.findIndex((round) => round.round === currentRound);
+    if (currentRoundIndex <= 0) return null;
+
+    for (let index = currentRoundIndex - 1; index >= 0; index -= 1) {
+      const round = orderedRounds[index];
+      if (predictionRounds.has(round.round) || round.hasFinishedFixture) {
+        return round.round;
+      }
+    }
+
+    return null;
+  }, [currentRound, orderedRounds, predictionRounds]);
 
   const buildRoundData = React.useCallback(
     (roundName: string | null): RoundData => {
@@ -207,13 +298,12 @@ const WeeklyGameweekPage: React.FC = () => {
         };
       }
 
-      const currentRoundFixtureIds = new Set(currentGameweekFixtures.map((fixture) => fixture.id));
-      const fixturesList = Object.values(fixturesById)
-        .filter((f) =>
-          roundName === currentRound
-            ? currentRoundFixtureIds.has(f.id)
-            : f.round === roundName
-        )
+      const fixturesForRound =
+        roundName === detectedCurrentRound
+          ? currentGameweekFixtures
+          : Object.values(fixturesById).filter((fixture) => fixture.round === roundName);
+
+      const fixturesList = fixturesForRound
         .sort(
           (a, b) =>
             new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
@@ -236,7 +326,9 @@ const WeeklyGameweekPage: React.FC = () => {
       for (const p of roundPreds) {
         predsByUserFixture[`${p.userId}_${p.fixtureId}`] = p;
 
-        const fixture: Fixture | undefined = fixturesById[p.fixtureId];
+        const fixture: Fixture | undefined =
+          fixturesById[p.fixtureId] ??
+          currentGameweekFixtures.find((candidate) => candidate.id === p.fixtureId);
 
         let points: number | null = null;
         if (fixture) {
@@ -278,7 +370,7 @@ const WeeklyGameweekPage: React.FC = () => {
         leaderPoints,
       };
     },
-    [currentGameweekFixtures, currentRound, fixturesById, predictions]
+    [currentGameweekFixtures, detectedCurrentRound, fixturesById, predictions]
   );
 
   const currentRoundData = React.useMemo(
