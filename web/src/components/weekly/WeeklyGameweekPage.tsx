@@ -247,6 +247,20 @@ const WeeklyGameweekPage: React.FC = () => {
             predFixtureIds.has(f.id)
           );
         }
+
+        // Strip stale rearranged fixtures that sit far outside the main gameweek
+        // cluster. A match reassigned to a later matchday often keeps its original
+        // (old) kickoff date, pulling it weeks away from the rest of the fixtures.
+        // Keep only fixtures within 7 days of the latest kickoff in the set.
+        if (fixturesForRound.length > 1) {
+          const latestKickoff = Math.max(
+            ...fixturesForRound.map((f) => new Date(f.kickoff).getTime())
+          );
+          const CLUSTER_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+          fixturesForRound = fixturesForRound.filter(
+            (f) => latestKickoff - new Date(f.kickoff).getTime() <= CLUSTER_WINDOW_MS
+          );
+        }
       }
 
       const fixturesList = fixturesForRound
@@ -569,6 +583,7 @@ const WeeklyGameweekPage: React.FC = () => {
                 </th>
                 {roundData.fixturesList.map((f) => {
                   const hasScore = f.homeGoals != null && f.awayGoals != null;
+                  const postponed = isFixturePostponed(f);
 
                   return (
                     <th
@@ -589,7 +604,7 @@ const WeeklyGameweekPage: React.FC = () => {
                           gap: 6,
                         }}
                       >
-                        {/* bigger badges row only */}
+                        {/* team badge row */}
                         <div
                           style={{
                             display: "flex",
@@ -602,7 +617,7 @@ const WeeklyGameweekPage: React.FC = () => {
                             <img
                               src={f.homeLogo}
                               alt={f.homeTeam}
-                              style={{ width: 24, height: 24 }}
+                              style={{ width: 24, height: 24, opacity: postponed ? 0.4 : 1 }}
                             />
                           )}
                           <span style={{ fontSize: 11, opacity: 0.8 }}>vs</span>
@@ -610,22 +625,26 @@ const WeeklyGameweekPage: React.FC = () => {
                             <img
                               src={f.awayLogo}
                               alt={f.awayTeam}
-                              style={{ width: 24, height: 24 }}
+                              style={{ width: 24, height: 24, opacity: postponed ? 0.4 : 1 }}
                             />
                           )}
                         </div>
 
-                        {/* current score under badges (actual, not predictions) */}
+                        {/* score / postponed label */}
                         <div
                           style={{
-                            fontSize: 13,
+                            fontSize: postponed ? 10 : 13,
                             fontWeight: 700,
-                            color: hasScore
+                            color: postponed
+                              ? "var(--text-muted)"
+                              : hasScore
                               ? "var(--text)"
                               : "var(--text-muted)",
                           }}
                         >
-                          {hasScore
+                          {postponed
+                            ? "PST"
+                            : hasScore
                             ? `${f.homeGoals}–${f.awayGoals}`
                             : "–"}
                         </div>
