@@ -13,15 +13,6 @@ import { useUsers } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
 import { hasFixtureStarted, isFixtureFinished, isFixturePostponed } from "../../utils/fixtures";
 
-interface RoundSummary {
-  round: string;
-  earliestKickoff: number;
-  latestKickoff: number;
-  hasStartedFixture: boolean;
-  hasFinishedFixture: boolean;
-  hasUnfinishedFixture: boolean;
-}
-
 interface PredictionDoc {
   userId: string;
   userDisplayName: string;
@@ -184,98 +175,43 @@ const WeeklyGameweekPage: React.FC = () => {
 
   const detectedCurrentRound = currentGameweekFixtures[0]?.round ?? null;
 
-  const orderedRounds = React.useMemo(() => {
-    const summaryByRound = new Map<string, RoundSummary>();
+  // Extract the numeric matchday from a round label e.g. "Matchday 31" → 31
+  const parseMatchdayNum = (round: string): number => {
+    const m = round.match(/(\d+)$/);
+    return m ? parseInt(m[1], 10) : NaN;
+  };
 
-    const includeFixture = (fixture: Fixture) => {
-      if (!fixture.round) return;
-
-      const kickoffTime = new Date(fixture.kickoff).getTime();
-      if (!Number.isFinite(kickoffTime)) return;
-
-      const existing = summaryByRound.get(fixture.round);
-      const hasStartedFixture = hasFixtureStarted(fixture);
-      const hasFinishedFixture = isFixtureFinished(fixture);
-      const isCountableFixture = !isFixturePostponed(fixture);
-
-      if (existing) {
-        existing.earliestKickoff = Math.min(existing.earliestKickoff, kickoffTime);
-        existing.latestKickoff = Math.max(existing.latestKickoff, kickoffTime);
-        existing.hasStartedFixture = existing.hasStartedFixture || hasStartedFixture;
-        existing.hasFinishedFixture = existing.hasFinishedFixture || hasFinishedFixture;
-        existing.hasUnfinishedFixture =
-          existing.hasUnfinishedFixture || (isCountableFixture && !hasFinishedFixture);
-        return;
-      }
-
-      summaryByRound.set(fixture.round, {
-        round: fixture.round,
-        earliestKickoff: kickoffTime,
-        latestKickoff: kickoffTime,
-        hasStartedFixture,
-        hasFinishedFixture,
-        hasUnfinishedFixture: isCountableFixture && !hasFinishedFixture,
-      });
-    };
-
-    Object.values(fixturesById).forEach(includeFixture);
-    currentGameweekFixtures.forEach(includeFixture);
-
-    predictions.forEach((prediction) => {
-      if (!prediction.round || summaryByRound.has(prediction.round)) return;
-
-      const kickoffTime = new Date(prediction.kickoff).getTime();
-      if (!Number.isFinite(kickoffTime)) return;
-
-      summaryByRound.set(prediction.round, {
-        round: prediction.round,
-        earliestKickoff: kickoffTime,
-        latestKickoff: kickoffTime,
-        hasStartedFixture: kickoffTime <= Date.now(),
-        hasFinishedFixture: false,
-        hasUnfinishedFixture: true,
-      });
-    });
-
-    return Array.from(summaryByRound.values()).sort(
-      (a, b) => a.earliestKickoff - b.earliestKickoff
-    );
-  }, [currentGameweekFixtures, fixturesById, predictions]);
-
-  const predictionRounds = React.useMemo(
-    () => new Set(predictions.map((prediction) => prediction.round).filter(Boolean)),
-    [predictions]
-  );
-
-  // "This Gameweek" = the most recently started round (in-progress or just finished).
-  // orderedRounds is sorted by earliestKickoff ascending, so reversing gives most recent first.
-  // We only fall back to the API-detected next round when no round has started yet
-  // (e.g. very start of the season before the first matchday).
+  // "This Gameweek" = the round currently in progress or most recently completed.
+  //
+  // getNextPremierLeagueGameweekFixtures (detectedCurrentRound) returns:
+  //   - the active round  when any fixture is IN_PLAY / PAUSED / still TIMED this weekend
+  //   - the NEXT upcoming round once all fixtures in the current round are FINISHED
+  //
+  // So when the detected round has already started we show it; otherwise the previous
+  // matchday (detected - 1) just finished and that is "This Gameweek".
+  //
+  // We avoid relying on orderedRounds sorting here because a rearranged fixture
+  // assigned to a later matchday can have an old kickoff date, which corrupts the
+  // sort order and causes the wrong round to be selected.
   const currentRound = React.useMemo(() => {
-    const mostRecentStarted = [...orderedRounds]
-      .reverse()
-      .find((round) => round.hasStartedFixture);
+    if (!detectedCurrentRound) return null;
 
-    if (mostRecentStarted) return mostRecentStarted.round;
+    const detectedHasStarted = currentGameweekFixtures.some((f) => hasFixtureStarted(f));
+    if (detectedHasStarted) return detectedCurrentRound;
+
+    // Detected round not started yet → previous matchday is "This Gameweek"
+    const nextNum = parseMatchdayNum(detectedCurrentRound);
+    if (!isNaN(nextNum) && nextNum > 1) return `Matchday ${nextNum - 1}`;
 
     return detectedCurrentRound;
-  }, [orderedRounds, detectedCurrentRound]);
+  }, [detectedCurrentRound, currentGameweekFixtures]);
 
   const previousRound = React.useMemo(() => {
     if (!currentRound) return null;
-
-    const currentRoundIndex = orderedRounds.findIndex((round) => round.round === currentRound);
-    if (currentRoundIndex <= 0) return null;
-
-    for (let index = currentRoundIndex - 1; index >= 0; index -= 1) {
-      const round = orderedRounds[index];
-      if (predictionRounds.has(round.round) || round.hasFinishedFixture) {
-        return round.round;
-      }
-    }
-
+    const currentNum = parseMatchdayNum(currentRound);
+    if (!isNaN(currentNum) && currentNum > 1) return `Matchday ${currentNum - 1}`;
     return null;
-  }, [currentRound, orderedRounds, predictionRounds]);
+  }, [currentRound]);
 
   const buildRoundData = React.useCallback(
     (roundName: string | null): RoundData => {
@@ -290,10 +226,28 @@ const WeeklyGameweekPage: React.FC = () => {
         };
       }
 
-      const fixturesForRound =
-        roundName === detectedCurrentRound
-          ? currentGameweekFixtures
-          : Object.values(fixturesById).filter((fixture) => fixture.round === roundName);
+      // Prefer the dedicated gameweek fetch for the detected (upcoming) round.
+      // For other rounds, filter fixturesById by round label; if that yields nothing
+      // (the Football-Data date-range API sometimes omits the matchday field, causing
+      // fixtures to land as "Premier League" instead of "Matchday N"), fall back to
+      // looking up fixtures by the IDs stored in predictions.
+      let fixturesForRound: Fixture[];
+      if (roundName === detectedCurrentRound) {
+        fixturesForRound = currentGameweekFixtures;
+      } else {
+        const byRound = Object.values(fixturesById).filter(
+          (fixture) => fixture.round === roundName
+        );
+        if (byRound.length > 0) {
+          fixturesForRound = byRound;
+        } else {
+          const roundPredictions = predictions.filter((p) => p.round === roundName);
+          const predFixtureIds = new Set(roundPredictions.map((p) => p.fixtureId));
+          fixturesForRound = Object.values(fixturesById).filter((f) =>
+            predFixtureIds.has(f.id)
+          );
+        }
+      }
 
       const fixturesList = fixturesForRound
         .sort(
@@ -307,11 +261,14 @@ const WeeklyGameweekPage: React.FC = () => {
           )
         : null;
 
-      const revealPredictions = fixturesList.some(
-        (f) => hasFixtureStarted(f)
-      );
-
       const roundPreds = predictions.filter((p) => p.round === roundName);
+
+      // Reveal predictions once any fixture has started. When fixturesList is empty
+      // (fixture data not yet available) fall back to prediction kickoff times.
+      const revealPredictions =
+        fixturesList.some((f) => hasFixtureStarted(f)) ||
+        roundPreds.some((p) => new Date(p.kickoff).getTime() <= Date.now());
+
       const byUser: Record<string, WeeklyRow> = {};
       const predsByUserFixture: Record<string, PredictionDoc> = {};
 
