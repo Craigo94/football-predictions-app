@@ -247,10 +247,19 @@ const WeeklyGameweekPage: React.FC = () => {
     [predictions]
   );
 
-  // Always use whatever the API says is the next/current gameweek.
-  // The old fallback logic would show the previous gameweek as "This Gameweek"
-  // whenever the next round had no predictions yet, which was confusing.
-  const currentRound = detectedCurrentRound;
+  // "This Gameweek" = the most recently started round (in-progress or just finished).
+  // orderedRounds is sorted by earliestKickoff ascending, so reversing gives most recent first.
+  // We only fall back to the API-detected next round when no round has started yet
+  // (e.g. very start of the season before the first matchday).
+  const currentRound = React.useMemo(() => {
+    const mostRecentStarted = [...orderedRounds]
+      .reverse()
+      .find((round) => round.hasStartedFixture);
+
+    if (mostRecentStarted) return mostRecentStarted.round;
+
+    return detectedCurrentRound;
+  }, [orderedRounds, detectedCurrentRound]);
 
   const previousRound = React.useMemo(() => {
     if (!currentRound) return null;
