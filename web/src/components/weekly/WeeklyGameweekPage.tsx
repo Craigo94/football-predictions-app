@@ -181,30 +181,16 @@ const WeeklyGameweekPage: React.FC = () => {
     return m ? parseInt(m[1], 10) : NaN;
   };
 
-  // "This Gameweek" = the round currently in progress or most recently completed.
+  // "This Gameweek" = the upcoming or currently in-progress round.
   //
-  // getNextPremierLeagueGameweekFixtures (detectedCurrentRound) returns:
-  //   - the active round  when any fixture is IN_PLAY / PAUSED / still TIMED this weekend
+  // getNextPremierLeagueGameweekFixtures (detectedCurrentRound) always returns:
+  //   - the active round when any fixture is IN_PLAY / PAUSED / still TIMED
   //   - the NEXT upcoming round once all fixtures in the current round are FINISHED
   //
-  // So when the detected round has already started we show it; otherwise the previous
-  // matchday (detected - 1) just finished and that is "This Gameweek".
-  //
-  // We avoid relying on orderedRounds sorting here because a rearranged fixture
-  // assigned to a later matchday can have an old kickoff date, which corrupts the
-  // sort order and causes the wrong round to be selected.
-  const currentRound = React.useMemo(() => {
-    if (!detectedCurrentRound) return null;
-
-    const detectedHasStarted = currentGameweekFixtures.some((f) => hasFixtureStarted(f));
-    if (detectedHasStarted) return detectedCurrentRound;
-
-    // Detected round not started yet → previous matchday is "This Gameweek"
-    const nextNum = parseMatchdayNum(detectedCurrentRound);
-    if (!isNaN(nextNum) && nextNum > 1) return `Matchday ${nextNum - 1}`;
-
-    return detectedCurrentRound;
-  }, [detectedCurrentRound, currentGameweekFixtures]);
+  // We always show the detected round as "This Gameweek". When it hasn't started yet,
+  // the table is replaced by a prediction-progress view (X/Y completed) rather than scores.
+  // The previously-finished matchday (N-1) is shown under "Previous Gameweek".
+  const currentRound = detectedCurrentRound;
 
   const previousRound = React.useMemo(() => {
     if (!currentRound) return null;
@@ -832,51 +818,59 @@ const WeeklyGameweekPage: React.FC = () => {
         <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
           Predictions stay hidden until the first fixture of the gameweek starts.
         </p>
-        {roundData.weeklyRows.length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
-              Players who have submitted predictions:
-            </p>
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 8,
-              }}
-            >
-              {roundData.weeklyRows.map((row) => {
-                const countableFixtures = roundData.fixturesList.filter(
-                  (fixture) => !isFixturePostponed(fixture)
-                );
-                const completedPredictionCount = countableFixtures.reduce(
-                  (count, fixture) => {
-                    const prediction =
-                      roundData.predsByUserFixture[`${row.userId}_${fixture.id}`];
-                    return hasCompletedPrediction(prediction) ? count + 1 : count;
-                  },
-                  0
-                );
+        {users.length > 0 && (() => {
+            const countableFixtures = roundData.fixturesList.filter(
+              (fixture) => !isFixturePostponed(fixture)
+            );
+            const usersWithCounts = users
+              .map((user) => ({
+                userId: user.id,
+                displayName: user.displayName,
+                completed: countableFixtures.reduce((count, fixture) => {
+                  const prediction =
+                    roundData.predsByUserFixture[`${user.id}_${fixture.id}`];
+                  return hasCompletedPrediction(prediction) ? count + 1 : count;
+                }, 0),
+                total: countableFixtures.length,
+              }))
+              .sort((a, b) => b.completed - a.completed);
 
-                return (
-                  <span
-                    key={row.userId}
-                    style={{
-                      padding: "5px 10px",
-                      borderRadius: 999,
-                      background: "rgba(148,163,184,0.14)",
-                      fontSize: 12,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {row.userDisplayName} {completedPredictionCount}/
-                    {countableFixtures.length}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
+            return (
+              <div style={{ marginTop: 10 }}>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
+                  Prediction progress:
+                </p>
+                <div
+                  style={{
+                    marginTop: 8,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                  }}
+                >
+                  {usersWithCounts.map((u) => (
+                    <span
+                      key={u.userId}
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: 999,
+                        background:
+                          u.completed === u.total && u.total > 0
+                            ? "rgba(34,197,94,0.18)"
+                            : u.completed > 0
+                            ? "rgba(59,130,246,0.14)"
+                            : "rgba(148,163,184,0.14)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {u.displayName} {u.completed}/{u.total}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         {kickoffLabelText && (
           <p
             style={{
@@ -924,10 +918,15 @@ const WeeklyGameweekPage: React.FC = () => {
         currentRound,
         currentRoundData,
         kickoffLabel,
-        (
+        currentRoundData.revealPredictions ? (
           <>
             Live points for <strong>{currentRound}</strong>. Whoever tops this
             table takes the week.
+          </>
+        ) : (
+          <>
+            Upcoming <strong>{currentRound}</strong>. Submit your predictions
+            before the first kick-off.
           </>
         ),
         false,
