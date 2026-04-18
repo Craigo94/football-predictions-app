@@ -58,7 +58,7 @@ const stageSortIndex = (stage: string): number => {
 };
 
 const extractGroupLabel = (round: string): string | null => {
-  const match = round.match(/group\s+([a-z])/i);
+  const match = round.match(/group[\s_]+([a-z])/i);
   if (!match) return null;
   return `Group ${match[1].toUpperCase()}`;
 };
