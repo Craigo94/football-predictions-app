@@ -57,6 +57,12 @@ const stageSortIndex = (stage: string): number => {
   return STAGE_ORDER.length + 1;
 };
 
+const extractGroupLabel = (round: string): string | null => {
+  const match = round.match(/group\s+([a-z])/i);
+  if (!match) return null;
+  return `Group ${match[1].toUpperCase()}`;
+};
+
 const WorldCupPage: React.FC<Props> = ({ user }) => {
   const [fixtures, setFixtures] = React.useState<Fixture[]>([]);
   const [predictions, setPredictions] = React.useState<Record<number, PredictionDoc>>({});
@@ -174,6 +180,34 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
     () => currentStage?.fixtures ?? [],
     [currentStage]
   );
+  const currentStageFixturesByGroup = React.useMemo(() => {
+    const grouped = new Map<string, Fixture[]>();
+    let hasNamedGroups = false;
+
+    currentStageFixtures.forEach((fixture) => {
+      const groupLabel = extractGroupLabel(fixture.round) ?? "Other fixtures";
+      if (groupLabel !== "Other fixtures") {
+        hasNamedGroups = true;
+      }
+
+      if (!grouped.has(groupLabel)) {
+        grouped.set(groupLabel, []);
+      }
+      grouped.get(groupLabel)?.push(fixture);
+    });
+
+    return Array.from(grouped.entries())
+      .sort(([a], [b]) => {
+        if (a === "Other fixtures") return 1;
+        if (b === "Other fixtures") return -1;
+        return a.localeCompare(b);
+      })
+      .map(([groupLabel, fixtures]) => ({
+        groupLabel,
+        fixtures,
+      }))
+      .filter((entry) => hasNamedGroups || entry.groupLabel !== "Other fixtures");
+  }, [currentStageFixtures]);
   const currentStageName = currentStage?.stage ?? null;
   const currentStageLocked = currentStageFixtures.some((fixture) => hasFixtureStarted(fixture));
   const currentStageReveal = currentStageLocked;
@@ -407,27 +441,32 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
         )}
       </div>
 
-      <div className="fixtures-list">
-        {currentStageFixtures.map((fixture) => (
-          <FixtureCard
-            key={fixture.id}
-            fixture={fixture}
-            prediction={predictions[fixture.id] || null}
-            onChangePrediction={(prediction) => {
-              handleChangePrediction(fixture, prediction).catch((err) => {
-                console.error("Failed to save World Cup prediction", err);
-                setSaveError("Could not save your World Cup prediction. Please try again.");
-              });
-            }}
-            gameweekLocked={currentStageLocked}
-            required={
-              !isFixturePostponed(fixture) &&
-              !(predictions[fixture.id]?.predHome != null && predictions[fixture.id]?.predAway != null)
-            }
-            showLeagueTableLink={false}
-          />
-        ))}
-      </div>
+      {currentStageFixturesByGroup.map(({ groupLabel, fixtures }) => (
+        <div key={groupLabel} className="card" style={{ marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0 }}>{groupLabel}</h3>
+          <div className="fixtures-list">
+            {fixtures.map((fixture) => (
+              <FixtureCard
+                key={fixture.id}
+                fixture={fixture}
+                prediction={predictions[fixture.id] || null}
+                onChangePrediction={(prediction) => {
+                  handleChangePrediction(fixture, prediction).catch((err) => {
+                    console.error("Failed to save World Cup prediction", err);
+                    setSaveError("Could not save your World Cup prediction. Please try again.");
+                  });
+                }}
+                gameweekLocked={currentStageLocked}
+                required={
+                  !isFixturePostponed(fixture) &&
+                  !(predictions[fixture.id]?.predHome != null && predictions[fixture.id]?.predAway != null)
+                }
+                showLeagueTableLink={false}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
