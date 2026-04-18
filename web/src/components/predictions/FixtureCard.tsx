@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import PredictionStatusPill from "./PredictionStatusPill";
 import type { Fixture } from "../../api/football";
 import { scorePrediction } from "../../utils/scoring";
-import { timeUK } from "../../utils/dates";
+import { dateTimeUK } from "../../utils/dates";
 import {
   getFixtureStatusLabel,
   hasFixtureScore,
@@ -36,7 +36,7 @@ const FixtureCard: React.FC<Props> = ({
   required = false,
   showLeagueTableLink = true,
 }) => {
-  const ko = timeUK(fixture.kickoff);
+  const kickoffDateTime = dateTimeUK(fixture.kickoff);
   const [editing, setEditing] = React.useState(false);
 
   const locked   = prediction?.locked ?? false;
@@ -116,7 +116,7 @@ const FixtureCard: React.FC<Props> = ({
       ? "rgba(239, 68, 68, 0.6)"
       : "var(--card-border)";
 
-  const badge = getFixtureStatusLabel(fixture, ko);
+  const badge = getFixtureStatusLabel(fixture, kickoffDateTime);
   const leagueParams = new URLSearchParams({
     home: fixture.homeTeam,
     away: fixture.awayTeam,

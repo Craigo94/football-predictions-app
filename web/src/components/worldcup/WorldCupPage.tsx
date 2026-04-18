@@ -204,7 +204,9 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
       })
       .map(([groupLabel, fixtures]) => ({
         groupLabel,
-        fixtures,
+        fixtures: fixtures.sort(
+          (x, y) => new Date(x.kickoff).getTime() - new Date(y.kickoff).getTime()
+        ),
       }))
       .filter((entry) => hasNamedGroups || entry.groupLabel !== "Other fixtures");
   }, [currentStageFixtures]);

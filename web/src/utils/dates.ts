@@ -20,6 +20,19 @@ export function timeUK(dateIso: string): string {
   }); // e.g. "12:30"
 }
 
+export function dateTimeUK(dateIso: string): string {
+  const d = new Date(dateIso);
+  return d.toLocaleString("en-GB", {
+    timeZone: UK_TZ,
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }); // e.g. "Sat, 22 Nov, 12:30"
+}
+
 /** yyyy-mm-dd key in UK time (so midnight rollovers behave correctly) */
 export function ymdUK(dateIso: string): string {
   const d = new Date(dateIso);
