@@ -25,6 +25,7 @@ interface Props {
   onChangePrediction: (p: Prediction) => void;
   gameweekLocked: boolean;
   required?: boolean;
+  showLeagueTableLink?: boolean;
 }
 
 const FixtureCard: React.FC<Props> = ({
@@ -33,6 +34,7 @@ const FixtureCard: React.FC<Props> = ({
   onChangePrediction,
   gameweekLocked,
   required = false,
+  showLeagueTableLink = true,
 }) => {
   const ko = timeUK(fixture.kickoff);
   const [editing, setEditing] = React.useState(false);
@@ -208,15 +210,17 @@ const FixtureCard: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="fx-meta fx-meta--table" style={{ marginTop: 10 }}>
-        <Link
-          className="fx-table-link"
-          to={`/league-table?${leagueParams}`}
-          aria-label={`View league table for ${fixture.homeTeam} vs ${fixture.awayTeam}`}
-        >
-          League table →
-        </Link>
-      </div>
+      {showLeagueTableLink && (
+        <div className="fx-meta fx-meta--table" style={{ marginTop: 10 }}>
+          <Link
+            className="fx-table-link"
+            to={`/league-table?${leagueParams}`}
+            aria-label={`View league table for ${fixture.homeTeam} vs ${fixture.awayTeam}`}
+          >
+            League table →
+          </Link>
+        </div>
+      )}
 
       {!hasPrediction && (
         <div className="fx-meta fx-meta--required" style={{ marginTop: 10 }}>
