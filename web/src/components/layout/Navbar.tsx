@@ -60,6 +60,7 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
     { to: "/dashboard", icon: "🏠", label: "Home" },
     { to: "/predictions", icon: "🎯", label: "Predictions" },
     { to: "/weekly", icon: "🗓️", label: "Gameweek" },
+    { to: "/world-cup", icon: "🌍", label: "World Cup" },
     { to: "/league-table", icon: "📋", label: "Table" },
     { to: "/leaderboard", icon: "🏆", label: "Leaderboard" },
     { to: "/stats", icon: "📊", label: "My Stats" },
@@ -76,7 +77,7 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
     "--nav-font-size": navItems.length > 4 ? "11px" : "12px",
   };
 
-  const primaryRoutes = ["/dashboard", "/predictions", "/weekly", "/league-table"];
+  const primaryRoutes = ["/dashboard", "/predictions", "/weekly", "/world-cup"];
   const primaryNavItems = navItems.filter((item) => primaryRoutes.includes(item.to));
   const overflowNavItems = navItems.filter((item) => !primaryRoutes.includes(item.to));
 

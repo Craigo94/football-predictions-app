@@ -1,5 +1,9 @@
 // web/src/api/football.ts
-import { CURRENT_SEASON } from "../config/football";
+import {
+  CURRENT_SEASON,
+  WORLD_CUP_COMPETITION_CODE,
+  WORLD_CUP_SEASON,
+} from "../config/football";
 import { UK_TZ } from "../utils/dates";
 
 interface ApiTeam {
@@ -128,10 +132,11 @@ function formatDate(date: Date): string {
  * In dev: Vite proxies this to Football-Data with the token.
  * In prod (Vercel): our serverless function proxies it with the token.
  */
-function buildMatchesUrl(
+function buildCompetitionMatchesUrl(
+  competitionCode: string,
   params: Record<string, string | number | undefined>
 ): string {
-  const basePath = "/api/football/competitions/PL/matches";
+  const basePath = `/api/football/competitions/${competitionCode}/matches`;
   const search = new URLSearchParams();
 
   for (const [k, v] of Object.entries(params)) {
@@ -142,6 +147,10 @@ function buildMatchesUrl(
 
   const query = search.toString();
   return query ? `${basePath}?${query}` : basePath;
+}
+
+function buildMatchesUrl(params: Record<string, string | number | undefined>): string {
+  return buildCompetitionMatchesUrl("PL", params);
 }
 
 function buildStandingsUrl(
@@ -164,6 +173,40 @@ async function fetchMatches(
   params: Record<string, string | number | undefined>
 ): Promise<ApiMatch[]> {
   const url = buildMatchesUrl(params);
+
+  const res = await fetch(url, { cache: "no-store" });
+  const text = await res.text();
+
+  let data: ApiMatchResponse;
+  try {
+    data = JSON.parse(text) as ApiMatchResponse;
+  } catch {
+    console.error("Non-JSON response from Football API:", text);
+    throw new Error("Football API returned non-JSON response");
+  }
+
+  if (!res.ok) {
+    console.error("Football API HTTP error:", res.status, data);
+    throw new Error(
+      `Football API error ${res.status}: ${JSON.stringify(
+        (data && data.error) || data
+      )}`
+    );
+  }
+
+  if (!Array.isArray(data.matches)) {
+    console.error("Football API returned unexpected payload", data);
+    throw new Error("Football API returned an unexpected response shape.");
+  }
+
+  return data.matches;
+}
+
+async function fetchCompetitionMatches(
+  competitionCode: string,
+  params: Record<string, string | number | undefined>
+): Promise<ApiMatch[]> {
+  const url = buildCompetitionMatchesUrl(competitionCode, params);
 
   const res = await fetch(url, { cache: "no-store" });
   const text = await res.text();
@@ -331,6 +374,23 @@ export async function getPremierLeagueMatchesForRange(
     const roundLabel = md ? `Matchday ${md}` : m.group || "Premier League";
     return mapApiMatchToFixture(roundLabel, md, CURRENT_SEASON)(m);
   });
+}
+
+export async function getWorldCupFixtures(): Promise<Fixture[]> {
+  const matches = await fetchCompetitionMatches(WORLD_CUP_COMPETITION_CODE, {
+    season: WORLD_CUP_SEASON,
+  });
+
+  return matches
+    .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
+    .map((m) => {
+      const roundLabel =
+        m.round ||
+        m.group ||
+        (typeof m.matchday === "number" ? `Matchday ${m.matchday}` : "World Cup");
+      const md = typeof m.matchday === "number" ? m.matchday : undefined;
+      return mapApiMatchToFixture(roundLabel, md, WORLD_CUP_SEASON)(m);
+    });
 }
 
 /**
