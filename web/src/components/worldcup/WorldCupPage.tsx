@@ -289,46 +289,32 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
     return Object.values(byUser).sort((a, b) => b.totalPoints - a.totalPoints);
   }, [allPredictions, fixtures]);
 
-  const stageRows = React.useMemo(() => {
-    if (!currentStageName) return [] as LeagueRow[];
-
-    const stageFixtureIds = new Set(
-      currentStageFixtures.map((fixture) => fixture.id)
-    );
-
-    const byUser: Record<string, LeagueRow> = {};
+  const currentStagePredictionsByFixture = React.useMemo(() => {
+    const byFixture = new Map<number, PredictionDoc[]>();
+    const stageFixtureIds = new Set(currentStageFixtures.map((fixture) => fixture.id));
 
     allPredictions
       .filter((prediction) => stageFixtureIds.has(prediction.fixtureId))
       .forEach((prediction) => {
-        const fixture = currentStageFixtures.find((candidate) => candidate.id === prediction.fixtureId);
-        if (!fixture) return;
+        if (prediction.predHome == null || prediction.predAway == null) return;
 
-        if (!byUser[prediction.userId]) {
-          byUser[prediction.userId] = {
-            userId: prediction.userId,
-            userDisplayName: prediction.userDisplayName,
-            totalPoints: 0,
-            exactCount: 0,
-            resultCount: 0,
-          };
+        if (!byFixture.has(prediction.fixtureId)) {
+          byFixture.set(prediction.fixtureId, []);
         }
-
-        const row = byUser[prediction.userId];
-        const scored = scorePrediction(
-          prediction.predHome,
-          prediction.predAway,
-          fixture.homeGoals,
-          fixture.awayGoals
-        );
-
-        if (scored.points != null) row.totalPoints += scored.points;
-        if (scored.status === "exact") row.exactCount += 1;
-        if (scored.status === "result") row.resultCount += 1;
+        byFixture.get(prediction.fixtureId)?.push(prediction);
       });
 
-    return Object.values(byUser).sort((a, b) => b.totalPoints - a.totalPoints);
-  }, [allPredictions, currentStageFixtures, currentStageName]);
+    byFixture.forEach((fixturePredictions, fixtureId) => {
+      fixturePredictions.sort((a, b) => {
+        const byName = a.userDisplayName.localeCompare(b.userDisplayName);
+        if (byName !== 0) return byName;
+        return `${a.predHome}-${a.predAway}`.localeCompare(`${b.predHome}-${b.predAway}`);
+      });
+      byFixture.set(fixtureId, fixturePredictions);
+    });
+
+    return byFixture;
+  }, [allPredictions, currentStageFixtures]);
 
   if (loading) {
     return <div>Loading World Cup…</div>;
@@ -412,34 +398,55 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>
-        <h3 style={{ marginTop: 0 }}>Current stage table</h3>
+        <h3 style={{ marginTop: 0 }}>Everyone&apos;s predictions ({currentStageName})</h3>
         {!currentStageReveal ? (
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 0 }}>
             Predictions are hidden until the first fixture kicks off.
           </p>
-        ) : stageRows.length === 0 ? (
+        ) : currentStagePredictionsByFixture.size === 0 ? (
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 0 }}>
-            No stage predictions have been entered yet.
+            No predictions have been entered for this stage yet.
           </p>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ textAlign: "left", color: "var(--text-muted)", fontSize: 11 }}>
-                <th style={{ paddingBottom: 8 }}>Rank</th>
-                <th style={{ paddingBottom: 8 }}>Player</th>
-                <th style={{ paddingBottom: 8, textAlign: "right" }}>Pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stageRows.map((row, index) => (
-                <tr key={row.userId} style={{ borderTop: "1px solid rgba(148,163,184,0.15)" }}>
-                  <td style={{ padding: "6px 0" }}>{index + 1}</td>
-                  <td style={{ padding: "6px 0" }}>{row.userDisplayName}</td>
-                  <td style={{ padding: "6px 0", textAlign: "right" }}><strong>{row.totalPoints}</strong></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ display: "grid", gap: 10 }}>
+            {currentStageFixtures.map((fixture) => {
+              const fixturePredictions = currentStagePredictionsByFixture.get(fixture.id) ?? [];
+              return (
+                <div
+                  key={fixture.id}
+                  style={{ borderTop: "1px solid rgba(148,163,184,0.15)", paddingTop: 8 }}
+                >
+                  <p style={{ margin: "0 0 6px 0", fontSize: 13, fontWeight: 600 }}>
+                    {fixture.homeTeam} vs {fixture.awayTeam}
+                  </p>
+                  {fixturePredictions.length === 0 ? (
+                    <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 12 }}>
+                      No predictions entered yet.
+                    </p>
+                  ) : (
+                    <div style={{ display: "grid", gap: 4 }}>
+                      {fixturePredictions.map((prediction) => (
+                        <div
+                          key={`${prediction.userId}_${prediction.fixtureId}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 10,
+                            fontSize: 12,
+                          }}
+                        >
+                          <span>{prediction.userDisplayName}</span>
+                          <strong>
+                            {prediction.predHome} - {prediction.predAway}
+                          </strong>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
