@@ -109,7 +109,7 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
 
   React.useEffect(() => {
     const ownPredictionsQuery = query(
-      collection(db, "wcPredictions"),
+      collection(db, "predictions"),
       where("userId", "==", user.uid)
     );
 
@@ -117,6 +117,7 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
       const map: Record<number, PredictionDoc> = {};
       snap.forEach((snapshotDoc) => {
         const data = snapshotDoc.data() as PredictionDoc;
+        if (data.competition !== "WORLD_CUP") return;
         map[data.fixtureId] = data;
       });
       setPredictions(map);
@@ -127,7 +128,7 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
 
   React.useEffect(() => {
     const allPredictionsQuery = query(
-      collection(db, "wcPredictions"),
+      collection(db, "predictions"),
       where("competition", "==", "WORLD_CUP")
     );
 
@@ -229,7 +230,7 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
 
   const handleChangePrediction = async (fixture: Fixture, prediction: Prediction) => {
     const userDisplayName = formatFirstName(user.displayName || user.email || "Unknown");
-    const docId = `${user.uid}_${fixture.id}`;
+    const docId = `wc_${user.uid}_${fixture.id}`;
 
     const data: PredictionDoc = {
       userId: user.uid,
@@ -245,9 +246,25 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
       competition: "WORLD_CUP",
     };
 
-    setPredictions((prev) => ({ ...prev, [fixture.id]: data }));
+    let previousValue: PredictionDoc | null = null;
+    setPredictions((prev) => {
+      previousValue = prev[fixture.id] ?? null;
+      return { ...prev, [fixture.id]: data };
+    });
     setSaveError(null);
-    await setDoc(doc(db, "wcPredictions", docId), data, { merge: true });
+    try {
+      await setDoc(doc(db, "predictions", docId), data, { merge: true });
+    } catch (err) {
+      setPredictions((prev) => {
+        if (previousValue) {
+          return { ...prev, [fixture.id]: previousValue };
+        }
+        const next = { ...prev };
+        delete next[fixture.id];
+        return next;
+      });
+      throw err;
+    }
   };
 
   const leagueRows = React.useMemo(() => {
