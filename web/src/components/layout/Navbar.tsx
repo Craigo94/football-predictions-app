@@ -42,7 +42,6 @@ const LogoMark = () => (
 
 const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
   const [currentUser, setCurrentUser] = React.useState(user);
-  const [showMore, setShowMore] = React.useState(false);
   const navigate = useNavigate();
 
   const handleSignOut = React.useCallback(() => {
@@ -71,19 +70,9 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
   }
 
   const navStyleVars: React.CSSProperties & Record<`--${string}`, string | number> = {
-    // Helps the CSS evenly size items on narrow screens (with or without Admin)
     "--nav-count": navItems.length,
     "--nav-icon-size": navItems.length > 4 ? "30px" : "32px",
     "--nav-font-size": navItems.length > 4 ? "11px" : "12px",
-  };
-
-  const primaryRoutes = ["/dashboard", "/predictions", "/weekly", "/world-cup"];
-  const primaryNavItems = navItems.filter((item) => primaryRoutes.includes(item.to));
-  const overflowNavItems = navItems.filter((item) => !primaryRoutes.includes(item.to));
-
-  const handleMobileNavigate = (to: string) => {
-    navigate(to);
-    setShowMore(false);
   };
 
   return (
@@ -113,7 +102,7 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
         </div>
       </div>
 
-      {/* Nav links row */}
+      {/* Desktop dock nav */}
       <nav
         className="navbar-links navbar-links--dock"
         aria-label="Primary navigation"
@@ -133,88 +122,6 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
           </NavLink>
         ))}
       </nav>
-
-      <nav className="mobile-nav" aria-label="Primary navigation">
-        {primaryNavItems.map(({ to, icon, label }) => (
-          <button
-            key={to}
-            type="button"
-            className="mobile-nav__item"
-            onClick={() => handleMobileNavigate(to)}
-            aria-label={label}
-          >
-            <span className="mobile-nav__icon" aria-hidden="true">
-              {icon}
-            </span>
-            <span className="mobile-nav__label">{label}</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          className="mobile-nav__item"
-          onClick={() => setShowMore((prev) => !prev)}
-          aria-expanded={showMore}
-          aria-controls="mobile-nav-overflow"
-        >
-          <span className="mobile-nav__icon" aria-hidden="true">
-            ✨
-          </span>
-          <span className="mobile-nav__label">More</span>
-        </button>
-      </nav>
-
-      {showMore && (
-        <div className="mobile-nav__overlay" onClick={() => setShowMore(false)}>
-          <div
-            className="mobile-nav__sheet"
-            id="mobile-nav-overflow"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mobile-nav__sheet-header">
-              <span>More options</span>
-              <button
-                type="button"
-                className="mobile-nav__close"
-                onClick={() => setShowMore(false)}
-                aria-label="Close menu"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="mobile-nav__sheet-grid">
-              {overflowNavItems.map(({ to, icon, label }) => (
-                <button
-                  key={to}
-                  type="button"
-                  className="mobile-nav__sheet-item"
-                  onClick={() => handleMobileNavigate(to)}
-                >
-                  <span aria-hidden="true">{icon}</span>
-                  <span>{label}</span>
-                </button>
-              ))}
-              <button
-                type="button"
-                className="mobile-nav__sheet-item"
-                onClick={() => handleMobileNavigate("/profile/name")}
-              >
-                <span aria-hidden="true">🪪</span>
-                <span>Profile</span>
-              </button>
-              <button
-                type="button"
-                className="mobile-nav__sheet-item"
-                onClick={handleSignOut}
-              >
-                <span aria-hidden="true">🚪</span>
-                <span>Log out</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 };
