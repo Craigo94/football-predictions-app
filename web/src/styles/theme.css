@@ -517,13 +517,8 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 
   /* App layout: flex column so bottom nav is always visible */
-  html, body {
-    height: 100%;
-    overflow: hidden;
-  }
-
   .app-layout {
-    height: 100%;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -531,6 +526,7 @@ input[type="number"]::-webkit-inner-spin-button {
 
   .app-content {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
@@ -605,8 +601,11 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0 auto;
 }
 
-.bottom-nav-bar {
-  display: none;
+/* Hide bottom nav on desktop; keep it on mobile via the max-width block */
+@media (min-width: 641px) {
+  .bottom-nav-bar {
+    display: none;
+  }
 }
 
 .app-content-inner {
