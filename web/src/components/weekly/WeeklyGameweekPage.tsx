@@ -11,7 +11,13 @@ import {
 import { formatFirstName } from "../../utils/displayName";
 import { useUsers } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
-import { hasFixtureStarted, isFixtureFinished, isFixturePostponed } from "../../utils/fixtures";
+import {
+  hasFixtureStarted,
+  isFixtureFinished,
+  isFixturePostponed,
+  isFixtureLive,
+} from "../../utils/fixtures";
+import { timeUK } from "../../utils/dates";
 
 interface PredictionDoc {
   userId: string;
@@ -19,13 +25,12 @@ interface PredictionDoc {
   fixtureId: number;
   predHome: number | null;
   predAway: number | null;
-  kickoff: string; // ISO date string
-  round: string;   // e.g. "Matchday 12"
+  kickoff: string;
+  round: string;
 }
 
 interface WeeklyRow {
   userId: string;
-
   userDisplayName: string;
   totalPoints: number;
 }
@@ -40,64 +45,22 @@ interface RoundData {
 }
 
 const hasCompletedPrediction = (prediction?: PredictionDoc): boolean =>
-  Boolean(
-    prediction &&
-      prediction.predHome != null &&
-      prediction.predAway != null
-  );
-
-// Fixed column widths so sticky cols don't overlap
-const PLAYER_COL_WIDTH = 100;
-const PTS_COL_WIDTH = 60;
-const FIXTURE_COL_WIDTH = 76;
-
-// Slightly narrower widths for compact/mobile layouts
-const COMPACT_PLAYER_COL_WIDTH = 70;
-const COMPACT_PTS_COL_WIDTH = 40;
+  Boolean(prediction && prediction.predHome != null && prediction.predAway != null);
 
 const WeeklyGameweekPage: React.FC = () => {
   const [predictions, setPredictions] = React.useState<PredictionDoc[]>([]);
   const [predictionsLoading, setPredictionsLoading] = React.useState(true);
-  const [predictionsError, setPredictionsError] = React.useState<string | null>(
-    null
-  );
-  const [isCompactLayout, setIsCompactLayout] = React.useState(false);
-  const [currentGameweekFixtures, setCurrentGameweekFixtures] = React.useState<
-    Fixture[]
-  >([]);
+  const [predictionsError, setPredictionsError] = React.useState<string | null>(null);
+  const [currentGameweekFixtures, setCurrentGameweekFixtures] = React.useState<Fixture[]>([]);
   const [currentGameweekLoading, setCurrentGameweekLoading] = React.useState(true);
   const [currentGameweekError, setCurrentGameweekError] = React.useState<string | null>(null);
 
-  // Use narrower sticky columns on smaller screens so fixture columns stay visible
-  React.useEffect(() => {
-    const mq = window.matchMedia("(max-width: 720px)");
-    const handleChange = (event: MediaQueryListEvent) => {
-      setIsCompactLayout(event.matches);
-    };
-
-    setIsCompactLayout(mq.matches);
-    mq.addEventListener("change", handleChange);
-
-    return () => mq.removeEventListener("change", handleChange);
-  }, []);
-
-  // Shared fixtures & polling from context
-  const {
-    fixturesById,
-    loadingFixtures,
-    fixturesError,
-  } = useLiveFixtures();
+  const { fixturesById, loadingFixtures, fixturesError } = useLiveFixtures();
   const { users, loading: loadingUsers, error: usersError } = useUsers();
-
-  const playerColWidth = isCompactLayout
-    ? COMPACT_PLAYER_COL_WIDTH
-    : PLAYER_COL_WIDTH;
-  const ptsColWidth = isCompactLayout ? COMPACT_PTS_COL_WIDTH : PTS_COL_WIDTH;
 
   /* 1) Listen to ALL predictions */
   React.useEffect(() => {
     const ref = collection(db, "predictions");
-
     const unsub = onSnapshot(
       ref,
       (snap) => {
@@ -125,35 +88,27 @@ const WeeklyGameweekPage: React.FC = () => {
         setPredictionsLoading(false);
       }
     );
-
     return () => unsub();
   }, []);
 
+  /* 2) Fetch current gameweek fixtures (polled every 60s) */
   React.useEffect(() => {
     let cancelled = false;
     const firstRun = { current: true } as { current: boolean };
 
     const loadCurrentGameweek = async () => {
       try {
-        if (firstRun.current) {
-          setCurrentGameweekLoading(true);
-        }
-
+        if (firstRun.current) setCurrentGameweekLoading(true);
         const fixtures = await getNextPremierLeagueGameweekFixtures();
         if (cancelled) return;
-
-        fixtures.sort(
-          (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
-        );
+        fixtures.sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime());
         setCurrentGameweekFixtures(fixtures);
         setCurrentGameweekError(null);
       } catch (err: unknown) {
         console.error("Failed to load weekly gameweek fixtures", err);
         if (!cancelled) {
           setCurrentGameweekError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load the current gameweek fixtures."
+            err instanceof Error ? err.message : "Failed to load the current gameweek fixtures."
           );
         }
       } finally {
@@ -166,7 +121,6 @@ const WeeklyGameweekPage: React.FC = () => {
 
     loadCurrentGameweek();
     const intervalId = window.setInterval(loadCurrentGameweek, 60_000);
-
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
@@ -175,21 +129,11 @@ const WeeklyGameweekPage: React.FC = () => {
 
   const detectedCurrentRound = currentGameweekFixtures[0]?.round ?? null;
 
-  // Extract the numeric matchday from a round label e.g. "Matchday 31" → 31
   const parseMatchdayNum = (round: string): number => {
     const m = round.match(/(\d+)$/);
     return m ? parseInt(m[1], 10) : NaN;
   };
 
-  // "This Gameweek" = the upcoming or currently in-progress round.
-  //
-  // getNextPremierLeagueGameweekFixtures (detectedCurrentRound) always returns:
-  //   - the active round when any fixture is IN_PLAY / PAUSED / still TIMED
-  //   - the NEXT upcoming round once all fixtures in the current round are FINISHED
-  //
-  // We always show the detected round as "This Gameweek". When it hasn't started yet,
-  // the table is replaced by a prediction-progress view (X/Y completed) rather than scores.
-  // The previously-finished matchday (N-1) is shown under "Previous Gameweek".
   const currentRound = detectedCurrentRound;
 
   const previousRound = React.useMemo(() => {
@@ -212,11 +156,6 @@ const WeeklyGameweekPage: React.FC = () => {
         };
       }
 
-      // Prefer the dedicated gameweek fetch for the detected (upcoming) round.
-      // For other rounds, filter fixturesById by round label; if that yields nothing
-      // (the Football-Data date-range API sometimes omits the matchday field, causing
-      // fixtures to land as "Premier League" instead of "Matchday N"), fall back to
-      // looking up fixtures by the IDs stored in predictions.
       let fixturesForRound: Fixture[];
       if (roundName === detectedCurrentRound) {
         fixturesForRound = currentGameweekFixtures;
@@ -229,15 +168,9 @@ const WeeklyGameweekPage: React.FC = () => {
         } else {
           const roundPredictions = predictions.filter((p) => p.round === roundName);
           const predFixtureIds = new Set(roundPredictions.map((p) => p.fixtureId));
-          fixturesForRound = Object.values(fixturesById).filter((f) =>
-            predFixtureIds.has(f.id)
-          );
+          fixturesForRound = Object.values(fixturesById).filter((f) => predFixtureIds.has(f.id));
         }
 
-        // Strip stale rearranged fixtures that sit far outside the main gameweek
-        // cluster. A match reassigned to a later matchday often keeps its original
-        // (old) kickoff date, pulling it weeks away from the rest of the fixtures.
-        // Keep only fixtures within 7 days of the latest kickoff in the set.
         if (fixturesForRound.length > 1) {
           const latestKickoff = Math.max(
             ...fixturesForRound.map((f) => new Date(f.kickoff).getTime())
@@ -249,22 +182,16 @@ const WeeklyGameweekPage: React.FC = () => {
         }
       }
 
-      const fixturesList = fixturesForRound
-        .sort(
-          (a, b) =>
-            new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
-        );
+      const fixturesList = fixturesForRound.sort(
+        (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
+      );
 
       const earliestKickoff = fixturesList.length
-        ? new Date(
-            Math.min(...fixturesList.map((f) => new Date(f.kickoff).getTime()))
-          )
+        ? new Date(Math.min(...fixturesList.map((f) => new Date(f.kickoff).getTime())))
         : null;
 
       const roundPreds = predictions.filter((p) => p.round === roundName);
 
-      // Reveal predictions once any fixture has started. When fixturesList is empty
-      // (fixture data not yet available) fall back to prediction kickoff times.
       const revealPredictions =
         fixturesList.some((f) => hasFixtureStarted(f)) ||
         roundPreds.some((p) => new Date(p.kickoff).getTime() <= Date.now());
@@ -284,62 +211,36 @@ const WeeklyGameweekPage: React.FC = () => {
 
         let points: number | null = null;
         if (fixture) {
-          const scored = scorePrediction(
-            p.predHome,
-            p.predAway,
-            fixture.homeGoals,
-            fixture.awayGoals
-          );
+          const scored = scorePrediction(p.predHome, p.predAway, fixture.homeGoals, fixture.awayGoals);
           points = scored.points;
         }
 
         if (!byUser[p.userId]) {
-          byUser[p.userId] = {
-            userId: p.userId,
-            userDisplayName: p.userDisplayName,
-            totalPoints: 0,
-          };
+          byUser[p.userId] = { userId: p.userId, userDisplayName: p.userDisplayName, totalPoints: 0 };
         }
-
-        if (points != null) {
-          byUser[p.userId].totalPoints += points;
-        }
+        if (points != null) byUser[p.userId].totalPoints += points;
       }
 
-      const weeklyRows = Object.values(byUser).sort(
-        (a, b) => b.totalPoints - a.totalPoints
-      );
+      const weeklyRows = Object.values(byUser).sort((a, b) => b.totalPoints - a.totalPoints);
+      const leaderPoints = weeklyRows.length > 0 ? weeklyRows[0].totalPoints : 0;
 
-      const leaderPoints =
-        weeklyRows.length > 0 ? weeklyRows[0].totalPoints : 0;
-
-      return {
-        fixturesList,
-        earliestKickoff,
-        revealPredictions,
-        weeklyRows,
-        predsByUserFixture,
-        leaderPoints,
-      };
+      return { fixturesList, earliestKickoff, revealPredictions, weeklyRows, predsByUserFixture, leaderPoints };
     },
     [currentGameweekFixtures, detectedCurrentRound, fixturesById, predictions, users, loadingUsers]
   );
 
-  const currentRoundData = React.useMemo(
-    () => buildRoundData(currentRound),
-    [buildRoundData, currentRound]
-  );
-  const previousRoundData = React.useMemo(
-    () => buildRoundData(previousRound),
-    [buildRoundData, previousRound]
-  );
+  const currentRoundData = React.useMemo(() => buildRoundData(currentRound), [buildRoundData, currentRound]);
+  const previousRoundData = React.useMemo(() => buildRoundData(previousRound), [buildRoundData, previousRound]);
 
   const loading = predictionsLoading || loadingFixtures || currentGameweekLoading;
-  const combinedError =
-    predictionsError || fixturesError || currentGameweekError || usersError;
+  const combinedError = predictionsError || fixturesError || currentGameweekError || usersError;
 
   if (loading) {
-    return <div>Loading weekly gameweek view…</div>;
+    return (
+      <div style={{ padding: 16, color: "var(--text-muted)", fontSize: 14 }}>
+        Loading gameweek…
+      </div>
+    );
   }
 
   if (!currentRound) {
@@ -354,612 +255,264 @@ const WeeklyGameweekPage: React.FC = () => {
     );
   }
 
-  const kickoffLabel =
-    currentRoundData.earliestKickoff &&
-    currentRoundData.earliestKickoff.toLocaleString("en-GB", {
+  const fmtKickoff = (d: Date | null) =>
+    d?.toLocaleString("en-GB", {
       timeZone: "Europe/London",
       weekday: "short",
       day: "2-digit",
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
-    });
+    }) ?? null;
 
-  const previousKickoffLabel =
-    previousRoundData.earliestKickoff &&
-    previousRoundData.earliestKickoff.toLocaleString("en-GB", {
-      timeZone: "Europe/London",
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const kickoffLabel = fmtKickoff(currentRoundData.earliestKickoff);
+  const previousKickoffLabel = fmtKickoff(previousRoundData.earliestKickoff);
 
   const paidCount = users.filter((u) => u.hasPaid).length;
   const prizePot = paidCount * 5;
-
-  const prizePotLabel = loadingUsers
-    ? "…"
-    : formatCurrencyGBP(prizePot);
-  const prizePotSubtext = loadingUsers
-    ? "Loading players…"
-    : `${paidCount} paid player${paidCount === 1 ? "" : "s"}`;
 
   const isRoundComplete = (roundData: RoundData) =>
     roundData.fixturesList.length > 0 &&
     roundData.fixturesList.every((f) => isFixtureFinished(f));
 
-  const renderRoundTable = (
+  // ─── Player card ──────────────────────────────────────────────────────────
+  const renderPlayerCard = (row: WeeklyRow, rank: number, roundData: RoundData) => {
+    const isLeader = roundData.leaderPoints > 0 && row.totalPoints === roundData.leaderPoints;
+
+    return (
+      <div key={row.userId} className={`card gw-player-card${isLeader ? " gw-player-card--leader" : ""}`}>
+        {/* Header: rank · name · points */}
+        <div className="gw-player-header">
+          <span className="gw-rank-badge">{isLeader ? "🏆" : rank}</span>
+          <span className="gw-player-name">{row.userDisplayName}</span>
+          <span className="gw-player-pts">
+            <strong>{row.totalPoints}</strong>
+            <span className="gw-pts-label">pts</span>
+          </span>
+        </div>
+
+        {/* One row per fixture */}
+        <div className="gw-fixture-list">
+          {roundData.fixturesList.map((f) => {
+            const pred = roundData.predsByUserFixture[`${row.userId}_${f.id}`];
+            const postponed = isFixturePostponed(f);
+            const live = isFixtureLive(f);
+            const hasScore = f.homeGoals != null && f.awayGoals != null;
+
+            const { points, status } = pred
+              ? scorePrediction(pred.predHome, pred.predAway, f.homeGoals, f.awayGoals)
+              : { points: null, status: "pending" as const };
+
+            const chipBg =
+              status === "exact"  ? "rgba(34,197,94,0.18)"   :
+              status === "result" ? "rgba(59,130,246,0.16)"  :
+              status === "wrong"  ? "rgba(148,163,184,0.1)"  : "transparent";
+
+            const chipColor =
+              status === "exact"  ? "#b7ffd1" :
+              status === "result" ? "#93c5fd" :
+              "var(--text-muted)";
+
+            return (
+              <div key={f.id} className="gw-fixture-row">
+                {/* Team crests + TLAs */}
+                <div className="gw-fixture-teams">
+                  <img src={f.homeLogo} alt={f.homeTeam} className="gw-badge-sm" />
+                  <span className="gw-team-tla">{f.homeShort}</span>
+                  <span className="gw-fixture-sep">–</span>
+                  <span className="gw-team-tla">{f.awayShort}</span>
+                  <img src={f.awayLogo} alt={f.awayTeam} className="gw-badge-sm" />
+                </div>
+
+                {/* Actual score / status */}
+                <div className="gw-actual-result">
+                  {postponed ? (
+                    <span className="gw-status-chip gw-status-chip--pst">PST</span>
+                  ) : live ? (
+                    <span className="gw-status-chip gw-status-chip--live">LIVE</span>
+                  ) : hasScore ? (
+                    <span className="gw-score">{f.homeGoals}–{f.awayGoals}</span>
+                  ) : (
+                    <span className="gw-time">{timeUK(f.kickoff)}</span>
+                  )}
+                </div>
+
+                {/* Prediction chip */}
+                <div className="gw-pred-chip" style={{ background: chipBg }}>
+                  {pred ? (
+                    <>
+                      {status === "exact" && <span className="gw-exact-star">★</span>}
+                      <span style={{ color: chipColor, fontWeight: 700, fontSize: 13 }}>
+                        {pred.predHome ?? "–"}–{pred.predAway ?? "–"}
+                      </span>
+                      {points != null && (
+                        <span className="gw-pts-badge" style={{ color: chipColor }}>
+                          +{points}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="gw-no-pred">—</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Round section ────────────────────────────────────────────────────────
+  const renderRound = (
     title: string,
     roundName: string | null,
     roundData: RoundData,
     kickoffLabelText: string | null,
-    subtitle: React.ReactNode,
     isCollapsible = false,
     showPrizePot = false
   ) => {
-    if (!roundName) {
-      return (
-        <div className="card">
-          <h2 style={{ marginTop: 0 }}>{title}</h2>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            No gameweek predictions found yet. Once everyone starts predicting,
-            this view will show the live weekly race.
-          </p>
-        </div>
-      );
-    }
+    if (!roundName) return null;
 
-    const content = (
-      <div
-        className="card"
-        style={{
-          marginBottom: 16,
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-        }}
-      >
-        <h2 style={{ margin: 0 }}>{title}</h2>
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--text-muted)",
-            margin: 0,
-          }}
-        >
-          {subtitle}
-        </p>
+    const leaders = roundData.weeklyRows.filter((r) => r.totalPoints === roundData.leaderPoints);
+    const isJoint = leaders.length > 1;
+    const roundComplete = isRoundComplete(roundData);
+    const leaderLabel = roundComplete
+      ? isJoint ? "Joint winners" : "Winner"
+      : isJoint ? "Joint leaders" : "Leading";
 
-        {kickoffLabelText && (
-          <p
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              margin: 0,
-            }}
-          >
-            First kick-off: {kickoffLabelText}
-          </p>
-        )}
-
-        {showPrizePot && (
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              flexWrap: "wrap",
-              marginTop: 6,
-            }}
-          >
-            <div
-              style={{
-                padding: "10px 12px",
-                borderRadius: 12,
-                background: "rgba(59,130,246,0.08)",
-                minWidth: 200,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--text-muted)",
-                  marginBottom: 4,
-                }}
-              >
-                Total prize pot (this gameweek)
-              </div>
-              <div style={{ fontWeight: 700 }}>{prizePotLabel}</div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                {prizePotSubtext}
-              </div>
-              {usersError && (
-                <div
-                  style={{
-                    marginTop: 6,
-                    fontSize: 12,
-                    color: "var(--red)",
-                  }}
-                  role="alert"
-                >
-                  Failed to load prize pot.
-                </div>
-              )}
+    // Header card
+    const headerCard = (
+      <div className="card gw-header-card">
+        <div className="gw-header-top">
+          <div className="gw-header-text">
+            <p className="eyebrow" style={{ margin: "0 0 2px" }}>{roundName}</p>
+            <h2 style={{ margin: 0 }}>{title}</h2>
+            {kickoffLabelText && (
+              <p className="gw-kickoff-meta">First kick-off: {kickoffLabelText}</p>
+            )}
+          </div>
+          {showPrizePot && prizePot > 0 && (
+            <div className="gw-prize-pill">
+              <span className="gw-prize-amount">{formatCurrencyGBP(prizePot)}</span>
+              <span className="gw-prize-sub">{paidCount} paid</span>
             </div>
+          )}
+        </div>
+
+        {roundData.leaderPoints > 0 && leaders.length > 0 && (
+          <div className="gw-leader-banner">
+            <span className="gw-leader-label">{leaderLabel}</span>
+            <strong className="gw-leader-names">
+              {leaders.map((l) => l.userDisplayName).join(" & ")}
+            </strong>
+            <span className="gw-leader-pts">{roundData.leaderPoints} pts</span>
           </div>
         )}
 
-        {roundData.leaderPoints > 0 && roundData.weeklyRows.length > 0 && (() => {
-          const leaders = roundData.weeklyRows.filter(
-            (r) => r.totalPoints === roundData.leaderPoints
-          );
-          const isJoint = leaders.length > 1;
-          const label = isRoundComplete(roundData)
-            ? isJoint ? "Joint winners" : "Winner"
-            : isJoint ? "Joint leaders" : "Leading";
-          return (
-            <div
-              style={{
-                fontSize: 12,
-                color: "var(--text-muted)",
-                marginTop: 6,
-                padding: "10px 12px",
-                borderRadius: 12,
-                background: "linear-gradient(90deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))",
-              }}
-            >
-              {label}:{" "}
-              <strong>{leaders.map((l) => l.userDisplayName).join(" & ")}</strong>{" "}
-              ({roundData.leaderPoints} pts)
-            </div>
-          );
-        })()}
-
         {combinedError && (
-          <p
-            style={{
-              fontSize: 12,
-              color: "var(--red)",
-              margin: 0,
-            }}
-          >
-            {combinedError}
-          </p>
+          <p style={{ fontSize: 12, color: "var(--red)", margin: "8px 0 0" }}>{combinedError}</p>
         )}
       </div>
     );
 
-    const tableContent = roundData.revealPredictions ? (
-      <div className="card" style={{ padding: 0 }}>
-        {/* Horizontal scroll container */}
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              minWidth: 500,
-              borderCollapse: "collapse",
-              fontSize: 13,
-            }}
-          >
-            <thead>
-              <tr
-                style={{
-                  textAlign: "left",
-                  color: "var(--text-muted)",
-                  fontSize: 11,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                }}
-              >
-                <th
-                  style={{
-                    padding: "10px 12px",
-                    position: "sticky",
-                    left: 0,
-                    background: "var(--card-bg)",
-                    width: playerColWidth,
-                    minWidth: playerColWidth,
-                    zIndex: 3,
-                  }}
-                >
-                  Player
-                </th>
-                <th
-                  style={{
-                    padding: "10px 8px",
-                    textAlign: "right",
-                    position: "sticky",
-                    left: playerColWidth,
-                    background: "var(--card-bg)",
-                    width: ptsColWidth,
-                    minWidth: ptsColWidth,
-                    zIndex: 3,
-                  }}
-                >
-                  Pts
-                </th>
-                {roundData.fixturesList.map((f) => {
-                  const hasScore = f.homeGoals != null && f.awayGoals != null;
-                  const postponed = isFixturePostponed(f);
-
-                  return (
-                    <th
-                      key={f.id}
-                      style={{
-                        padding: "8px 4px",
-                        textAlign: "center",
-                        borderLeft: "1px solid rgba(148,163,184,0.18)",
-                        width: FIXTURE_COL_WIDTH,
-                        minWidth: FIXTURE_COL_WIDTH,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        {/* team badge row */}
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 6,
-                          }}
-                        >
-                          {f.homeLogo && (
-                            <img
-                              src={f.homeLogo}
-                              alt={f.homeTeam}
-                              style={{ width: 24, height: 24, opacity: postponed ? 0.4 : 1 }}
-                            />
-                          )}
-                          <span style={{ fontSize: 11, opacity: 0.8 }}>vs</span>
-                          {f.awayLogo && (
-                            <img
-                              src={f.awayLogo}
-                              alt={f.awayTeam}
-                              style={{ width: 24, height: 24, opacity: postponed ? 0.4 : 1 }}
-                            />
-                          )}
-                        </div>
-
-                        {/* score / postponed label */}
-                        <div
-                          style={{
-                            fontSize: postponed ? 10 : 13,
-                            fontWeight: 700,
-                            color: postponed
-                              ? "var(--text-muted)"
-                              : hasScore
-                              ? "var(--text)"
-                              : "var(--text-muted)",
-                          }}
-                        >
-                          {postponed
-                            ? "PST"
-                            : hasScore
-                            ? `${f.homeGoals}–${f.awayGoals}`
-                            : "–"}
-                        </div>
-                      </div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {roundData.weeklyRows.map((row) => {
-                const isLeader =
-                  roundData.leaderPoints > 0 &&
-                  row.totalPoints === roundData.leaderPoints;
-
-                return (
-                  <tr
-                    key={row.userId}
-                    style={{
-                      borderTop: "1px solid rgba(148,163,184,0.18)",
-                      background: isLeader
-                        ? "linear-gradient(to right, rgba(34,197,94,0.12), transparent)"
-                        : "transparent",
-                    }}
-                  >
-                    {/* Player cell with trophy for leader */}
-                    <td
-                      style={{
-                        padding: "8px 12px",
-                        position: "sticky",
-                        left: 0,
-                        background: "var(--card-bg)",
-                        width: playerColWidth,
-                        minWidth: playerColWidth,
-                        zIndex: 2,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {isLeader && (
-                          <span
-                            style={{
-                              fontSize: 16,
-                            }}
-                          >
-                            🏆
-                          </span>
-                        )}
-                        <span>{row.userDisplayName}</span>
-                      </div>
-                    </td>
-
-                    {/* Weekly points */}
-                    <td
-                      style={{
-                        padding: "8px 8px",
-                        textAlign: "right",
-                        position: "sticky",
-                        left: playerColWidth,
-                        background: "var(--card-bg)",
-                        fontWeight: 700,
-                        width: ptsColWidth,
-                        minWidth: ptsColWidth,
-                        zIndex: 2,
-                      }}
-                    >
-                      {row.totalPoints}
-                    </td>
-
-                    {/* Predictions for each fixture */}
-                    {roundData.fixturesList.map((f) => {
-                      const key = `${row.userId}_${f.id}`;
-                      const p = roundData.predsByUserFixture[key];
-
-                      if (!p) {
-                        return (
-                          <td
-                            key={f.id}
-                            style={{
-                              padding: "6px 4px",
-                              textAlign: "center",
-                              fontSize: 12,
-                              color: "var(--text-muted)",
-                              borderLeft: "1px solid rgba(148,163,184,0.18)",
-                              width: FIXTURE_COL_WIDTH,
-                              minWidth: FIXTURE_COL_WIDTH,
-                            }}
-                          >
-                            –
-                          </td>
-                        );
-                      }
-
-                      const { points, status } = scorePrediction(
-                        p.predHome,
-                        p.predAway,
-                        f.homeGoals,
-                        f.awayGoals
-                      );
-
-                      let bg = "transparent";
-                      let badge = "";
-                      if (status === "exact") {
-                        bg = "rgba(34,197,94,0.22)";
-                        badge = "★"; // star for exact score
-                      } else if (status === "result") {
-                        bg = "rgba(59,130,246,0.18)";
-                      } else if (status === "wrong") {
-                        bg = "rgba(148,163,184,0.08)";
-                      }
-
-                      return (
-                        <td
-                          key={f.id}
-                          style={{
-                            padding: "6px 4px",
-                            textAlign: "center",
-                            borderLeft: "1px solid rgba(148,163,184,0.18)",
-                            width: FIXTURE_COL_WIDTH,
-                            minWidth: FIXTURE_COL_WIDTH,
-                          }}
-                        >
-                          {/* Prediction pill */}
-                          <div
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 4,
-                              padding:
-                                status === "pending" ? "0" : "4px 10px",
-                              borderRadius: 999,
-                              background: bg,
-                              fontSize: 13,
-                            }}
-                          >
-                            {badge && (
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  marginRight: 2,
-                                }}
-                              >
-                                {badge}
-                              </span>
-                            )}
-                            <span>
-                              {p.predHome ?? "–"}–{p.predAway ?? "–"}
-                            </span>
-                          </div>
-
-                          {/* Points (only once matches have started/finished) */}
-                          {points != null && (
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: "var(--text-muted)",
-                                marginTop: 2,
-                              }}
-                            >
-                              <strong>
-                                {points} pt{points === 1 ? "" : "s"}
-                              </strong>
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+    // Main content: rankings or hidden-predictions view
+    const mainContent = roundData.revealPredictions ? (
+      <div className="gw-player-list">
+        {roundData.weeklyRows.length === 0 ? (
+          <div className="card">
+            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
+              No predictions submitted yet.
+            </p>
+          </div>
+        ) : (
+          roundData.weeklyRows.map((row, index) => renderPlayerCard(row, index + 1, roundData))
+        )}
       </div>
     ) : (
-      <div className="card" style={{ marginTop: 8 }}>
-        <h3 style={{ marginTop: 0, marginBottom: 8 }}>Predictions hidden</h3>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
-          Predictions stay hidden until the first fixture of the gameweek starts.
+      // Pre-kickoff: show who has submitted predictions
+      <div className="card gw-hidden-card">
+        <p className="gw-hidden-title">Predictions locked until kick-off</p>
+        <p className="gw-hidden-sub">
+          Everyone&apos;s picks are hidden until the first fixture starts.
         </p>
-        {users.length > 0 && (() => {
-            const countableFixtures = roundData.fixturesList.filter(
-              (fixture) => !isFixturePostponed(fixture)
-            );
-            const usersWithCounts = users
-              .map((user) => ({
-                userId: user.id,
-                displayName: user.displayName,
-                completed: countableFixtures.reduce((count, fixture) => {
-                  const prediction =
-                    roundData.predsByUserFixture[`${user.id}_${fixture.id}`];
-                  return hasCompletedPrediction(prediction) ? count + 1 : count;
-                }, 0),
-                total: countableFixtures.length,
-              }))
-              .sort((a, b) => b.completed - a.completed);
 
-            return (
-              <div style={{ marginTop: 10 }}>
-                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
-                  Prediction progress:
-                </p>
-                <div
-                  style={{
-                    marginTop: 8,
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 8,
-                  }}
-                >
-                  {usersWithCounts.map((u) => (
-                    <span
-                      key={u.userId}
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: 999,
-                        background:
-                          u.completed === u.total && u.total > 0
-                            ? "rgba(34,197,94,0.18)"
-                            : u.completed > 0
-                            ? "rgba(59,130,246,0.14)"
-                            : "rgba(148,163,184,0.14)",
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {u.displayName} {u.completed}/{u.total}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
+        {users.length > 0 && (() => {
+          const countableFixtures = roundData.fixturesList.filter((f) => !isFixturePostponed(f));
+          const usersWithCounts = users
+            .map((u) => ({
+              userId: u.id,
+              displayName: u.displayName,
+              completed: countableFixtures.reduce((count, fixture) => {
+                const pred = roundData.predsByUserFixture[`${u.id}_${fixture.id}`];
+                return hasCompletedPrediction(pred) ? count + 1 : count;
+              }, 0),
+              total: countableFixtures.length,
+            }))
+            .sort((a, b) => b.completed - a.completed);
+
+          return (
+            <div className="gw-progress-grid">
+              {usersWithCounts.map((u) => {
+                const done = u.completed === u.total && u.total > 0;
+                const partial = u.completed > 0 && !done;
+                return (
+                  <div
+                    key={u.userId}
+                    className={`gw-progress-item${done ? " gw-progress-item--done" : partial ? " gw-progress-item--partial" : ""}`}
+                  >
+                    <span className="gw-progress-name">{u.displayName}</span>
+                    <span className="gw-progress-count">{u.completed}/{u.total}</span>
+                    <div className="gw-progress-bar">
+                      <div
+                        className="gw-progress-bar__fill"
+                        style={{ width: `${u.total > 0 ? (u.completed / u.total) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {kickoffLabelText && (
-          <p
-            style={{
-              fontSize: 12,
-              color: "var(--text-muted)",
-              marginTop: 4,
-            }}
-          >
-            They&apos;ll unlock once the early kick-off starts.
-          </p>
+          <p className="gw-hidden-kickoff">Unlocks at {kickoffLabelText}</p>
         )}
       </div>
     );
 
     if (isCollapsible) {
       return (
-        <details style={{ marginTop: 16 }}>
-          <summary
-            style={{
-              cursor: "pointer",
-              fontWeight: 700,
-              marginBottom: 12,
-            }}
-          >
-            {title}
+        <details className="gw-previous-section">
+          <summary className="gw-previous-summary">
+            <span className="gw-previous-title">{title}</span>
+            {roundComplete && leaders.length > 0 && (
+              <span className="gw-previous-winner">
+                {isJoint ? "Joint: " : ""}{leaders.map((l) => l.userDisplayName).join(" & ")} · {roundData.leaderPoints} pts
+              </span>
+            )}
           </summary>
-          {content}
-          {tableContent}
+          <div className="gw-previous-body">
+            {headerCard}
+            {mainContent}
+          </div>
         </details>
       );
     }
 
     return (
-      <div>
-        {content}
-        {tableContent}
+      <div className="gw-section">
+        {headerCard}
+        {mainContent}
       </div>
     );
   };
 
   return (
-    <div>
-      {renderRoundTable(
-        "This Gameweek",
-        currentRound,
-        currentRoundData,
-        kickoffLabel,
-        currentRoundData.revealPredictions ? (
-          <>
-            Live points for <strong>{currentRound}</strong>. Whoever tops this
-            table takes the week.
-          </>
-        ) : (
-          <>
-            Upcoming <strong>{currentRound}</strong>. Submit your predictions
-            before the first kick-off.
-          </>
-        ),
-        false,
-        true
-      )}
-
-      {renderRoundTable(
-        "Previous Gameweek",
-        previousRound,
-        previousRoundData,
-        previousKickoffLabel,
-        previousRound ? (
-          <>
-            Final points for <strong>{previousRound}</strong>. Relive how the
-            week finished.
-          </>
-        ) : (
-          "No previous gameweek yet. Once a matchday finishes you can revisit it here."
-        ),
-        true
-      )}
+    <div className="gw-page">
+      {renderRound("This Gameweek", currentRound, currentRoundData, kickoffLabel, false, true)}
+      {renderRound("Previous Gameweek", previousRound, previousRoundData, previousKickoffLabel, true)}
     </div>
   );
 };
