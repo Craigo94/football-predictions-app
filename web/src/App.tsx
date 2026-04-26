@@ -22,6 +22,7 @@ import AdminPage from "./components/admin/AdminPage";
 import { PRIMARY_ADMIN_EMAIL, normalizeEmail } from "./config/admin";
 import DashboardPage from "./components/dashboard/DashboardPage";
 import WorldCupPage from "./components/worldcup/WorldCupPage";
+import BottomNav from "./components/layout/BottomNav";
 
 interface UserProfile {
   displayName?: string;
@@ -158,41 +159,46 @@ const App: React.FC = () => {
     <Router>
       {user ? (
         <LiveFixturesProvider userId={user.uid}>
-          <div className="app-shell">
+          <div className="app-layout">
             <Navbar user={user} isAdmin={isAdmin} />
-            <Routes>
-              <Route
-                path="/dashboard"
-                element={<DashboardPage user={user} />}
-              />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route
-                path="/predictions"
-                element={<PredictionsPage user={user} />}
-              />
-              <Route path="/leaderboard" element={<LeaderboardPage user={user} />} />
-              <Route path="/league-table" element={<LeagueTablePage />} />
-              <Route path="/weekly" element={<WeeklyGameweekPage />} />
-              <Route path="/world-cup" element={<WorldCupPage user={user} />} />
-              <Route path="/stats" element={<MyStatsPage user={user} />} />
-              <Route
-                path="/admin"
-                element={
-                  isAdmin ? (
-                    <AdminPage />
-                  ) : (
-                    <Navigate to="/predictions" replace />
-                  )
-                }
-              />
-              <Route
-                path="/profile/name"
-                element={
-                  <EditNamePage user={user} onUserUpdated={refreshUser} />
-                }
-              />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
+            <main className="app-content">
+              <div className="app-content-inner">
+                <Routes>
+                  <Route
+                    path="/dashboard"
+                    element={<DashboardPage user={user} />}
+                  />
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route
+                    path="/predictions"
+                    element={<PredictionsPage user={user} />}
+                  />
+                  <Route path="/leaderboard" element={<LeaderboardPage user={user} />} />
+                  <Route path="/league-table" element={<LeagueTablePage />} />
+                  <Route path="/weekly" element={<WeeklyGameweekPage />} />
+                  <Route path="/world-cup" element={<WorldCupPage user={user} />} />
+                  <Route path="/stats" element={<MyStatsPage user={user} />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      isAdmin ? (
+                        <AdminPage />
+                      ) : (
+                        <Navigate to="/predictions" replace />
+                      )
+                    }
+                  />
+                  <Route
+                    path="/profile/name"
+                    element={
+                      <EditNamePage user={user} onUserUpdated={refreshUser} />
+                    }
+                  />
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </div>
+            </main>
+            <BottomNav isAdmin={isAdmin} />
           </div>
         </LiveFixturesProvider>
       ) : (

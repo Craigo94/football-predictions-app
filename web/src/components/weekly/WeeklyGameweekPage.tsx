@@ -275,21 +275,28 @@ const WeeklyGameweekPage: React.FC = () => {
     roundData.fixturesList.length > 0 &&
     roundData.fixturesList.every((f) => isFixtureFinished(f));
 
+  const rankOrdinal = (n: number) => {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+  };
+
   // ─── Player card ──────────────────────────────────────────────────────────
   const renderPlayerCard = (row: WeeklyRow, rank: number, roundData: RoundData) => {
     const isLeader = roundData.leaderPoints > 0 && row.totalPoints === roundData.leaderPoints;
 
     return (
-      <div key={row.userId} className={`card gw-player-card${isLeader ? " gw-player-card--leader" : ""}`}>
-        {/* Header: rank · name · points */}
-        <div className="gw-player-header">
-          <span className="gw-rank-badge">{isLeader ? "🏆" : rank}</span>
+      <details key={row.userId} open className={`card gw-player-card${isLeader ? " gw-player-card--leader" : ""}`}>
+        {/* Summary: rank · name · points · chevron */}
+        <summary className="gw-player-summary">
+          <span className="gw-rank-badge">{isLeader ? "🏆" : rankOrdinal(rank)}</span>
           <span className="gw-player-name">{row.userDisplayName}</span>
           <span className="gw-player-pts">
             <strong>{row.totalPoints}</strong>
             <span className="gw-pts-label">pts</span>
           </span>
-        </div>
+          <span className="gw-chevron">▾</span>
+        </summary>
 
         {/* One row per fixture */}
         <div className="gw-fixture-list">
@@ -359,7 +366,7 @@ const WeeklyGameweekPage: React.FC = () => {
             );
           })}
         </div>
-      </div>
+      </details>
     );
   };
 
