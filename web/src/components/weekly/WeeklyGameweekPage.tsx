@@ -275,98 +275,99 @@ const WeeklyGameweekPage: React.FC = () => {
     roundData.fixturesList.length > 0 &&
     roundData.fixturesList.every((f) => isFixtureFinished(f));
 
-  const rankOrdinal = (n: number) => {
-    const s = ["th", "st", "nd", "rd"];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
-  };
+  // ─── Prediction table (horizontal scroll, one row per fixture) ───────────
+  const renderTable = (roundData: RoundData) => {
+    const { fixturesList, weeklyRows, predsByUserFixture } = roundData;
 
-  // ─── Player card ──────────────────────────────────────────────────────────
-  const renderPlayerCard = (row: WeeklyRow, rank: number, roundData: RoundData) => {
-    const isLeader = roundData.leaderPoints > 0 && row.totalPoints === roundData.leaderPoints;
+    if (weeklyRows.length === 0) {
+      return (
+        <div className="card">
+          <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
+            No predictions submitted yet.
+          </p>
+        </div>
+      );
+    }
 
     return (
-      <details key={row.userId} open className={`card gw-player-card${isLeader ? " gw-player-card--leader" : ""}`}>
-        {/* Summary: rank · name · points · chevron */}
-        <summary className="gw-player-summary">
-          <span className="gw-rank-badge">{isLeader ? "🏆" : rankOrdinal(rank)}</span>
-          <span className="gw-player-name">{row.userDisplayName}</span>
-          <span className="gw-player-pts">
-            <strong>{row.totalPoints}</strong>
-            <span className="gw-pts-label">pts</span>
-          </span>
-          <span className="gw-chevron">▾</span>
-        </summary>
+      <div className="card gw-pred-table-card">
+        <div className="gw-pred-table-scroll">
+          <table className="gw-pred-table">
+            <thead>
+              <tr>
+                <th className="gw-pred-th-match">Match</th>
+                {weeklyRows.map((row) => {
+                  const isLeader = roundData.leaderPoints > 0 && row.totalPoints === roundData.leaderPoints;
+                  return (
+                    <th key={row.userId} className="gw-pred-th-player">
+                      {isLeader && <span className="gw-pred-trophy">🏆</span>}
+                      <span className="gw-pred-th-name">{row.userDisplayName}</span>
+                      <span className="gw-pred-th-pts">{row.totalPoints} pts</span>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {fixturesList.map((f) => {
+                const hasScore = f.homeGoals != null && f.awayGoals != null;
+                const live = isFixtureLive(f);
+                const postponed = isFixturePostponed(f);
 
-        {/* One row per fixture */}
-        <div className="gw-fixture-list">
-          {roundData.fixturesList.map((f) => {
-            const pred = roundData.predsByUserFixture[`${row.userId}_${f.id}`];
-            const postponed = isFixturePostponed(f);
-            const live = isFixtureLive(f);
-            const hasScore = f.homeGoals != null && f.awayGoals != null;
-
-            const { points, status } = pred
-              ? scorePrediction(pred.predHome, pred.predAway, f.homeGoals, f.awayGoals)
-              : { points: null, status: "pending" as const };
-
-            const chipBg =
-              status === "exact"  ? "rgba(34,197,94,0.18)"   :
-              status === "result" ? "rgba(59,130,246,0.16)"  :
-              status === "wrong"  ? "rgba(148,163,184,0.1)"  : "transparent";
-
-            const chipColor =
-              status === "exact"  ? "#b7ffd1" :
-              status === "result" ? "#93c5fd" :
-              "var(--text-muted)";
-
-            return (
-              <div key={f.id} className="gw-fixture-row">
-                {/* Team crests + TLAs */}
-                <div className="gw-fixture-teams">
-                  <img src={f.homeLogo} alt={f.homeTeam} className="gw-badge-sm" />
-                  <span className="gw-team-tla">{f.homeShort}</span>
-                  <span className="gw-fixture-sep">–</span>
-                  <span className="gw-team-tla">{f.awayShort}</span>
-                  <img src={f.awayLogo} alt={f.awayTeam} className="gw-badge-sm" />
-                </div>
-
-                {/* Actual score / status */}
-                <div className="gw-actual-result">
-                  {postponed ? (
-                    <span className="gw-status-chip gw-status-chip--pst">PST</span>
-                  ) : live ? (
-                    <span className="gw-status-chip gw-status-chip--live">LIVE</span>
-                  ) : hasScore ? (
-                    <span className="gw-score">{f.homeGoals}–{f.awayGoals}</span>
-                  ) : (
-                    <span className="gw-time">{timeUK(f.kickoff)}</span>
-                  )}
-                </div>
-
-                {/* Prediction chip */}
-                <div className="gw-pred-chip" style={{ background: chipBg }}>
-                  {pred ? (
-                    <>
-                      {status === "exact" && <span className="gw-exact-star">★</span>}
-                      <span style={{ color: chipColor, fontWeight: 700, fontSize: 13 }}>
-                        {pred.predHome ?? "–"}–{pred.predAway ?? "–"}
+                return (
+                  <tr key={f.id}>
+                    <td className="gw-pred-td-match">
+                      <div className="gw-pred-match-teams">
+                        <img src={f.homeLogo} alt="" className="gw-badge-sm" />
+                        <span>{f.homeShort}</span>
+                        <span className="gw-pred-vs">v</span>
+                        <span>{f.awayShort}</span>
+                        <img src={f.awayLogo} alt="" className="gw-badge-sm" />
+                      </div>
+                      <span
+                        className="gw-pred-match-result"
+                        style={{
+                          color: live ? "#ffc2c2" : hasScore ? "var(--accent)" : "var(--text-muted)",
+                          fontWeight: hasScore || live ? 800 : 400,
+                        }}
+                      >
+                        {postponed ? "PST"
+                          : live ? "LIVE"
+                          : hasScore ? `${f.homeGoals}–${f.awayGoals}`
+                          : timeUK(f.kickoff)}
                       </span>
-                      {points != null && (
-                        <span className="gw-pts-badge" style={{ color: chipColor }}>
-                          +{points}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <span className="gw-no-pred">—</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                    {weeklyRows.map((row) => {
+                      const pred = predsByUserFixture[`${row.userId}_${f.id}`];
+                      const { points, status } = pred
+                        ? scorePrediction(pred.predHome, pred.predAway, f.homeGoals, f.awayGoals)
+                        : { points: null, status: "pending" as const };
+
+                      return (
+                        <td key={row.userId} className={`gw-pred-td gw-pred-td--${status}`}>
+                          {pred ? (
+                            <>
+                              <span className="gw-pred-val">
+                                {status === "exact" && <span className="gw-pred-star">★</span>}
+                                {pred.predHome ?? "–"}–{pred.predAway ?? "–"}
+                              </span>
+                              {points != null && (
+                                <span className="gw-pred-pts-val">+{points}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="gw-pred-nil">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      </details>
+      </div>
     );
   };
 
@@ -423,20 +424,8 @@ const WeeklyGameweekPage: React.FC = () => {
       </div>
     );
 
-    // Main content: rankings or hidden-predictions view
-    const mainContent = roundData.revealPredictions ? (
-      <div className="gw-player-list">
-        {roundData.weeklyRows.length === 0 ? (
-          <div className="card">
-            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
-              No predictions submitted yet.
-            </p>
-          </div>
-        ) : (
-          roundData.weeklyRows.map((row, index) => renderPlayerCard(row, index + 1, roundData))
-        )}
-      </div>
-    ) : (
+    // Main content: prediction table or hidden-predictions view
+    const mainContent = roundData.revealPredictions ? renderTable(roundData) : (
       // Pre-kickoff: show who has submitted predictions
       <div className="card gw-hidden-card">
         <p className="gw-hidden-title">Predictions locked until kick-off</p>

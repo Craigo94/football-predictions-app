@@ -409,8 +409,13 @@ input[type="number"]::-webkit-inner-spin-button {
   white-space: nowrap;
 }
 
-/* Mobile bottom nav */
+/* Mobile bottom nav (legacy — no longer rendered, kept for sheet overlay styles) */
 .mobile-nav {
+  display: none;
+}
+
+/* Bottom nav bar — hidden by default, enabled in the 1024px media query below */
+.bottom-nav-bar {
   display: none;
 }
 
@@ -489,7 +494,7 @@ input[type="number"]::-webkit-inner-spin-button {
   box-shadow: none;
 }
 
-/* Mobile first */
+/* Mobile nav bar adjustments */
 @media (max-width: 640px) {
   .navbar {
     padding: 8px 12px 0;
@@ -511,32 +516,24 @@ input[type="number"]::-webkit-inner-spin-button {
     font-size: 10px;
     padding-inline: 10px;
   }
+}
 
-  .navbar {
-    flex-shrink: 0;
+/* Bottom nav: covers all phones + tablets (up to 1024px, i.e. iPad landscape) */
+@media (max-width: 1024px) {
+  /* Hide the floating desktop dock on touch devices */
+  .navbar-links--dock {
+    display: none;
   }
 
-  /* App layout: flex column so bottom nav is always visible */
-  .app-layout {
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .app-content {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
-  }
-
-  /* Bottom nav bar */
+  /* Full-width fixed bottom bar — no transform, no iOS drift */
   .bottom-nav-bar {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    flex-shrink: 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 500;
     background: rgba(6, 18, 10, 0.98);
     border-top: 1px solid rgba(0, 255, 100, 0.18);
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -575,6 +572,11 @@ input[type="number"]::-webkit-inner-spin-button {
     font-size: 10px;
     white-space: nowrap;
   }
+
+  /* Push content above the fixed bar */
+  .app-content-inner {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* Tablet/desktop – still centred, just a bit roomier */
@@ -601,20 +603,13 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0 auto;
 }
 
-/* Hide bottom nav on desktop; keep it on mobile via the max-width block */
-@media (min-width: 641px) {
-  .bottom-nav-bar {
-    display: none;
-  }
-}
-
 .app-content-inner {
   padding: 1.5rem 1.5rem calc(140px + env(safe-area-inset-bottom, 0px));
 }
 
 @media (max-width: 640px) {
   .app-content-inner {
-    padding: 0.75rem 0.75rem 1.5rem;
+    padding: 0.75rem 0.75rem calc(72px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -2314,6 +2309,142 @@ details[open] .gw-previous-summary::before {
   flex-direction: column;
   gap: 10px;
   margin-top: 10px;
+}
+
+/* ─── Gameweek prediction table ──────────────────────────────────────────── */
+
+.gw-pred-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.gw-pred-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gw-pred-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+/* Sticky left column (match info) */
+.gw-pred-table thead th:first-child,
+.gw-pred-table tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: rgba(10, 20, 14, 0.99);
+}
+
+.gw-pred-th-match {
+  padding: 10px 14px 9px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 2px solid rgba(0, 200, 83, 0.2);
+  white-space: nowrap;
+  min-width: 140px;
+}
+
+.gw-pred-th-player {
+  padding: 8px 14px;
+  text-align: center;
+  border-bottom: 2px solid rgba(0, 200, 83, 0.2);
+  min-width: 82px;
+  white-space: nowrap;
+}
+
+.gw-pred-trophy {
+  display: block;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.gw-pred-th-name {
+  display: block;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.gw-pred-th-pts {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 1px;
+}
+
+.gw-pred-td-match {
+  padding: 9px 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  min-width: 140px;
+}
+
+.gw-pred-match-teams {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.gw-pred-vs {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.gw-pred-match-result {
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.gw-pred-td {
+  text-align: center;
+  padding: 9px 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  vertical-align: middle;
+}
+
+.gw-pred-td--exact  { background: rgba(34, 197, 94, 0.1); }
+.gw-pred-td--result { background: rgba(59, 130, 246, 0.07); }
+
+.gw-pred-val {
+  display: block;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.gw-pred-td--exact  .gw-pred-val { color: #b7ffd1; }
+.gw-pred-td--result .gw-pred-val { color: #93c5fd; }
+.gw-pred-td--wrong  .gw-pred-val { color: var(--text-muted); }
+
+.gw-pred-star {
+  font-size: 11px;
+  margin-right: 2px;
+}
+
+.gw-pred-pts-val {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.8;
+  margin-top: 1px;
+}
+
+.gw-pred-nil {
+  color: rgba(148, 163, 184, 0.3);
+  font-size: 16px;
 }
 
 /* ─── Match preview modal ─────────────────────────────────────────────────── */
