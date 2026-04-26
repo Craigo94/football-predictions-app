@@ -235,7 +235,9 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
             <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
               {paidCount} player{paidCount === 1 ? "" : "s"} paid
               <br />
-              Winner takes all
+              {rows.length > 1 && rows[0].totalPoints > 0 && rows[0].totalPoints === rows[1].totalPoints
+                ? "Joint winners take all"
+                : "Winner takes all"}
             </div>
           </div>
         )}
@@ -284,7 +286,9 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
               <tbody>
                 {rows.map((row, index) => {
                   const isCurrentUser = row.userId === user.uid;
-                  const isFirst = index === 0;
+                  const topScore = rows[0]?.totalPoints ?? 0;
+                  const isJointLeader = topScore > 0 && row.totalPoints === topScore;
+                  const displayRank = isJointLeader ? "🏆" : index + 1;
 
                   return (
                     <tr
@@ -296,9 +300,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
                           : "transparent",
                       }}
                     >
-                      <td style={{ padding: "8px 0" }}>
-                        {isFirst ? "🏆" : index + 1}
-                      </td>
+                      <td style={{ padding: "8px 0" }}>{displayRank}</td>
                       <td style={{ padding: "8px 0" }}>
                         <span style={{ fontWeight: isCurrentUser ? 700 : 400 }}>
                           {row.userDisplayName}
