@@ -1,4 +1,5 @@
 import React from "react";
+import type { User } from "firebase/auth";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
 import { type Fixture } from "../../api/football";
@@ -9,6 +10,10 @@ import {
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import { formatFirstName } from "../../utils/displayName";
 
+interface Props {
+  user: User;
+}
+
 interface PredictionDoc {
   userId: string;
   userDisplayName: string;
@@ -16,7 +21,7 @@ interface PredictionDoc {
   fixtureId: number;
   predHome: number | null;
   predAway: number | null;
-  kickoff: string; // ISO date string
+  kickoff: string;
 }
 
 interface LeaderboardRow {
@@ -26,14 +31,17 @@ interface LeaderboardRow {
   exactCount: number;
   resultCount: number;
   wrongCount: number;
+  hasPaid: boolean;
 }
 
-const LeaderboardPage: React.FC = () => {
+const LeaderboardPage: React.FC<Props> = ({ user }) => {
   const [predictions, setPredictions] = React.useState<PredictionDoc[]>([]);
   const [rows, setRows] = React.useState<LeaderboardRow[]>([]);
   const [loadingPreds, setLoadingPreds] = React.useState(true);
   const [predError, setPredError] = React.useState<string | null>(null);
-  const [usersById, setUsersById] = React.useState<Record<string, string>>({});
+  const [usersById, setUsersById] = React.useState<
+    Record<string, { name: string; hasPaid: boolean }>
+  >({});
   const [usersError, setUsersError] = React.useState<string | null>(null);
 
   const {
@@ -42,23 +50,24 @@ const LeaderboardPage: React.FC = () => {
     fixturesError,
   } = useLiveFixtures();
 
-  /* 0) Listen to user profile documents for up-to-date display names */
+  /* 0) Listen to user profile documents */
   React.useEffect(() => {
     const ref = collection(db, "users");
 
     const unsub = onSnapshot(
       ref,
       (snap) => {
-        const map: Record<string, string> = {};
-        snap.forEach((doc) => {
-          const data = doc.data();
+        const map: Record<string, { name: string; hasPaid: boolean }> = {};
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
           const displayName =
             (typeof data.displayName === "string" && data.displayName) ||
             `${data.firstName ?? ""} ${data.lastName ?? ""}`.trim();
 
-          if (displayName) {
-            map[doc.id] = formatFirstName(displayName);
-          }
+          map[docSnap.id] = {
+            name: displayName ? formatFirstName(displayName) : "",
+            hasPaid: Boolean(data.hasPaid),
+          };
         });
         setUsersById(map);
       },
@@ -71,7 +80,7 @@ const LeaderboardPage: React.FC = () => {
     return () => unsub();
   }, []);
 
-  /* 1) Listen to ALL predictions (all users, all gameweeks) */
+  /* 1) Listen to ALL predictions */
   React.useEffect(() => {
     const ref = collection(db, "predictions");
 
@@ -79,8 +88,8 @@ const LeaderboardPage: React.FC = () => {
       ref,
       (snap) => {
         const list: PredictionDoc[] = [];
-        snap.forEach((doc) => {
-          const data = doc.data();
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
           list.push({
             userId: data.userId,
             userDisplayName: formatFirstName(
@@ -106,7 +115,7 @@ const LeaderboardPage: React.FC = () => {
     return () => unsub();
   }, []);
 
-  /* 2) Compute leaderboard whenever predictions OR fixtures change */
+  /* 2) Compute leaderboard */
   React.useEffect(() => {
     if (!predictions.length) {
       setRows([]);
@@ -116,8 +125,9 @@ const LeaderboardPage: React.FC = () => {
     const byUser: Record<string, LeaderboardRow> = {};
 
     for (const p of predictions) {
+      const userInfo = usersById[p.userId];
       const userDisplayName =
-        usersById[p.userId] ||
+        userInfo?.name ||
         formatFirstName(p.userDisplayName || p.userEmail || "Unknown");
 
       const fixture: Fixture | undefined = fixturesById[p.fixtureId];
@@ -144,17 +154,15 @@ const LeaderboardPage: React.FC = () => {
           exactCount: 0,
           resultCount: 0,
           wrongCount: 0,
+          hasPaid: userInfo?.hasPaid ?? false,
         };
       }
 
       const row = byUser[p.userId];
-
       row.userDisplayName = userDisplayName;
+      row.hasPaid = userInfo?.hasPaid ?? row.hasPaid;
 
-      if (points != null) {
-        row.totalPoints += points;
-      }
-
+      if (points != null) row.totalPoints += points;
       if (status === "exact") row.exactCount += 1;
       else if (status === "result") row.resultCount += 1;
       else if (status === "wrong") row.wrongCount += 1;
@@ -170,105 +178,181 @@ const LeaderboardPage: React.FC = () => {
   const loading = loadingPreds || loadingFixtures;
   const combinedError = predError || fixturesError || usersError;
 
+  const paidCount = React.useMemo(
+    () => Object.values(usersById).filter((u) => u.hasPaid).length,
+    [usersById]
+  );
+  const prizePot = paidCount * 5;
+
   if (loading) {
-    return <div>Loading leaderboard…</div>;
+    return (
+      <div style={{ padding: 16, color: "var(--text-muted)", fontSize: 14 }}>
+        Loading leaderboard…
+      </div>
+    );
   }
 
   return (
-    <div>
-      <div
-        className="card"
-        style={{
-          marginBottom: 16,
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-        }}
-      >
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Header card */}
+      <div className="card" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <h2 style={{ margin: 0 }}>Leaderboard</h2>
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--text-muted)",
-            margin: 0,
-          }}
-        >
-          Live points across all your Premier League predictions. Updates
-          automatically while games are being played.
+        <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
+          Live points across all Premier League predictions. Updates automatically.
         </p>
-        {combinedError && (
-          <p
+
+        {/* Prize pot banner */}
+        {prizePot > 0 && (
+          <div
             style={{
-              fontSize: 12,
-              color: "var(--red)",
-              marginTop: 4,
+              marginTop: 8,
+              padding: "10px 14px",
+              borderRadius: 12,
+              background: "rgba(46, 204, 113, 0.1)",
+              border: "1px solid rgba(46, 204, 113, 0.3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
             }}
           >
+            <div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  color: "var(--text-muted)",
+                }}
+              >
+                Prize pot
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#b7ffd1" }}>
+                £{prizePot}
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
+              {paidCount} player{paidCount === 1 ? "" : "s"} paid
+              <br />
+              Winner takes all
+            </div>
+          </div>
+        )}
+
+        {combinedError && (
+          <p style={{ fontSize: 12, color: "var(--red)", margin: "4px 0 0" }}>
             {combinedError}
           </p>
         )}
       </div>
 
+      {/* Table card */}
       <div className="card">
         {rows.length === 0 ? (
           <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            No predictions yet. Once people start predicting, they&apos;ll
-            appear here.
+            No predictions yet. Once people start predicting, they&apos;ll appear here.
           </p>
         ) : (
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: 13,
-            }}
-          >
-            <thead>
-              <tr
-                style={{
-                  textAlign: "left",
-                  color: "var(--text-muted)",
-                  fontSize: 11,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                }}
-              >
-                <th style={{ paddingBottom: 8 }}>Rank</th>
-                <th style={{ paddingBottom: 8 }}>Player</th>
-                <th style={{ paddingBottom: 8, textAlign: "right" }}>Pts</th>
-                <th style={{ paddingBottom: 8, textAlign: "right" }}>Exact</th>
-                <th style={{ paddingBottom: 8, textAlign: "right" }}>
-                  Result
-                </th>
-                <th style={{ paddingBottom: 8, textAlign: "right" }}>Wrong</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
+          <div style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: 13,
+                minWidth: 380,
+              }}
+            >
+              <thead>
                 <tr
-                  key={row.userId}
                   style={{
-                    borderTop: "1px solid rgba(148,163,184,0.15)",
+                    textAlign: "left",
+                    color: "var(--text-muted)",
+                    fontSize: 11,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
                   }}
                 >
-                  <td style={{ padding: "6px 0" }}>{index + 1}</td>
-                  <td style={{ padding: "6px 0" }}>{row.userDisplayName}</td>
-                  <td style={{ padding: "6px 0", textAlign: "right" }}>
-                    <strong>{row.totalPoints}</strong>
-                  </td>
-                  <td style={{ padding: "6px 0", textAlign: "right" }}>
-                    {row.exactCount}
-                  </td>
-                  <td style={{ padding: "6px 0", textAlign: "right" }}>
-                    {row.resultCount}
-                  </td>
-                  <td style={{ padding: "6px 0", textAlign: "right" }}>
-                    {row.wrongCount}
-                  </td>
+                  <th style={{ paddingBottom: 8, width: 32 }}>Rank</th>
+                  <th style={{ paddingBottom: 8 }}>Player</th>
+                  <th style={{ paddingBottom: 8, textAlign: "right" }}>Pts</th>
+                  <th style={{ paddingBottom: 8, textAlign: "right" }}>Exact</th>
+                  <th style={{ paddingBottom: 8, textAlign: "right" }}>Result</th>
+                  <th style={{ paddingBottom: 8, textAlign: "right" }}>Wrong</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => {
+                  const isCurrentUser = row.userId === user.uid;
+                  const isFirst = index === 0;
+
+                  return (
+                    <tr
+                      key={row.userId}
+                      style={{
+                        borderTop: "1px solid rgba(148,163,184,0.12)",
+                        background: isCurrentUser
+                          ? "rgba(0, 200, 83, 0.06)"
+                          : "transparent",
+                      }}
+                    >
+                      <td style={{ padding: "8px 0" }}>
+                        {isFirst ? "🏆" : index + 1}
+                      </td>
+                      <td style={{ padding: "8px 0" }}>
+                        <span style={{ fontWeight: isCurrentUser ? 700 : 400 }}>
+                          {row.userDisplayName}
+                          {isCurrentUser && (
+                            <span
+                              style={{
+                                marginLeft: 6,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: "var(--accent)",
+                                textTransform: "uppercase",
+                                letterSpacing: 0.4,
+                              }}
+                            >
+                              You
+                            </span>
+                          )}
+                        </span>
+                        {row.hasPaid && (
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              display: "inline-block",
+                              background: "rgba(46, 204, 113, 0.15)",
+                              border: "1px solid rgba(46, 204, 113, 0.35)",
+                              color: "#b7ffd1",
+                              borderRadius: 999,
+                              padding: "1px 6px",
+                              fontSize: 10,
+                              fontWeight: 700,
+                            }}
+                          >
+                            £
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: "8px 0", textAlign: "right" }}>
+                        <strong>{row.totalPoints}</strong>
+                      </td>
+                      <td style={{ padding: "8px 0", textAlign: "right" }}>
+                        {row.exactCount}
+                      </td>
+                      <td style={{ padding: "8px 0", textAlign: "right" }}>
+                        {row.resultCount}
+                      </td>
+                      <td style={{ padding: "8px 0", textAlign: "right" }}>
+                        {row.wrongCount}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

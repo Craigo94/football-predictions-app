@@ -170,7 +170,7 @@ const App: React.FC = () => {
                 path="/predictions"
                 element={<PredictionsPage user={user} />}
               />
-              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage user={user} />} />
               <Route path="/league-table" element={<LeagueTablePage />} />
               <Route path="/weekly" element={<WeeklyGameweekPage />} />
               <Route path="/world-cup" element={<WorldCupPage user={user} />} />

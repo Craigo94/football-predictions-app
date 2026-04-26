@@ -164,6 +164,11 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
   const [gameweekFixtures, setGameweekFixtures] = React.useState<Fixture[]>([]);
   const [gameweekLoading, setGameweekLoading] = React.useState(true);
   const [gameweekError, setGameweekError] = React.useState<string | null>(null);
+  const [leaderboardRank, setLeaderboardRank] = React.useState<{
+    rank: number;
+    total: number;
+    points: number;
+  } | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -235,6 +240,45 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
     return () => unsub();
   }, [user.uid]);
+
+  // Leaderboard rank: subscribe to ALL predictions, compute rank for current user
+  React.useEffect(() => {
+    const ref = collection(db, "predictions");
+    const unsub = onSnapshot(ref, (snap) => {
+      const pointsByUser: Record<string, number> = {};
+
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const uid: string = data.userId;
+        if (!uid) return;
+        const fixture = fixturesById[data.fixtureId];
+        if (!fixture) return;
+        const { points } = scorePrediction(
+          data.predHome ?? null,
+          data.predAway ?? null,
+          fixture.homeGoals,
+          fixture.awayGoals
+        );
+        if (points == null) return;
+        pointsByUser[uid] = (pointsByUser[uid] ?? 0) + points;
+      });
+
+      const sorted = Object.entries(pointsByUser).sort((a, b) => b[1] - a[1]);
+      const total = sorted.length;
+      const rankIndex = sorted.findIndex(([uid]) => uid === user.uid);
+      const myPoints = pointsByUser[user.uid] ?? 0;
+
+      if (rankIndex !== -1) {
+        setLeaderboardRank({ rank: rankIndex + 1, total, points: myPoints });
+      } else if (total > 0) {
+        setLeaderboardRank({ rank: total, total, points: 0 });
+      } else {
+        setLeaderboardRank(null);
+      }
+    });
+
+    return () => unsub();
+  }, [user.uid, fixturesById]);
 
   const fixturesForRound = React.useMemo(() => {
     return [...gameweekFixtures]
@@ -580,6 +624,32 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               {loading ? "…" : postponedFixtures.length}
             </span>
             <span className="stat-subtext">Matches moved to a later date</span>
+          </div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-card__header">
+            <span className="stat-label">Your rank</span>
+            <span className="stat-pill">Season</span>
+          </div>
+          <div className="stat-card__body">
+            <span className="stat-value">
+              {leaderboardRank
+                ? `${leaderboardRank.rank}${
+                    leaderboardRank.rank === 1
+                      ? "st"
+                      : leaderboardRank.rank === 2
+                      ? "nd"
+                      : leaderboardRank.rank === 3
+                      ? "rd"
+                      : "th"
+                  }`
+                : "—"}
+            </span>
+            <span className="stat-subtext">
+              {leaderboardRank
+                ? `${leaderboardRank.points} pts · of ${leaderboardRank.total} players`
+                : "No predictions yet"}
+            </span>
           </div>
         </div>
       </section>
