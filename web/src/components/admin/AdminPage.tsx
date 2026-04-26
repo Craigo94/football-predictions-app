@@ -1,6 +1,7 @@
 import React from "react";
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   query,
@@ -352,7 +353,7 @@ const AdminPage: React.FC = () => {
   const handleDeleteUser = async (user: UserRecord) => {
     if (
       !window.confirm(
-        `Permanently remove ${user.displayName}? This deletes their account and cannot be undone.`
+        `Remove ${user.displayName} from the app? Their profile and scores will be deleted. They may be able to re-register with the same email.`
       )
     )
       return;
@@ -360,7 +361,7 @@ const AdminPage: React.FC = () => {
     setDeletingId(user.id);
     setActionError(null);
     try {
-      await callAdminApi("/api/admin/delete-user", { userId: user.id });
+      await deleteDoc(doc(db, "users", user.id));
       showSuccess(`${user.displayName} has been removed.`);
     } catch (err) {
       showError(

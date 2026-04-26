@@ -36,7 +36,7 @@ interface ApiMatchResponse {
 }
 
 const CURRENT_GAMEWEEK_STATUSES = "TIMED,SCHEDULED,IN_PLAY,PAUSED";
-const STALE_FIXTURE_BUFFER_MS = 3 * 24 * 60 * 60 * 1000;
+const STALE_FIXTURE_BUFFER_MS = 8 * 24 * 60 * 60 * 1000;
 
 interface ApiStandingsTeam {
   id: number;
