@@ -269,10 +269,13 @@ const WeeklyGameweekPage: React.FC = () => {
         fixturesList.some((f) => hasFixtureStarted(f)) ||
         roundPreds.some((p) => new Date(p.kickoff).getTime() <= Date.now());
 
+      const activeUserIds = new Set(users.map((u) => u.id));
+
       const byUser: Record<string, WeeklyRow> = {};
       const predsByUserFixture: Record<string, PredictionDoc> = {};
 
       for (const p of roundPreds) {
+        if (!loadingUsers && !activeUserIds.has(p.userId)) continue;
         predsByUserFixture[`${p.userId}_${p.fixtureId}`] = p;
 
         const fixture: Fixture | undefined =
@@ -319,7 +322,7 @@ const WeeklyGameweekPage: React.FC = () => {
         leaderPoints,
       };
     },
-    [currentGameweekFixtures, detectedCurrentRound, fixturesById, predictions]
+    [currentGameweekFixtures, detectedCurrentRound, fixturesById, predictions, users, loadingUsers]
   );
 
   const currentRoundData = React.useMemo(
@@ -487,22 +490,31 @@ const WeeklyGameweekPage: React.FC = () => {
           </div>
         )}
 
-        {roundData.leaderPoints > 0 && roundData.weeklyRows.length > 0 && (
-          <div
-            style={{
-              fontSize: 12,
-              color: "var(--text-muted)",
-              marginTop: 6,
-              padding: "10px 12px",
-              borderRadius: 12,
-              background: "linear-gradient(90deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))",
-            }}
-          >
-            {isRoundComplete(roundData) ? "Winner" : "Winning"}:{" "}
-            <strong>{roundData.weeklyRows[0].userDisplayName}</strong> (
-            {roundData.weeklyRows[0].totalPoints} pts)
-          </div>
-        )}
+        {roundData.leaderPoints > 0 && roundData.weeklyRows.length > 0 && (() => {
+          const leaders = roundData.weeklyRows.filter(
+            (r) => r.totalPoints === roundData.leaderPoints
+          );
+          const isJoint = leaders.length > 1;
+          const label = isRoundComplete(roundData)
+            ? isJoint ? "Joint winners" : "Winner"
+            : isJoint ? "Joint leaders" : "Leading";
+          return (
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--text-muted)",
+                marginTop: 6,
+                padding: "10px 12px",
+                borderRadius: 12,
+                background: "linear-gradient(90deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))",
+              }}
+            >
+              {label}:{" "}
+              <strong>{leaders.map((l) => l.userDisplayName).join(" & ")}</strong>{" "}
+              ({roundData.leaderPoints} pts)
+            </div>
+          );
+        })()}
 
         {combinedError && (
           <p

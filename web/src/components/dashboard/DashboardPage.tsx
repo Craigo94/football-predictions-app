@@ -241,8 +241,24 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     return () => unsub();
   }, [user.uid]);
 
-  // Leaderboard rank: subscribe to ALL predictions, compute rank for current user
+
+  const fixturesForRound = React.useMemo(() => {
+    return [...gameweekFixtures]
+      .map((fixture) => fixturesById[fixture.id] ?? fixture)
+      .sort(
+      (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
+    );
+  }, [fixturesById, gameweekFixtures]);
+
+  const currentRoundLabel = fixturesForRound[0]?.round ?? null;
+
+  // Leaderboard rank: subscribe to ALL predictions, filter to current gameweek only
   React.useEffect(() => {
+    if (!currentRoundLabel) {
+      setLeaderboardRank(null);
+      return;
+    }
+
     const ref = collection(db, "predictions");
     const unsub = onSnapshot(ref, (snap) => {
       const pointsByUser: Record<string, number> = {};
@@ -251,6 +267,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         const data = docSnap.data();
         const uid: string = data.userId;
         if (!uid) return;
+        if (data.round !== currentRoundLabel) return;
         const fixture = fixturesById[data.fixtureId];
         if (!fixture) return;
         const { points } = scorePrediction(
@@ -278,17 +295,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     });
 
     return () => unsub();
-  }, [user.uid, fixturesById]);
-
-  const fixturesForRound = React.useMemo(() => {
-    return [...gameweekFixtures]
-      .map((fixture) => fixturesById[fixture.id] ?? fixture)
-      .sort(
-      (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
-    );
-  }, [fixturesById, gameweekFixtures]);
-
-  const currentRoundLabel = fixturesForRound[0]?.round ?? null;
+  }, [user.uid, fixturesById, currentRoundLabel]);
 
   const firstFixture = fixturesForRound[0] ?? null;
   const firstFixtureStarted = Boolean(firstFixture && hasFixtureStarted(firstFixture));
@@ -629,7 +636,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         <div className="card stat-card">
           <div className="stat-card__header">
             <span className="stat-label">Your rank</span>
-            <span className="stat-pill">Season</span>
+            <span className="stat-pill">This GW</span>
           </div>
           <div className="stat-card__body">
             <span className="stat-value">
