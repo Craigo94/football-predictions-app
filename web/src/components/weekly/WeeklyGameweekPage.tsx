@@ -275,7 +275,7 @@ const WeeklyGameweekPage: React.FC = () => {
     roundData.fixturesList.length > 0 &&
     roundData.fixturesList.every((f) => isFixtureFinished(f));
 
-  // ─── Prediction table (horizontal scroll, one row per fixture) ───────────
+  // ─── Prediction table (players = rows ranked top→bottom, fixtures = columns) ─
   const renderTable = (roundData: RoundData) => {
     const { fixturesList, weeklyRows, predsByUserFixture } = roundData;
 
@@ -295,29 +295,14 @@ const WeeklyGameweekPage: React.FC = () => {
           <table className="gw-pred-table">
             <thead>
               <tr>
-                <th className="gw-pred-th-match">Match</th>
-                {weeklyRows.map((row) => {
-                  const isLeader = roundData.leaderPoints > 0 && row.totalPoints === roundData.leaderPoints;
+                <th className="gw-pred-th-player-col">Player</th>
+                {fixturesList.map((f) => {
+                  const hasScore = f.homeGoals != null && f.awayGoals != null;
+                  const live = isFixtureLive(f);
+                  const postponed = isFixturePostponed(f);
                   return (
-                    <th key={row.userId} className="gw-pred-th-player">
-                      {isLeader && <span className="gw-pred-trophy">🏆</span>}
-                      <span className="gw-pred-th-name">{row.userDisplayName}</span>
-                      <span className="gw-pred-th-pts">{row.totalPoints} pts</span>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {fixturesList.map((f) => {
-                const hasScore = f.homeGoals != null && f.awayGoals != null;
-                const live = isFixtureLive(f);
-                const postponed = isFixturePostponed(f);
-
-                return (
-                  <tr key={f.id}>
-                    <td className="gw-pred-td-match">
-                      <div className="gw-pred-match-teams">
+                    <th key={f.id} className="gw-pred-th-fixture">
+                      <div className="gw-pred-th-teams">
                         <img src={f.homeLogo} alt="" className="gw-badge-sm" />
                         <span>{f.homeShort}</span>
                         <span className="gw-pred-vs">v</span>
@@ -325,7 +310,7 @@ const WeeklyGameweekPage: React.FC = () => {
                         <img src={f.awayLogo} alt="" className="gw-badge-sm" />
                       </div>
                       <span
-                        className="gw-pred-match-result"
+                        className="gw-pred-th-result"
                         style={{
                           color: live ? "#ffc2c2" : hasScore ? "var(--accent)" : "var(--text-muted)",
                           fontWeight: hasScore || live ? 800 : 400,
@@ -336,15 +321,33 @@ const WeeklyGameweekPage: React.FC = () => {
                           : hasScore ? `${f.homeGoals}–${f.awayGoals}`
                           : timeUK(f.kickoff)}
                       </span>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {weeklyRows.map((row, index) => {
+                const isLeader = roundData.leaderPoints > 0 && row.totalPoints === roundData.leaderPoints;
+                return (
+                  <tr key={row.userId}>
+                    <td className="gw-pred-td-player">
+                      <div className="gw-pred-player-cell">
+                        <span className="gw-pred-rank">{isLeader ? "🏆" : index + 1}</span>
+                        <div className="gw-pred-player-info">
+                          <span className="gw-pred-player-name">{row.userDisplayName}</span>
+                          <span className="gw-pred-player-pts">{row.totalPoints} pts</span>
+                        </div>
+                      </div>
                     </td>
-                    {weeklyRows.map((row) => {
+                    {fixturesList.map((f) => {
                       const pred = predsByUserFixture[`${row.userId}_${f.id}`];
                       const { points, status } = pred
                         ? scorePrediction(pred.predHome, pred.predAway, f.homeGoals, f.awayGoals)
                         : { points: null, status: "pending" as const };
 
                       return (
-                        <td key={row.userId} className={`gw-pred-td gw-pred-td--${status}`}>
+                        <td key={f.id} className={`gw-pred-td gw-pred-td--${status}`}>
                           {pred ? (
                             <>
                               <span className="gw-pred-val">

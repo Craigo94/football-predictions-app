@@ -2329,7 +2329,7 @@ details[open] .gw-previous-summary::before {
   font-size: 13px;
 }
 
-/* Sticky left column (match info) */
+/* Sticky left column (player info) */
 .gw-pred-table thead th:first-child,
 .gw-pred-table tbody td:first-child {
   position: sticky;
@@ -2338,7 +2338,8 @@ details[open] .gw-previous-summary::before {
   background: rgba(10, 20, 14, 0.99);
 }
 
-.gw-pred-th-match {
+/* "Player" header — sticky left */
+.gw-pred-th-player-col {
   padding: 10px 14px 9px;
   text-align: left;
   font-size: 11px;
@@ -2348,68 +2349,87 @@ details[open] .gw-previous-summary::before {
   color: var(--text-muted);
   border-bottom: 2px solid rgba(0, 200, 83, 0.2);
   white-space: nowrap;
-  min-width: 140px;
+  min-width: 130px;
 }
 
-.gw-pred-th-player {
-  padding: 8px 14px;
+/* Fixture header cells */
+.gw-pred-th-fixture {
+  padding: 8px 12px;
   text-align: center;
   border-bottom: 2px solid rgba(0, 200, 83, 0.2);
-  min-width: 82px;
+  min-width: 80px;
   white-space: nowrap;
 }
 
-.gw-pred-trophy {
-  display: block;
-  font-size: 14px;
-  line-height: 1.2;
-}
-
-.gw-pred-th-name {
-  display: block;
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text);
-}
-
-.gw-pred-th-pts {
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--accent);
-  margin-top: 1px;
-}
-
-.gw-pred-td-match {
-  padding: 9px 14px;
-  border-top: 1px solid rgba(148, 163, 184, 0.1);
-  min-width: 140px;
-}
-
-.gw-pred-match-teams {
+.gw-pred-th-teams {
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 4px;
   font-weight: 600;
-  font-size: 13px;
-  white-space: nowrap;
+  font-size: 12px;
 }
 
 .gw-pred-vs {
   color: var(--text-muted);
   font-weight: 400;
-  font-size: 11px;
+  font-size: 10px;
 }
 
-.gw-pred-match-result {
+.gw-pred-th-result {
   display: block;
   font-size: 12px;
-  margin-top: 2px;
+  margin-top: 3px;
+  text-align: center;
 }
 
+/* Player left cell */
+.gw-pred-td-player {
+  padding: 9px 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  white-space: nowrap;
+}
+
+.gw-pred-player-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gw-pred-rank {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: rgba(148, 163, 184, 0.12);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.gw-pred-player-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.gw-pred-player-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.gw-pred-player-pts {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 1px;
+}
+
+/* Prediction cells */
 .gw-pred-td {
   text-align: center;
-  padding: 9px 14px;
+  padding: 9px 12px;
   border-top: 1px solid rgba(148, 163, 184, 0.08);
   vertical-align: middle;
 }
