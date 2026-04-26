@@ -42,6 +42,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
   const [usersById, setUsersById] = React.useState<
     Record<string, { name: string; hasPaid: boolean }>
   >({});
+  const [usersLoaded, setUsersLoaded] = React.useState(false);
   const [usersError, setUsersError] = React.useState<string | null>(null);
 
   const {
@@ -70,6 +71,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
           };
         });
         setUsersById(map);
+        setUsersLoaded(true);
       },
       (err) => {
         console.error("Error loading users", err);
@@ -125,6 +127,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
     const byUser: Record<string, LeaderboardRow> = {};
 
     for (const p of predictions) {
+      if (usersLoaded && !usersById[p.userId]) continue;
       const userInfo = usersById[p.userId];
       const userDisplayName =
         userInfo?.name ||
@@ -173,7 +176,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
     );
 
     setRows(sorted);
-  }, [predictions, fixturesById, usersById]);
+  }, [predictions, fixturesById, usersById, usersLoaded]);
 
   const loading = loadingPreds || loadingFixtures;
   const combinedError = predError || fixturesError || usersError;
