@@ -140,6 +140,129 @@ const ResultBreakdownChart: React.FC<{
   );
 };
 
+// ─── Match preview helpers ────────────────────────────────────────────────────
+
+function getMatchFormResult(
+  fixture: Fixture,
+  team: string
+): "win" | "draw" | "loss" | null {
+  const isHome = fixture.homeTeam === team;
+  const teamGoals = isHome ? fixture.homeGoals : fixture.awayGoals;
+  const oppGoals = isHome ? fixture.awayGoals : fixture.homeGoals;
+  if (teamGoals == null || oppGoals == null) return null;
+  if (teamGoals > oppGoals) return "win";
+  if (teamGoals < oppGoals) return "loss";
+  return "draw";
+}
+
+function getWDL(fixtures: Fixture[], team: string) {
+  let w = 0, d = 0, l = 0;
+  for (const f of fixtures) {
+    const r = getMatchFormResult(f, team);
+    if (r === "win") w++;
+    else if (r === "draw") d++;
+    else if (r === "loss") l++;
+  }
+  return { w, d, l };
+}
+
+const RESULT_STYLES = {
+  win:  { bg: "rgba(34,197,94,0.22)",  color: "#b7ffd1" },
+  draw: { bg: "rgba(148,163,184,0.2)", color: "#cbd5e1" },
+  loss: { bg: "rgba(239,68,68,0.22)",  color: "#ffc2c2" },
+} as const;
+
+const FormStrip: React.FC<{ fixtures: Fixture[]; team: string }> = ({ fixtures, team }) => {
+  const ordered = [...fixtures].reverse();
+  return (
+    <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+      {ordered.length === 0 && (
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>—</span>
+      )}
+      {ordered.map((f) => {
+        const r = getMatchFormResult(f, team);
+        if (!r) return null;
+        const { bg, color } = RESULT_STYLES[r];
+        const label = r === "win" ? "W" : r === "loss" ? "L" : "D";
+        const opp = f.homeTeam === team ? (f.awayShort || f.awayTeam) : (f.homeShort || f.homeTeam);
+        return (
+          <div
+            key={f.id}
+            title={`vs ${opp}: ${f.homeGoals}–${f.awayGoals}`}
+            style={{ width: 30, height: 30, borderRadius: 8, background: bg, color, display: "grid", placeItems: "center", fontWeight: 800, fontSize: 13, flexShrink: 0 }}
+          >
+            {label}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const GoalsBarChart: React.FC<{ fixtures: Fixture[]; team: string; accent: string }> = ({
+  fixtures, team, accent,
+}) => {
+  const ordered = [...fixtures].reverse();
+  const values = ordered.map((f) => {
+    const isHome = f.homeTeam === team;
+    return isHome ? (f.homeGoals ?? 0) : (f.awayGoals ?? 0);
+  });
+  if (values.length === 0) return null;
+  const max = Math.max(...values, 1);
+  const barW = 24, gap = 6, chartH = 44;
+  const totalW = values.length * (barW + gap) - gap;
+  return (
+    <svg width={totalW} height={chartH + 14} style={{ display: "block", overflow: "visible" }} aria-hidden="true">
+      {values.map((v, i) => {
+        const barH = Math.max((v / max) * chartH, v === 0 ? 2 : 4);
+        const x = i * (barW + gap);
+        return (
+          <g key={i}>
+            <rect x={x} y={chartH - barH} width={barW} height={barH} rx={5} fill={accent} />
+            <text x={x + barW / 2} y={chartH + 12} textAnchor="middle" fontSize={11} fill="rgba(148,163,184,0.85)">{v}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+const H2HBar: React.FC<{
+  fixtures: Fixture[];
+  homeTeam: string;
+  homeShort: string;
+  awayShort: string;
+}> = ({ fixtures, homeTeam, homeShort, awayShort }) => {
+  let homeWins = 0, draws = 0, awayWins = 0;
+  for (const f of fixtures) {
+    if (f.homeGoals == null || f.awayGoals == null) continue;
+    if (f.homeGoals === f.awayGoals) {
+      draws++;
+    } else {
+      const fixtureHomeWon = f.homeGoals > f.awayGoals;
+      if ((fixtureHomeWon && f.homeTeam === homeTeam) || (!fixtureHomeWon && f.awayTeam === homeTeam)) homeWins++;
+      else awayWins++;
+    }
+  }
+  const total = homeWins + draws + awayWins || 1;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", height: 10, gap: 2 }}>
+        {homeWins > 0 && <div style={{ flex: homeWins / total, background: "rgba(34,197,94,0.5)", minWidth: 8 }} />}
+        {draws > 0 && <div style={{ flex: draws / total, background: "rgba(148,163,184,0.3)", minWidth: 8 }} />}
+        {awayWins > 0 && <div style={{ flex: awayWins / total, background: "rgba(239,68,68,0.4)", minWidth: 8 }} />}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12, color: "var(--text-muted)" }}>
+        <span><strong style={{ color: "#b7ffd1" }}>{homeWins}</strong> {homeShort}</span>
+        <span><strong>{draws}</strong> Draw{draws !== 1 ? "s" : ""}</span>
+        <span>{awayShort} <strong style={{ color: "#ffc2c2" }}>{awayWins}</strong></span>
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const DashboardPage: React.FC<Props> = ({ user }) => {
   const {
     fixturesById,
@@ -484,29 +607,6 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     [fixturesById]
   );
 
-  const renderFormBadge = (
-    fixture: Fixture,
-    team: string
-  ): { label: string; result: string } => {
-    const isHome = fixture.homeTeam === team;
-    const teamGoals = isHome ? fixture.homeGoals : fixture.awayGoals;
-    const oppGoals = isHome ? fixture.awayGoals : fixture.homeGoals;
-
-    if (teamGoals == null || oppGoals == null) {
-      return { label: "—", result: "pending" };
-    }
-
-    if (teamGoals > oppGoals) {
-      return { label: "W", result: "win" };
-    }
-
-    if (teamGoals < oppGoals) {
-      return { label: "L", result: "loss" };
-    }
-
-    return { label: "D", result: "draw" };
-  };
-
   const selectedTeamHome = selectedFixture?.homeTeam ?? "";
   const selectedTeamAway = selectedFixture?.awayTeam ?? "";
   const selectedTeamHomeShort =
@@ -774,120 +874,135 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       {selectedFixture && (
         <div className="modal-backdrop" onClick={() => setSelectedFixture(null)}>
           <div
-            className="modal-card dashboard-modal"
-            onClick={(event) => event.stopPropagation()}
+            className="modal-card match-preview-modal"
+            onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
           >
-            <div className="modal-header">
-              <div>
-                <p className="modal-eyebrow">Match preview</p>
-                <h3>
-                  {selectedFixture.homeTeam} vs {selectedFixture.awayTeam}
-                </h3>
-                <p className="modal-description">
-                  {timeUK(selectedFixture.kickoff)} • {selectedFixture.round}
-                </p>
-              </div>
-              <button
-                className="fx-btn"
-                type="button"
-                onClick={() => setSelectedFixture(null)}
-              >
-                Close
-              </button>
-            </div>
+            {/* Close */}
+            <button
+              className="match-preview-close"
+              type="button"
+              onClick={() => setSelectedFixture(null)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
 
-            <div className="dashboard-modal__grid">
-              <div className="dashboard-modal__panel">
-                <h4>{selectedTeamHomeShort} form</h4>
-                <ul>
-                  {selectedHomeRecent.length === 0 && (
-                    <li>No finished matches yet.</li>
-                  )}
-                  {selectedHomeRecent.map((fixture) => {
-                    const badge = renderFormBadge(fixture, selectedTeamHome);
-                    const opponent =
-                      fixture.homeTeam === selectedTeamHome
-                        ? fixture.awayTeam
-                        : fixture.homeTeam;
-                    const opponentShort =
-                      fixture.homeTeam === selectedTeamHome
-                        ? fixture.awayShort
-                        : fixture.homeShort;
-                    const score = `${fixture.homeGoals ?? "–"}-${
-                      fixture.awayGoals ?? "–"
-                    }`;
-                    return (
-                      <li key={fixture.id}>
-                        <span className={`form-pill form-pill--${badge.result}`}>
-                          {badge.label}
-                        </span>
-                        <span className="form-team">
-                          vs {opponentShort || opponent}
-                        </span>
-                        <span className="form-score">{score}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
+            {/* Header: badges + score */}
+            <div className="match-preview-header">
+              <div className="match-preview-team">
+                <img src={selectedFixture.homeLogo} alt={selectedFixture.homeTeam} className="match-preview-badge" />
+                <span className="match-preview-team-name">{selectedTeamHomeShort}</span>
               </div>
-
-              <div className="dashboard-modal__panel">
-                <h4>{selectedTeamAwayShort} form</h4>
-                <ul>
-                  {selectedAwayRecent.length === 0 && (
-                    <li>No finished matches yet.</li>
-                  )}
-                  {selectedAwayRecent.map((fixture) => {
-                    const badge = renderFormBadge(fixture, selectedTeamAway);
-                    const opponent =
-                      fixture.homeTeam === selectedTeamAway
-                        ? fixture.awayTeam
-                        : fixture.homeTeam;
-                    const opponentShort =
-                      fixture.homeTeam === selectedTeamAway
-                        ? fixture.awayShort
-                        : fixture.homeShort;
-                    const score = `${fixture.homeGoals ?? "–"}-${
-                      fixture.awayGoals ?? "–"
-                    }`;
-                    return (
-                      <li key={fixture.id}>
-                        <span className={`form-pill form-pill--${badge.result}`}>
-                          {badge.label}
-                        </span>
-                        <span className="form-team">
-                          vs {opponentShort || opponent}
-                        </span>
-                        <span className="form-score">{score}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-
-            <div className="dashboard-modal__panel">
-              <h4>Recent head-to-heads</h4>
-              <ul className="head-to-head-list">
-                {selectedHeadToHead.length === 0 && (
-                  <li>No recent head-to-head fixtures.</li>
+              <div className="match-preview-center">
+                {hasFixtureScore(selectedFixture) ? (
+                  <div className="match-preview-score">
+                    {selectedFixture.homeGoals}
+                    <span className="match-preview-score-sep">–</span>
+                    {selectedFixture.awayGoals}
+                  </div>
+                ) : (
+                  <div className="match-preview-vs">VS</div>
                 )}
-                {selectedHeadToHead.map((fixture) => (
-                  <li key={fixture.id} className="head-to-head-item">
-                    <div className="head-to-head-row">
-                      <span className="form-team">
-                        {fixture.homeShort} vs {fixture.awayShort}
-                      </span>
-                      <span className="form-score">
-                        {fixture.homeGoals ?? "–"}-{fixture.awayGoals ?? "–"}
-                      </span>
+                <span className={`match-preview-status-pill${isFixtureLive(selectedFixture) ? " match-preview-status-pill--live" : isFixtureFinished(selectedFixture) ? " match-preview-status-pill--ft" : ""}`}>
+                  {isFixtureLive(selectedFixture) ? "LIVE" : isFixtureFinished(selectedFixture) ? "FT" : timeUK(selectedFixture.kickoff)}
+                </span>
+                <span className="match-preview-round">{selectedFixture.round}</span>
+              </div>
+              <div className="match-preview-team match-preview-team--away">
+                <img src={selectedFixture.awayLogo} alt={selectedFixture.awayTeam} className="match-preview-badge" />
+                <span className="match-preview-team-name">{selectedTeamAwayShort}</span>
+              </div>
+            </div>
+
+            {/* Recent form */}
+            <div className="match-preview-section">
+              <p className="match-preview-section-label">
+                Recent form
+                <span className="match-preview-section-sub">last 5 games</span>
+              </p>
+              {[
+                { team: selectedTeamHome, short: selectedTeamHomeShort, recent: selectedHomeRecent },
+                { team: selectedTeamAway, short: selectedTeamAwayShort, recent: selectedAwayRecent },
+              ].map(({ team, short, recent }) => {
+                const { w, d, l } = getWDL(recent, team);
+                const goalsScored = recent.reduce((sum, f) => {
+                  const isHome = f.homeTeam === team;
+                  return sum + (isHome ? (f.homeGoals ?? 0) : (f.awayGoals ?? 0));
+                }, 0);
+                const avg = recent.length ? (goalsScored / recent.length).toFixed(1) : "–";
+                return (
+                  <div key={team} className="match-preview-form-row">
+                    <span className="match-preview-form-name">{short}</span>
+                    <FormStrip fixtures={recent} team={team} />
+                    <div className="match-preview-form-stats">
+                      <span style={{ color: "#b7ffd1" }}>{w}W</span>{" "}
+                      <span style={{ color: "var(--text-muted)" }}>{d}D</span>{" "}
+                      <span style={{ color: "#ffc2c2" }}>{l}L</span>
+                      <span className="match-preview-form-avg">{avg} gpg</span>
                     </div>
-                    <span className="form-meta">{timeUK(fixture.kickoff)}</span>
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Goals scored bar chart */}
+            {(selectedHomeRecent.length > 0 || selectedAwayRecent.length > 0) && (
+              <div className="match-preview-section">
+                <p className="match-preview-section-label">
+                  Goals scored
+                  <span className="match-preview-section-sub">last 5 games</span>
+                </p>
+                <div className="match-preview-goals-row">
+                  <span className="match-preview-form-name">{selectedTeamHomeShort}</span>
+                  <GoalsBarChart fixtures={selectedHomeRecent} team={selectedTeamHome} accent="rgba(0,200,83,0.45)" />
+                </div>
+                <div className="match-preview-goals-row" style={{ marginTop: 10 }}>
+                  <span className="match-preview-form-name">{selectedTeamAwayShort}</span>
+                  <GoalsBarChart fixtures={selectedAwayRecent} team={selectedTeamAway} accent="rgba(99,102,241,0.5)" />
+                </div>
+              </div>
+            )}
+
+            {/* Head to head */}
+            <div className="match-preview-section">
+              <p className="match-preview-section-label">Head to head</p>
+              {selectedHeadToHead.length === 0 ? (
+                <p className="match-preview-empty">No recent meetings in our dataset.</p>
+              ) : (
+                <>
+                  <H2HBar
+                    fixtures={selectedHeadToHead}
+                    homeTeam={selectedTeamHome}
+                    homeShort={selectedTeamHomeShort}
+                    awayShort={selectedTeamAwayShort}
+                  />
+                  <div className="match-preview-h2h-list">
+                    {selectedHeadToHead.map((f) => {
+                      const hg = f.homeGoals ?? 0;
+                      const ag = f.awayGoals ?? 0;
+                      const isDraw = hg === ag;
+                      const selIsHome = f.homeTeam === selectedTeamHome;
+                      const myG = selIsHome ? hg : ag;
+                      const theirG = selIsHome ? ag : hg;
+                      const r = isDraw ? "draw" : myG > theirG ? "win" : "loss";
+                      const { bg, color } = RESULT_STYLES[r];
+                      return (
+                        <div key={f.id} className="match-preview-h2h-item">
+                          <span style={{ fontWeight: f.homeTeam === selectedTeamHome ? 700 : 400 }}>{f.homeShort}</span>
+                          <span className="match-preview-h2h-score">{hg} – {ag}</span>
+                          <span style={{ fontWeight: f.awayTeam === selectedTeamHome ? 700 : 400, textAlign: "right" }}>{f.awayShort}</span>
+                          <span style={{ width: 22, height: 22, borderRadius: 6, background: bg, color, display: "grid", placeItems: "center", fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
+                            {r === "win" ? "W" : r === "loss" ? "L" : "D"}
+                          </span>
+                          <span className="match-preview-h2h-date">{formatFixtureDate(f.kickoff)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
