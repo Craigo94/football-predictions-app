@@ -10,14 +10,18 @@ interface UserDocData extends DocumentData {
   email?: string;
   isAdmin?: boolean;
   hasPaid?: boolean;
+  createdAt?: { toDate?: () => Date } | string | null;
 }
 
 export interface UserRecord {
   id: string;
   displayName: string;
+  firstName: string;
+  lastName: string;
   email: string;
   isAdmin: boolean;
   hasPaid: boolean;
+  createdAt: string | null;
 }
 
 export const useUsers = () => {
@@ -43,12 +47,29 @@ export const useUsers = () => {
             data.displayName || fallbackName || data.email || "Unknown"
           );
 
+          let createdAt: string | null = null;
+          if (data.createdAt) {
+            if (
+              typeof data.createdAt === "object" &&
+              typeof (data.createdAt as { toDate?: () => Date }).toDate === "function"
+            ) {
+              createdAt = (data.createdAt as { toDate: () => Date })
+                .toDate()
+                .toISOString();
+            } else if (typeof data.createdAt === "string") {
+              createdAt = data.createdAt;
+            }
+          }
+
           list.push({
             id: docSnap.id,
             displayName,
+            firstName: data.firstName ?? "",
+            lastName: data.lastName ?? "",
             email: data.email ?? "",
             isAdmin: Boolean(data.isAdmin),
             hasPaid: Boolean(data.hasPaid),
+            createdAt,
           });
         });
 

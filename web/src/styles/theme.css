@@ -114,8 +114,8 @@ a:hover {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 255, 100, 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 255, 100, 0.08);
 }
 
 .gw-header-card {
@@ -1534,6 +1534,10 @@ input[type="number"]::-webkit-inner-spin-button {
   background: #22c55e;
 }
 
+.timeline-content {
+  min-width: 0;
+}
+
 .timeline-row {
   display: flex;
   align-items: center;
@@ -1596,6 +1600,7 @@ input[type="number"]::-webkit-inner-spin-button {
 .timeline-score {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .timeline-score--upcoming {
@@ -1821,10 +1826,7 @@ input[type="number"]::-webkit-inner-spin-button {
   }
 
   .timeline-item {
-    grid-template-columns: 12px 1fr;
-  }
-
-  .timeline-score {
-    justify-self: flex-start;
+    grid-template-columns: 12px 1fr auto;
+    gap: 8px;
   }
 }
