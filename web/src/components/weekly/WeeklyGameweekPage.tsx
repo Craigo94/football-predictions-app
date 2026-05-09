@@ -317,8 +317,8 @@ const WeeklyGameweekPage: React.FC = () => {
                         }}
                       >
                         {postponed ? "PST"
-                          : live ? "LIVE"
                           : hasScore ? `${f.homeGoals}–${f.awayGoals}`
+                          : live ? "LIVE"
                           : timeUK(f.kickoff)}
                       </span>
                     </th>
