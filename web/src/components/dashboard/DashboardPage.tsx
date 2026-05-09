@@ -4,9 +4,14 @@ import type { User } from "firebase/auth";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
-import { getNextPremierLeagueGameweekFixtures, type Fixture } from "../../api/football";
+import {
+  getNextPremierLeagueGameweekFixtures,
+  type Fixture,
+} from "../../api/football";
 import { scorePrediction } from "../../utils/scoring";
 import { timeUK, UK_TZ } from "../../utils/dates";
+import { useUsers } from "../../hooks/useUsers";
+import { formatFirstName } from "../../utils/displayName";
 import {
   getFixtureStatusLabel,
   hasFixtureStarted,
@@ -26,6 +31,18 @@ interface PredictionDoc {
   predAway: number | null;
   kickoff: string;
   round: string;
+}
+
+interface AllPredictionDoc extends PredictionDoc {
+  userId: string;
+  userDisplayName: string;
+  userEmail?: string;
+}
+
+interface WeeklyWinnerRow {
+  userId: string;
+  name: string;
+  wins: number;
 }
 
 const parseRoundNumber = (round: string) => {
@@ -94,12 +111,14 @@ const ResultBreakdownChart: React.FC<{
     );
   }
 
-  const maxTotal = Math.max(
-    ...data.map((entry) => entry.exact + entry.result)
-  );
+  const maxTotal = Math.max(...data.map((entry) => entry.exact + entry.result));
 
   return (
-    <div className="result-chart" role="img" aria-label="Exact scores and results by gameweek">
+    <div
+      className="result-chart"
+      role="img"
+      aria-label="Exact scores and results by gameweek"
+    >
       {data.map((entry) => {
         const total = entry.exact + entry.result;
         const exactHeight = maxTotal ? (entry.exact / maxTotal) * 100 : 0;
@@ -140,11 +159,56 @@ const ResultBreakdownChart: React.FC<{
   );
 };
 
+const WeeklyWinnersChart: React.FC<{
+  rows: WeeklyWinnerRow[];
+  weeksCounted: number;
+}> = ({ rows, weeksCounted }) => {
+  if (rows.length === 0) {
+    return (
+      <div className="weekly-winners-empty">
+        <span>No weekly winners yet</span>
+      </div>
+    );
+  }
+
+  const maxWins = Math.max(...rows.map((row) => row.wins), 1);
+
+  return (
+    <div
+      className="weekly-winners-chart"
+      role="img"
+      aria-label="Weekly wins by player, sorted alphabetically"
+    >
+      {rows.map((row) => {
+        const width =
+          row.wins > 0 ? Math.max((row.wins / maxWins) * 100, 7) : 0;
+
+        return (
+          <div className="weekly-winners-row" key={row.userId}>
+            <span className="weekly-winners-name">{row.name}</span>
+            <div className="weekly-winners-track" aria-hidden="true">
+              <div
+                className="weekly-winners-fill"
+                style={{ width: `${width}%` }}
+              />
+            </div>
+            <span className="weekly-winners-value">{row.wins}</span>
+          </div>
+        );
+      })}
+      <p className="weekly-winners-note">
+        {weeksCounted} gameweek{weeksCounted === 1 ? "" : "s"} counted. Tied
+        weekly winners all receive a win.
+      </p>
+    </div>
+  );
+};
+
 // ─── Match preview helpers ────────────────────────────────────────────────────
 
 function getMatchFormResult(
   fixture: Fixture,
-  team: string
+  team: string,
 ): "win" | "draw" | "loss" | null {
   const isHome = fixture.homeTeam === team;
   const teamGoals = isHome ? fixture.homeGoals : fixture.awayGoals;
@@ -156,7 +220,9 @@ function getMatchFormResult(
 }
 
 function getWDL(fixtures: Fixture[], team: string) {
-  let w = 0, d = 0, l = 0;
+  let w = 0,
+    d = 0,
+    l = 0;
   for (const f of fixtures) {
     const r = getMatchFormResult(f, team);
     if (r === "win") w++;
@@ -167,12 +233,15 @@ function getWDL(fixtures: Fixture[], team: string) {
 }
 
 const RESULT_STYLES = {
-  win:  { bg: "rgba(34,197,94,0.22)",  color: "#b7ffd1" },
+  win: { bg: "rgba(34,197,94,0.22)", color: "#b7ffd1" },
   draw: { bg: "rgba(148,163,184,0.2)", color: "#cbd5e1" },
-  loss: { bg: "rgba(239,68,68,0.22)",  color: "#ffc2c2" },
+  loss: { bg: "rgba(239,68,68,0.22)", color: "#ffc2c2" },
 } as const;
 
-const FormStrip: React.FC<{ fixtures: Fixture[]; team: string }> = ({ fixtures, team }) => {
+const FormStrip: React.FC<{ fixtures: Fixture[]; team: string }> = ({
+  fixtures,
+  team,
+}) => {
   const ordered = [...fixtures].reverse();
   return (
     <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
@@ -184,12 +253,26 @@ const FormStrip: React.FC<{ fixtures: Fixture[]; team: string }> = ({ fixtures, 
         if (!r) return null;
         const { bg, color } = RESULT_STYLES[r];
         const label = r === "win" ? "W" : r === "loss" ? "L" : "D";
-        const opp = f.homeTeam === team ? (f.awayShort || f.awayTeam) : (f.homeShort || f.homeTeam);
+        const opp =
+          f.homeTeam === team
+            ? f.awayShort || f.awayTeam
+            : f.homeShort || f.homeTeam;
         return (
           <div
             key={f.id}
             title={`vs ${opp}: ${f.homeGoals}–${f.awayGoals}`}
-            style={{ width: 30, height: 30, borderRadius: 8, background: bg, color, display: "grid", placeItems: "center", fontWeight: 800, fontSize: 13, flexShrink: 0 }}
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              background: bg,
+              color,
+              display: "grid",
+              placeItems: "center",
+              fontWeight: 800,
+              fontSize: 13,
+              flexShrink: 0,
+            }}
           >
             {label}
           </div>
@@ -199,9 +282,11 @@ const FormStrip: React.FC<{ fixtures: Fixture[]; team: string }> = ({ fixtures, 
   );
 };
 
-const GoalsBarChart: React.FC<{ fixtures: Fixture[]; team: string; accent: string }> = ({
-  fixtures, team, accent,
-}) => {
+const GoalsBarChart: React.FC<{
+  fixtures: Fixture[];
+  team: string;
+  accent: string;
+}> = ({ fixtures, team, accent }) => {
   const ordered = [...fixtures].reverse();
   const values = ordered.map((f) => {
     const isHome = f.homeTeam === team;
@@ -209,17 +294,39 @@ const GoalsBarChart: React.FC<{ fixtures: Fixture[]; team: string; accent: strin
   });
   if (values.length === 0) return null;
   const max = Math.max(...values, 1);
-  const barW = 24, gap = 6, chartH = 44;
+  const barW = 24,
+    gap = 6,
+    chartH = 44;
   const totalW = values.length * (barW + gap) - gap;
   return (
-    <svg width={totalW} height={chartH + 14} style={{ display: "block", overflow: "visible" }} aria-hidden="true">
+    <svg
+      width={totalW}
+      height={chartH + 14}
+      style={{ display: "block", overflow: "visible" }}
+      aria-hidden="true"
+    >
       {values.map((v, i) => {
         const barH = Math.max((v / max) * chartH, v === 0 ? 2 : 4);
         const x = i * (barW + gap);
         return (
           <g key={i}>
-            <rect x={x} y={chartH - barH} width={barW} height={barH} rx={5} fill={accent} />
-            <text x={x + barW / 2} y={chartH + 12} textAnchor="middle" fontSize={11} fill="rgba(148,163,184,0.85)">{v}</text>
+            <rect
+              x={x}
+              y={chartH - barH}
+              width={barW}
+              height={barH}
+              rx={5}
+              fill={accent}
+            />
+            <text
+              x={x + barW / 2}
+              y={chartH + 12}
+              textAnchor="middle"
+              fontSize={11}
+              fill="rgba(148,163,184,0.85)"
+            >
+              {v}
+            </text>
           </g>
         );
       })}
@@ -233,29 +340,81 @@ const H2HBar: React.FC<{
   homeShort: string;
   awayShort: string;
 }> = ({ fixtures, homeTeam, homeShort, awayShort }) => {
-  let homeWins = 0, draws = 0, awayWins = 0;
+  let homeWins = 0,
+    draws = 0,
+    awayWins = 0;
   for (const f of fixtures) {
     if (f.homeGoals == null || f.awayGoals == null) continue;
     if (f.homeGoals === f.awayGoals) {
       draws++;
     } else {
       const fixtureHomeWon = f.homeGoals > f.awayGoals;
-      if ((fixtureHomeWon && f.homeTeam === homeTeam) || (!fixtureHomeWon && f.awayTeam === homeTeam)) homeWins++;
+      if (
+        (fixtureHomeWon && f.homeTeam === homeTeam) ||
+        (!fixtureHomeWon && f.awayTeam === homeTeam)
+      )
+        homeWins++;
       else awayWins++;
     }
   }
   const total = homeWins + draws + awayWins || 1;
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", height: 10, gap: 2 }}>
-        {homeWins > 0 && <div style={{ flex: homeWins / total, background: "rgba(34,197,94,0.5)", minWidth: 8 }} />}
-        {draws > 0 && <div style={{ flex: draws / total, background: "rgba(148,163,184,0.3)", minWidth: 8 }} />}
-        {awayWins > 0 && <div style={{ flex: awayWins / total, background: "rgba(239,68,68,0.4)", minWidth: 8 }} />}
+      <div
+        style={{
+          display: "flex",
+          borderRadius: 8,
+          overflow: "hidden",
+          height: 10,
+          gap: 2,
+        }}
+      >
+        {homeWins > 0 && (
+          <div
+            style={{
+              flex: homeWins / total,
+              background: "rgba(34,197,94,0.5)",
+              minWidth: 8,
+            }}
+          />
+        )}
+        {draws > 0 && (
+          <div
+            style={{
+              flex: draws / total,
+              background: "rgba(148,163,184,0.3)",
+              minWidth: 8,
+            }}
+          />
+        )}
+        {awayWins > 0 && (
+          <div
+            style={{
+              flex: awayWins / total,
+              background: "rgba(239,68,68,0.4)",
+              minWidth: 8,
+            }}
+          />
+        )}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12, color: "var(--text-muted)" }}>
-        <span><strong style={{ color: "#b7ffd1" }}>{homeWins}</strong> {homeShort}</span>
-        <span><strong>{draws}</strong> Draw{draws !== 1 ? "s" : ""}</span>
-        <span>{awayShort} <strong style={{ color: "#ffc2c2" }}>{awayWins}</strong></span>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 6,
+          fontSize: 12,
+          color: "var(--text-muted)",
+        }}
+      >
+        <span>
+          <strong style={{ color: "#b7ffd1" }}>{homeWins}</strong> {homeShort}
+        </span>
+        <span>
+          <strong>{draws}</strong> Draw{draws !== 1 ? "s" : ""}
+        </span>
+        <span>
+          {awayShort} <strong style={{ color: "#ffc2c2" }}>{awayWins}</strong>
+        </span>
       </div>
     </div>
   );
@@ -277,21 +436,25 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     backgroundPushEnabled,
   } = useLiveFixtures();
   const [predictions, setPredictions] = React.useState<PredictionDoc[]>([]);
+  const [allPredictions, setAllPredictions] = React.useState<
+    AllPredictionDoc[]
+  >([]);
   const [predictionsLoading, setPredictionsLoading] = React.useState(true);
+  const [allPredictionsLoading, setAllPredictionsLoading] =
+    React.useState(true);
   const [predictionsError, setPredictionsError] = React.useState<string | null>(
-    null
+    null,
   );
+  const [allPredictionsError, setAllPredictionsError] = React.useState<
+    string | null
+  >(null);
   const [selectedFixture, setSelectedFixture] = React.useState<Fixture | null>(
-    null
+    null,
   );
   const [gameweekFixtures, setGameweekFixtures] = React.useState<Fixture[]>([]);
   const [gameweekLoading, setGameweekLoading] = React.useState(true);
   const [gameweekError, setGameweekError] = React.useState<string | null>(null);
-  const [leaderboardRank, setLeaderboardRank] = React.useState<{
-    rank: number;
-    total: number;
-    points: number;
-  } | null>(null);
+  const { users, loading: usersLoading, error: usersError } = useUsers();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -305,7 +468,8 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         const fixtures = await getNextPremierLeagueGameweekFixtures();
         if (cancelled) return;
         fixtures.sort(
-          (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
+          (a, b) =>
+            new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime(),
         );
         setGameweekFixtures(fixtures);
         setGameweekError(null);
@@ -315,7 +479,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
           setGameweekError(
             err instanceof Error
               ? err.message
-              : "Failed to load the next gameweek fixtures."
+              : "Failed to load the next gameweek fixtures.",
           );
         }
       } finally {
@@ -336,7 +500,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
   }, []);
 
   React.useEffect(() => {
-    const ref = query(collection(db, "predictions"), where("userId", "==", user.uid));
+    const ref = query(
+      collection(db, "predictions"),
+      where("userId", "==", user.uid),
+    );
     const unsub = onSnapshot(
       ref,
       (snap) => {
@@ -358,91 +525,119 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         console.error("Failed to load predictions", err);
         setPredictionsError("Failed to load your predictions.");
         setPredictionsLoading(false);
-      }
+      },
     );
 
     return () => unsub();
   }, [user.uid]);
 
+  React.useEffect(() => {
+    const ref = collection(db, "predictions");
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const list: AllPredictionDoc[] = [];
+        snap.forEach((doc) => {
+          const data = doc.data();
+          const fallbackName =
+            data.userDisplayName || data.userEmail || "Unknown";
+          list.push({
+            userId: data.userId,
+            userDisplayName: formatFirstName(fallbackName),
+            userEmail: data.userEmail,
+            fixtureId: data.fixtureId,
+            predHome: data.predHome ?? null,
+            predAway: data.predAway ?? null,
+            kickoff: data.kickoff,
+            round: data.round ?? "Unknown",
+          });
+        });
+        setAllPredictions(list);
+        setAllPredictionsLoading(false);
+      },
+      (err) => {
+        console.error("Failed to load all predictions", err);
+        setAllPredictionsError("Failed to load weekly winners.");
+        setAllPredictionsLoading(false);
+      },
+    );
+
+    return () => unsub();
+  }, []);
 
   const fixturesForRound = React.useMemo(() => {
     return [...gameweekFixtures]
       .map((fixture) => fixturesById[fixture.id] ?? fixture)
       .sort(
-      (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
-    );
+        (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime(),
+      );
   }, [fixturesById, gameweekFixtures]);
 
   const currentRoundLabel = fixturesForRound[0]?.round ?? null;
 
-  // Leaderboard rank: subscribe to ALL predictions, filter to current gameweek only
-  React.useEffect(() => {
-    if (!currentRoundLabel) {
-      setLeaderboardRank(null);
-      return;
-    }
+  const leaderboardRank = React.useMemo(() => {
+    if (!currentRoundLabel) return null;
 
-    const ref = collection(db, "predictions");
-    const unsub = onSnapshot(ref, (snap) => {
-      const pointsByUser: Record<string, number> = {};
+    const pointsByUser: Record<string, number> = {};
 
-      snap.forEach((docSnap) => {
-        const data = docSnap.data();
-        const uid: string = data.userId;
-        if (!uid) return;
-        if (data.round !== currentRoundLabel) return;
-        const fixture = fixturesById[data.fixtureId];
-        if (!fixture) return;
-        const { points } = scorePrediction(
-          data.predHome ?? null,
-          data.predAway ?? null,
-          fixture.homeGoals,
-          fixture.awayGoals
-        );
-        if (points == null) return;
-        pointsByUser[uid] = (pointsByUser[uid] ?? 0) + points;
-      });
-
-      const sorted = Object.entries(pointsByUser).sort((a, b) => b[1] - a[1]);
-      const total = sorted.length;
-      const rankIndex = sorted.findIndex(([uid]) => uid === user.uid);
-      const myPoints = pointsByUser[user.uid] ?? 0;
-
-      if (rankIndex !== -1) {
-        setLeaderboardRank({ rank: rankIndex + 1, total, points: myPoints });
-      } else if (total > 0) {
-        setLeaderboardRank({ rank: total, total, points: 0 });
-      } else {
-        setLeaderboardRank(null);
-      }
+    allPredictions.forEach((prediction) => {
+      if (prediction.round !== currentRoundLabel) return;
+      const fixture = fixturesById[prediction.fixtureId];
+      if (!fixture) return;
+      const { points } = scorePrediction(
+        prediction.predHome,
+        prediction.predAway,
+        fixture.homeGoals,
+        fixture.awayGoals,
+      );
+      if (points == null) return;
+      pointsByUser[prediction.userId] =
+        (pointsByUser[prediction.userId] ?? 0) + points;
     });
 
-    return () => unsub();
-  }, [user.uid, fixturesById, currentRoundLabel]);
+    const sorted = Object.entries(pointsByUser).sort((a, b) => b[1] - a[1]);
+    const total = sorted.length;
+    const rankIndex = sorted.findIndex(([uid]) => uid === user.uid);
+    const myPoints = pointsByUser[user.uid] ?? 0;
+
+    if (rankIndex !== -1) {
+      return { rank: rankIndex + 1, total, points: myPoints };
+    }
+    if (total > 0) {
+      return { rank: total, total, points: 0 };
+    }
+    return null;
+  }, [allPredictions, currentRoundLabel, fixturesById, user.uid]);
 
   const firstFixture = fixturesForRound[0] ?? null;
-  const firstFixtureStarted = Boolean(firstFixture && hasFixtureStarted(firstFixture));
+  const firstFixtureStarted = Boolean(
+    firstFixture && hasFixtureStarted(firstFixture),
+  );
 
-  const liveFixtures = fixturesForRound.filter(
-    (fixture) => isFixtureLive(fixture)
+  const liveFixtures = fixturesForRound.filter((fixture) =>
+    isFixtureLive(fixture),
   );
-  const finishedFixtures = fixturesForRound.filter(
-    (fixture) => isFixtureFinished(fixture)
+  const finishedFixtures = fixturesForRound.filter((fixture) =>
+    isFixtureFinished(fixture),
   );
-  const postponedFixtures = fixturesForRound.filter((fixture) => isFixturePostponed(fixture));
+  const postponedFixtures = fixturesForRound.filter((fixture) =>
+    isFixturePostponed(fixture),
+  );
   const countableFixturesForRound = React.useMemo(
     () => fixturesForRound.filter((fixture) => !isFixturePostponed(fixture)),
-    [fixturesForRound]
+    [fixturesForRound],
   );
 
   const predictionStatus = React.useMemo(() => {
     if (!countableFixturesForRound.length) return null;
     const fixtureIds = new Set(
-      countableFixturesForRound.map((fixture) => fixture.id)
+      countableFixturesForRound.map((fixture) => fixture.id),
     );
     const predictedCount = predictions.filter(
-      (prediction) => prediction.predHome != null && prediction.predAway != null
-        && fixtureIds.has(prediction.fixtureId)
+      (prediction) =>
+        prediction.predHome != null &&
+        prediction.predAway != null &&
+        fixtureIds.has(prediction.fixtureId),
     ).length;
 
     return {
@@ -464,7 +659,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         prediction.predHome,
         prediction.predAway,
         fixture.homeGoals,
-        fixture.awayGoals
+        fixture.awayGoals,
       );
 
       if (scored.points == null) return;
@@ -496,7 +691,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         prediction.predHome,
         prediction.predAway,
         fixture.homeGoals,
-        fixture.awayGoals
+        fixture.awayGoals,
       );
 
       if (scored.status === "pending") return;
@@ -521,14 +716,83 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       return numA - numB;
     });
 
-    return ordered
-      .slice(-6)
-      .map(([round, values]) => ({ round, ...values }));
+    return ordered.slice(-6).map(([round, values]) => ({ round, ...values }));
   }, [fixturesById, predictions]);
+
+  const weeklyWinners = React.useMemo(() => {
+    const userNames = new Map<string, string>();
+
+    users.forEach((profile) => {
+      userNames.set(profile.id, profile.displayName);
+    });
+
+    allPredictions.forEach((prediction) => {
+      if (!prediction.userId || userNames.has(prediction.userId)) return;
+      userNames.set(
+        prediction.userId,
+        formatFirstName(
+          prediction.userDisplayName || prediction.userEmail || "Unknown",
+        ),
+      );
+    });
+
+    const pointsByRound = new Map<string, Map<string, number>>();
+
+    allPredictions.forEach((prediction) => {
+      if (!prediction.userId) return;
+      const fixture = fixturesById[prediction.fixtureId];
+      if (!fixture) return;
+
+      const { points } = scorePrediction(
+        prediction.predHome,
+        prediction.predAway,
+        fixture.homeGoals,
+        fixture.awayGoals,
+      );
+
+      if (points == null) return;
+
+      if (!pointsByRound.has(prediction.round)) {
+        pointsByRound.set(prediction.round, new Map<string, number>());
+      }
+
+      const pointsByUser = pointsByRound.get(prediction.round)!;
+      pointsByUser.set(
+        prediction.userId,
+        (pointsByUser.get(prediction.userId) ?? 0) + points,
+      );
+    });
+
+    const winCounts = new Map<string, number>();
+    let weeksCounted = 0;
+
+    pointsByRound.forEach((pointsByUser) => {
+      const highestScore = Math.max(...pointsByUser.values());
+      if (highestScore <= 0) return;
+
+      weeksCounted += 1;
+      pointsByUser.forEach((points, userId) => {
+        if (points === highestScore) {
+          winCounts.set(userId, (winCounts.get(userId) ?? 0) + 1);
+        }
+      });
+    });
+
+    const userIds = new Set<string>([...userNames.keys(), ...winCounts.keys()]);
+    const rows = Array.from(userIds).map((userId) => ({
+      userId,
+      name: userNames.get(userId) ?? "Unknown",
+      wins: winCounts.get(userId) ?? 0,
+    }));
+
+    rows.sort((a, b) => a.name.localeCompare(b.name));
+
+    return { rows, weeksCounted };
+  }, [allPredictions, fixturesById, users]);
 
   const kickoffLabel = firstFixture
     ? `${firstFixture.homeShort} vs ${firstFixture.awayShort} • ${timeUK(
-        firstFixture.kickoff
+        firstFixture.kickoff,
       )}`
     : "No fixtures loaded";
 
@@ -536,7 +800,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     ? Math.round(
         (predictionStatus.predictedCount /
           Math.max(predictionStatus.total, 1)) *
-          100
+          100,
       )
     : 0;
 
@@ -548,16 +812,18 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     : "–";
 
   const loading = loadingFixtures || predictionsLoading || gameweekLoading;
+  const weeklyWinnersLoading =
+    allPredictionsLoading || loadingFixtures || (usersLoading && !usersError);
 
   const notificationHelperText = !notificationsSupported
     ? "This browser does not support notifications."
     : notificationPermission === "denied"
-    ? "Notifications are blocked in browser settings for this device."
-    : notificationsEnabled
-    ? backgroundPushEnabled
-      ? "Background push is active (works even when the app is closed)."
-      : "Live alerts are on while this app is open."
-    : "Turn on notifications to get free alerts for goals and full-time results.";
+      ? "Notifications are blocked in browser settings for this device."
+      : notificationsEnabled
+        ? backgroundPushEnabled
+          ? "Background push is active (works even when the app is closed)."
+          : "Live alerts are on while this app is open."
+        : "Turn on notifications to get free alerts for goals and full-time results.";
 
   const handleNotificationToggle = async () => {
     if (!notificationsSupported) return;
@@ -580,13 +846,14 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         .filter(
           (fixture) =>
             fixture.statusShort === "FT" &&
-            (fixture.homeTeam === team || fixture.awayTeam === team)
+            (fixture.homeTeam === team || fixture.awayTeam === team),
         )
         .sort(
-          (a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime()
+          (a, b) =>
+            new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime(),
         )
         .slice(0, 5),
-    [fixturesById]
+    [fixturesById],
   );
 
   const getHeadToHead = React.useCallback(
@@ -595,24 +862,21 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         .filter(
           (fixture) =>
             fixture.statusShort === "FT" &&
-            ((fixture.homeTeam === homeTeam &&
-              fixture.awayTeam === awayTeam) ||
-              (fixture.homeTeam === awayTeam &&
-                fixture.awayTeam === homeTeam))
+            ((fixture.homeTeam === homeTeam && fixture.awayTeam === awayTeam) ||
+              (fixture.homeTeam === awayTeam && fixture.awayTeam === homeTeam)),
         )
         .sort(
-          (a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime()
+          (a, b) =>
+            new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime(),
         )
         .slice(0, 5),
-    [fixturesById]
+    [fixturesById],
   );
 
   const selectedTeamHome = selectedFixture?.homeTeam ?? "";
   const selectedTeamAway = selectedFixture?.awayTeam ?? "";
-  const selectedTeamHomeShort =
-    selectedFixture?.homeShort ?? selectedTeamHome;
-  const selectedTeamAwayShort =
-    selectedFixture?.awayShort ?? selectedTeamAway;
+  const selectedTeamHomeShort = selectedFixture?.homeShort ?? selectedTeamHome;
+  const selectedTeamAwayShort = selectedFixture?.awayShort ?? selectedTeamAway;
   const selectedHomeRecent = selectedFixture
     ? getTeamRecentFixtures(selectedTeamHome)
     : [];
@@ -638,8 +902,8 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
           <p className="eyebrow">Your matchday hub</p>
           <h2>Welcome back, ready for the next kick-off?</h2>
           <p className="dashboard-hero__subtitle">
-            Track live action, keep predictions up to date, and see how the
-            week is unfolding in real time.
+            Track live action, keep predictions up to date, and see how the week
+            is unfolding in real time.
           </p>
           {currentRoundLabel && (
             <div className="dashboard-hero__meta">
@@ -662,8 +926,17 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
           </div>
           <Link className="hero-progress hero-progress--link" to="/predictions">
             <span className="hero-label">Predictions complete</span>
-            <div className="progress-bar" role="progressbar" aria-valuenow={completionPercent} aria-valuemin={0} aria-valuemax={100}>
-              <div className="progress-bar__fill" style={{ width: `${completionPercent}%` }} />
+            <div
+              className="progress-bar"
+              role="progressbar"
+              aria-valuenow={completionPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="progress-bar__fill"
+                style={{ width: `${completionPercent}%` }}
+              />
             </div>
             <span className="hero-sub">
               {predictionStatus
@@ -675,13 +948,25 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         </div>
       </section>
 
-      {(fixturesError || predictionsError || gameweekError) && (
+      {(fixturesError ||
+        predictionsError ||
+        gameweekError ||
+        allPredictionsError ||
+        usersError) && (
         <section className="card dashboard-alert" role="alert">
-          {gameweekError || fixturesError || predictionsError}
+          {gameweekError ||
+            fixturesError ||
+            predictionsError ||
+            allPredictionsError ||
+            usersError}
         </section>
       )}
 
-      <section className="card dashboard-alert dashboard-alert--notifications" role="status" aria-live="polite">
+      <section
+        className="card dashboard-alert dashboard-alert--notifications"
+        role="status"
+        aria-live="polite"
+      >
         <div>
           <strong>Live notifications</strong>
           <p>{notificationHelperText}</p>
@@ -745,10 +1030,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                     leaderboardRank.rank === 1
                       ? "st"
                       : leaderboardRank.rank === 2
-                      ? "nd"
-                      : leaderboardRank.rank === 3
-                      ? "rd"
-                      : "th"
+                        ? "nd"
+                        : leaderboardRank.rank === 3
+                          ? "rd"
+                          : "th"
                   }`
                 : "—"}
             </span>
@@ -787,10 +1072,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               const statusLabel = isPostponed
                 ? "PST"
                 : isLive
-                ? "LIVE"
-                : isFinished
-                ? "FT"
-                : "UPCOMING";
+                  ? "LIVE"
+                  : isFinished
+                    ? "FT"
+                    : "UPCOMING";
               const kickoffTime = timeUK(fixture.kickoff);
               const kickoffDate = formatFixtureDate(fixture.kickoff);
               const scoreLabel = hasScore
@@ -808,23 +1093,36 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                   key={fixture.id}
                   onClick={() => setSelectedFixture(fixture)}
                 >
-                  <div className={`timeline-dot ${isLive ? "is-live" : isFinished ? "is-finished" : ""}`} />
+                  <div
+                    className={`timeline-dot ${isLive ? "is-live" : isFinished ? "is-finished" : ""}`}
+                  />
                   <div className="timeline-content">
                     <div className="timeline-row">
-                      <span className="timeline-fixture" title={`${fixture.homeTeam} vs ${fixture.awayTeam}`}>
+                      <span
+                        className="timeline-fixture"
+                        title={`${fixture.homeTeam} vs ${fixture.awayTeam}`}
+                      >
                         <span className="timeline-teams">
                           <span className="timeline-team">
-                            <img src={fixture.homeLogo} alt={fixture.homeTeam} />
+                            <img
+                              src={fixture.homeLogo}
+                              alt={fixture.homeTeam}
+                            />
                             <span>{fixture.homeShort}</span>
                           </span>
                           <span className="timeline-vs">vs</span>
                           <span className="timeline-team">
-                            <img src={fixture.awayLogo} alt={fixture.awayTeam} />
+                            <img
+                              src={fixture.awayLogo}
+                              alt={fixture.awayTeam}
+                            />
                             <span>{fixture.awayShort}</span>
                           </span>
                         </span>
                       </span>
-                      <span className={`timeline-status ${isLive ? "is-live" : isFinished ? "is-finished" : ""}`}>
+                      <span
+                        className={`timeline-status ${isLive ? "is-live" : isFinished ? "is-finished" : ""}`}
+                      >
                         {statusLabel}
                       </span>
                     </div>
@@ -859,9 +1157,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               {trendValues.length
                 ? Math.round(
                     trendValues.reduce((sum, value) => sum + value, 0) /
-                      trendValues.length
+                      trendValues.length,
                   )
-                : 0} avg
+                : 0}{" "}
+              avg
             </span>
           </div>
           <div className="trend-secondary">
@@ -869,10 +1168,37 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             <ResultBreakdownChart data={resultBreakdown} />
           </div>
         </div>
+
+        <div className="card dashboard-panel dashboard-panel--wide">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">Season bragging rights</p>
+              <h3>Weekly winners</h3>
+              <p className="panel-subtitle">
+                Every completed gameweek in prediction history, sorted by player
+                name.
+              </p>
+            </div>
+            <span className="pill pill--ghost">All history</span>
+          </div>
+          {weeklyWinnersLoading ? (
+            <div className="weekly-winners-empty">
+              <span>Loading weekly winners…</span>
+            </div>
+          ) : (
+            <WeeklyWinnersChart
+              rows={weeklyWinners.rows}
+              weeksCounted={weeklyWinners.weeksCounted}
+            />
+          )}
+        </div>
       </section>
 
       {selectedFixture && (
-        <div className="modal-backdrop" onClick={() => setSelectedFixture(null)}>
+        <div
+          className="modal-backdrop"
+          onClick={() => setSelectedFixture(null)}
+        >
           <div
             className="modal-card match-preview-modal"
             onClick={(e) => e.stopPropagation()}
@@ -892,8 +1218,14 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             {/* Header: badges + score */}
             <div className="match-preview-header">
               <div className="match-preview-team">
-                <img src={selectedFixture.homeLogo} alt={selectedFixture.homeTeam} className="match-preview-badge" />
-                <span className="match-preview-team-name">{selectedTeamHomeShort}</span>
+                <img
+                  src={selectedFixture.homeLogo}
+                  alt={selectedFixture.homeTeam}
+                  className="match-preview-badge"
+                />
+                <span className="match-preview-team-name">
+                  {selectedTeamHomeShort}
+                </span>
               </div>
               <div className="match-preview-center">
                 {hasFixtureScore(selectedFixture) ? (
@@ -905,14 +1237,28 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                 ) : (
                   <div className="match-preview-vs">VS</div>
                 )}
-                <span className={`match-preview-status-pill${isFixtureLive(selectedFixture) ? " match-preview-status-pill--live" : isFixtureFinished(selectedFixture) ? " match-preview-status-pill--ft" : ""}`}>
-                  {isFixtureLive(selectedFixture) ? "LIVE" : isFixtureFinished(selectedFixture) ? "FT" : timeUK(selectedFixture.kickoff)}
+                <span
+                  className={`match-preview-status-pill${isFixtureLive(selectedFixture) ? " match-preview-status-pill--live" : isFixtureFinished(selectedFixture) ? " match-preview-status-pill--ft" : ""}`}
+                >
+                  {isFixtureLive(selectedFixture)
+                    ? "LIVE"
+                    : isFixtureFinished(selectedFixture)
+                      ? "FT"
+                      : timeUK(selectedFixture.kickoff)}
                 </span>
-                <span className="match-preview-round">{selectedFixture.round}</span>
+                <span className="match-preview-round">
+                  {selectedFixture.round}
+                </span>
               </div>
               <div className="match-preview-team match-preview-team--away">
-                <img src={selectedFixture.awayLogo} alt={selectedFixture.awayTeam} className="match-preview-badge" />
-                <span className="match-preview-team-name">{selectedTeamAwayShort}</span>
+                <img
+                  src={selectedFixture.awayLogo}
+                  alt={selectedFixture.awayTeam}
+                  className="match-preview-badge"
+                />
+                <span className="match-preview-team-name">
+                  {selectedTeamAwayShort}
+                </span>
               </div>
             </div>
 
@@ -923,15 +1269,27 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                 <span className="match-preview-section-sub">last 5 games</span>
               </p>
               {[
-                { team: selectedTeamHome, short: selectedTeamHomeShort, recent: selectedHomeRecent },
-                { team: selectedTeamAway, short: selectedTeamAwayShort, recent: selectedAwayRecent },
+                {
+                  team: selectedTeamHome,
+                  short: selectedTeamHomeShort,
+                  recent: selectedHomeRecent,
+                },
+                {
+                  team: selectedTeamAway,
+                  short: selectedTeamAwayShort,
+                  recent: selectedAwayRecent,
+                },
               ].map(({ team, short, recent }) => {
                 const { w, d, l } = getWDL(recent, team);
                 const goalsScored = recent.reduce((sum, f) => {
                   const isHome = f.homeTeam === team;
-                  return sum + (isHome ? (f.homeGoals ?? 0) : (f.awayGoals ?? 0));
+                  return (
+                    sum + (isHome ? (f.homeGoals ?? 0) : (f.awayGoals ?? 0))
+                  );
                 }, 0);
-                const avg = recent.length ? (goalsScored / recent.length).toFixed(1) : "–";
+                const avg = recent.length
+                  ? (goalsScored / recent.length).toFixed(1)
+                  : "–";
                 return (
                   <div key={team} className="match-preview-form-row">
                     <span className="match-preview-form-name">{short}</span>
@@ -948,19 +1306,37 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             </div>
 
             {/* Goals scored bar chart */}
-            {(selectedHomeRecent.length > 0 || selectedAwayRecent.length > 0) && (
+            {(selectedHomeRecent.length > 0 ||
+              selectedAwayRecent.length > 0) && (
               <div className="match-preview-section">
                 <p className="match-preview-section-label">
                   Goals scored
-                  <span className="match-preview-section-sub">last 5 games</span>
+                  <span className="match-preview-section-sub">
+                    last 5 games
+                  </span>
                 </p>
                 <div className="match-preview-goals-row">
-                  <span className="match-preview-form-name">{selectedTeamHomeShort}</span>
-                  <GoalsBarChart fixtures={selectedHomeRecent} team={selectedTeamHome} accent="rgba(0,200,83,0.45)" />
+                  <span className="match-preview-form-name">
+                    {selectedTeamHomeShort}
+                  </span>
+                  <GoalsBarChart
+                    fixtures={selectedHomeRecent}
+                    team={selectedTeamHome}
+                    accent="rgba(0,200,83,0.45)"
+                  />
                 </div>
-                <div className="match-preview-goals-row" style={{ marginTop: 10 }}>
-                  <span className="match-preview-form-name">{selectedTeamAwayShort}</span>
-                  <GoalsBarChart fixtures={selectedAwayRecent} team={selectedTeamAway} accent="rgba(99,102,241,0.5)" />
+                <div
+                  className="match-preview-goals-row"
+                  style={{ marginTop: 10 }}
+                >
+                  <span className="match-preview-form-name">
+                    {selectedTeamAwayShort}
+                  </span>
+                  <GoalsBarChart
+                    fixtures={selectedAwayRecent}
+                    team={selectedTeamAway}
+                    accent="rgba(99,102,241,0.5)"
+                  />
                 </div>
               </div>
             )}
@@ -969,7 +1345,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             <div className="match-preview-section">
               <p className="match-preview-section-label">Head to head</p>
               {selectedHeadToHead.length === 0 ? (
-                <p className="match-preview-empty">No recent meetings in our dataset.</p>
+                <p className="match-preview-empty">
+                  No recent meetings in our dataset.
+                </p>
               ) : (
                 <>
                   <H2HBar
@@ -990,13 +1368,45 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                       const { bg, color } = RESULT_STYLES[r];
                       return (
                         <div key={f.id} className="match-preview-h2h-item">
-                          <span style={{ fontWeight: f.homeTeam === selectedTeamHome ? 700 : 400 }}>{f.homeShort}</span>
-                          <span className="match-preview-h2h-score">{hg} – {ag}</span>
-                          <span style={{ fontWeight: f.awayTeam === selectedTeamHome ? 700 : 400, textAlign: "right" }}>{f.awayShort}</span>
-                          <span style={{ width: 22, height: 22, borderRadius: 6, background: bg, color, display: "grid", placeItems: "center", fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
+                          <span
+                            style={{
+                              fontWeight:
+                                f.homeTeam === selectedTeamHome ? 700 : 400,
+                            }}
+                          >
+                            {f.homeShort}
+                          </span>
+                          <span className="match-preview-h2h-score">
+                            {hg} – {ag}
+                          </span>
+                          <span
+                            style={{
+                              fontWeight:
+                                f.awayTeam === selectedTeamHome ? 700 : 400,
+                              textAlign: "right",
+                            }}
+                          >
+                            {f.awayShort}
+                          </span>
+                          <span
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: 6,
+                              background: bg,
+                              color,
+                              display: "grid",
+                              placeItems: "center",
+                              fontWeight: 800,
+                              fontSize: 11,
+                              flexShrink: 0,
+                            }}
+                          >
                             {r === "win" ? "W" : r === "loss" ? "L" : "D"}
                           </span>
-                          <span className="match-preview-h2h-date">{formatFixtureDate(f.kickoff)}</span>
+                          <span className="match-preview-h2h-date">
+                            {formatFixtureDate(f.kickoff)}
+                          </span>
                         </div>
                       );
                     })}
