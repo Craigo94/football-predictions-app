@@ -85,7 +85,11 @@ body {
   color: #ffb3b3;
 }
 
-h1, h2, h3, h4, h5 {
+h1,
+h2,
+h3,
+h4,
+h5 {
   margin: 0;
   font-weight: 600;
 }
@@ -111,7 +115,9 @@ a:hover {
   padding: 1rem;
   box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .card:hover {
   transform: translateY(-1px);
@@ -177,7 +183,9 @@ button {
   cursor: pointer;
   font-weight: 600;
   padding: 0.6rem 1.2rem;
-  transition: background var(--transition), transform 0.2s ease;
+  transition:
+    background var(--transition),
+    transform 0.2s ease;
   box-shadow: var(--accent-glow);
 }
 button:hover {
@@ -202,7 +210,9 @@ button:disabled {
   border-radius: 8px;
   padding: 3px 0;
   outline: none;
-  transition: border var(--transition), box-shadow var(--transition);
+  transition:
+    border var(--transition),
+    box-shadow var(--transition);
 }
 .input-score:focus {
   border-color: var(--accent);
@@ -211,14 +221,14 @@ button:disabled {
 
 /* Remove spinner arrows from number inputs (cross-browser safe) */
 input[type="number"] {
-  appearance: none;       /* ✅ Standard property */
+  appearance: none; /* ✅ Standard property */
   -moz-appearance: textfield; /* Firefox */
 }
 
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
-  appearance: none;          /* ✅ Standard */
-  -webkit-appearance: none;  /* Chrome, Safari, Edge */
+  appearance: none; /* ✅ Standard */
+  -webkit-appearance: none; /* Chrome, Safari, Edge */
   margin: 0;
 }
 
@@ -294,7 +304,9 @@ input[type="number"]::-webkit-inner-spin-button {
   font-weight: 700;
   letter-spacing: 0.3px;
   box-shadow: none;
-  transition: background var(--transition), border-color var(--transition);
+  transition:
+    background var(--transition),
+    border-color var(--transition);
 }
 
 .userbox__chip:hover,
@@ -643,7 +655,8 @@ input[type="number"]::-webkit-inner-spin-button {
 /* ---------- Mobile polish ---------- */
 @media (max-width: 420px) {
   /* Top bar / tabs (adjust class names if yours differ) */
-  .topbar, .navbar {
+  .topbar,
+  .navbar {
     position: sticky;
     top: 0;
     background: var(--card-bg, #0b1324);
@@ -722,11 +735,31 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 @media (max-width: 420px) {
-  h3 { font-size: 13px; margin-left: 2px; color: var(--text-muted); }
-  .team-logo { width: 26px !important; height: 26px !important; }
-  .team-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .input-score { width: 36px !important; height: 32px !important; font-size: 16px !important; text-align: center; }
-  .card { padding: 12px !important; border-radius: 14px !important; }
+  h3 {
+    font-size: 13px;
+    margin-left: 2px;
+    color: var(--text-muted);
+  }
+  .team-logo {
+    width: 26px !important;
+    height: 26px !important;
+  }
+  .team-name {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .input-score {
+    width: 36px !important;
+    height: 32px !important;
+    font-size: 16px !important;
+    text-align: center;
+  }
+  .card {
+    padding: 12px !important;
+    border-radius: 14px !important;
+  }
 }
 /* ======= Prediction card (stacked) ======= */
 .fx-card {
@@ -754,8 +787,12 @@ input[type="number"]::-webkit-inner-spin-button {
   gap: 10px;
   min-width: 0;
 }
-.fx-team--home { justify-content: flex-start; }
-.fx-team--away { justify-content: flex-end; }
+.fx-team--home {
+  justify-content: flex-start;
+}
+.fx-team--away {
+  justify-content: flex-end;
+}
 
 .fx-logo {
   width: 30px;
@@ -775,7 +812,7 @@ input[type="number"]::-webkit-inner-spin-button {
   border-radius: 999px;
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: .3px;
+  letter-spacing: 0.3px;
   text-transform: uppercase;
   border: 1px solid transparent;
 }
@@ -857,7 +894,10 @@ input[type="number"]::-webkit-inner-spin-button {
   min-height: 38px;
   box-shadow: none;
 }
-.fx-btn[disabled] { opacity: .5; cursor: default; }
+.fx-btn[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
 
 .fx-pred-summary {
   display: inline-flex;
@@ -893,7 +933,9 @@ input[type="number"]::-webkit-inner-spin-button {
   font-size: 12px;
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 .fx-table-link:hover {
   border-color: rgba(148, 163, 184, 0.7);
@@ -976,11 +1018,24 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* Mobile tweaks */
 @media (max-width: 420px) {
-  .fx-card { padding: 14px 12px !important; }
-  .fx-logo { width: 28px; height: 28px; }
-  .fx-tla { font-size: 15px; }
-  .fx-input { width: 42px !important; height: 36px !important; font-size: 16px !important; }
-  .fx-score { font-size: 24px; }
+  .fx-card {
+    padding: 14px 12px !important;
+  }
+  .fx-logo {
+    width: 28px;
+    height: 28px;
+  }
+  .fx-tla {
+    font-size: 15px;
+  }
+  .fx-input {
+    width: 42px !important;
+    height: 36px !important;
+    font-size: 16px !important;
+  }
+  .fx-score {
+    font-size: 24px;
+  }
 }
 
 /* 👤 Profile */
@@ -1050,7 +1105,9 @@ input[type="number"]::-webkit-inner-spin-button {
   color: var(--text);
   font-size: 15px;
   outline: none;
-  transition: border var(--transition), box-shadow var(--transition);
+  transition:
+    border var(--transition),
+    box-shadow var(--transition);
 }
 
 .form-field input:focus {
@@ -1195,7 +1252,9 @@ input[type="number"]::-webkit-inner-spin-button {
   color: var(--text);
   font-size: 15px;
   outline: none;
-  transition: border var(--transition), box-shadow var(--transition);
+  transition:
+    border var(--transition),
+    box-shadow var(--transition);
 }
 
 .modal-input:focus {
@@ -1945,7 +2004,11 @@ input[type="number"]::-webkit-inner-spin-button {
   gap: 8px;
   padding: 9px 12px;
   border-radius: 10px;
-  background: linear-gradient(90deg, rgba(34,197,94,0.14), rgba(34,197,94,0.06));
+  background: linear-gradient(
+    90deg,
+    rgba(34, 197, 94, 0.14),
+    rgba(34, 197, 94, 0.06)
+  );
   font-size: 13px;
   flex-wrap: wrap;
 }
@@ -2434,8 +2497,12 @@ details[open] .gw-previous-summary::before {
   vertical-align: middle;
 }
 
-.gw-pred-td--exact  { background: rgba(34, 197, 94, 0.1); }
-.gw-pred-td--result { background: rgba(59, 130, 246, 0.07); }
+.gw-pred-td--exact {
+  background: rgba(34, 197, 94, 0.1);
+}
+.gw-pred-td--result {
+  background: rgba(59, 130, 246, 0.07);
+}
 
 .gw-pred-val {
   display: block;
@@ -2445,9 +2512,15 @@ details[open] .gw-previous-summary::before {
   white-space: nowrap;
 }
 
-.gw-pred-td--exact  .gw-pred-val { color: #b7ffd1; }
-.gw-pred-td--result .gw-pred-val { color: #93c5fd; }
-.gw-pred-td--wrong  .gw-pred-val { color: var(--text-muted); }
+.gw-pred-td--exact .gw-pred-val {
+  color: #b7ffd1;
+}
+.gw-pred-td--result .gw-pred-val {
+  color: #93c5fd;
+}
+.gw-pred-td--wrong .gw-pred-val {
+  color: var(--text-muted);
+}
 
 .gw-pred-star {
   font-size: 11px;
@@ -2505,7 +2578,11 @@ details[open] .gw-previous-summary::before {
   align-items: center;
   padding: 24px 20px 20px;
   border-bottom: 1px solid var(--card-border);
-  background: linear-gradient(180deg, rgba(0, 200, 83, 0.06) 0%, transparent 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(0, 200, 83, 0.06) 0%,
+    transparent 100%
+  );
   border-radius: 18px 18px 0 0;
 }
 
@@ -2697,10 +2774,19 @@ details[open] .gw-previous-summary::before {
 }
 
 @media (max-width: 420px) {
-  .match-preview-badge { width: 42px; height: 42px; }
-  .match-preview-score { font-size: 26px; }
-  .match-preview-team-name { font-size: 12px; }
-  .match-preview-form-avg { display: none; }
+  .match-preview-badge {
+    width: 42px;
+    height: 42px;
+  }
+  .match-preview-score {
+    font-size: 26px;
+  }
+  .match-preview-team-name {
+    font-size: 12px;
+  }
+  .match-preview-form-avg {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {
@@ -2727,13 +2813,20 @@ details[open] .gw-previous-summary::before {
    ============================================================ */
 
 /* Prevent iOS from zooming on input focus (requires font-size ≥16px) */
-input, select, textarea {
+input,
+select,
+textarea {
   font-size: max(16px, 1rem);
 }
 
 /* All tappable elements: prevent double-tap zoom and ensure large hit area */
-button, .nav-link, .mobile-nav__item, .mobile-nav__sheet-item,
-.timeline-item, .userbox__chip, a {
+button,
+.nav-link,
+.mobile-nav__item,
+.mobile-nav__sheet-item,
+.timeline-item,
+.userbox__chip,
+a {
   touch-action: manipulation;
 }
 
@@ -2818,7 +2911,79 @@ button:active {
 }
 
 /* Prevent text selection on interactive elements */
-button, .nav-link, .mobile-nav__item {
+button,
+.nav-link,
+.mobile-nav__item {
   user-select: none;
   -webkit-user-select: none;
+}
+
+.dashboard-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.weekly-winners-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.weekly-winners-row {
+  display: grid;
+  grid-template-columns: minmax(76px, 130px) 1fr minmax(26px, auto);
+  gap: 10px;
+  align-items: center;
+}
+
+.weekly-winners-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weekly-winners-track {
+  height: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.weekly-winners-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgba(34, 197, 94, 0.92),
+    rgba(59, 130, 246, 0.82)
+  );
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.22);
+}
+
+.weekly-winners-value {
+  color: #b7ffd1;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.weekly-winners-note {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.weekly-winners-empty {
+  min-height: 130px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 13px;
 }
