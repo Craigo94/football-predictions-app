@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { User } from "firebase/auth";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -162,7 +162,8 @@ const ResultBreakdownChart: React.FC<{
 const WeeklyWinnersChart: React.FC<{
   rows: WeeklyWinnerRow[];
   weeksCounted: number;
-}> = ({ rows, weeksCounted }) => {
+  onWinnerClick: (userId: string) => void;
+}> = ({ rows, weeksCounted, onWinnerClick }) => {
   if (rows.length === 0) {
     return (
       <div className="weekly-winners-empty">
@@ -184,16 +185,21 @@ const WeeklyWinnersChart: React.FC<{
           row.wins > 0 ? Math.max((row.wins / maxWins) * 100, 7) : 0;
 
         return (
-          <div className="weekly-winners-row" key={row.userId}>
+          <button
+            type="button"
+            className="weekly-winners-row weekly-winners-row--button"
+            key={row.userId}
+            onClick={() => onWinnerClick(row.userId)}
+          >
             <span className="weekly-winners-name">{row.name}</span>
-            <div className="weekly-winners-track" aria-hidden="true">
-              <div
+            <span className="weekly-winners-track" aria-hidden="true">
+              <span
                 className="weekly-winners-fill"
                 style={{ width: `${width}%` }}
               />
-            </div>
+            </span>
             <span className="weekly-winners-value">{row.wins}</span>
-          </div>
+          </button>
         );
       })}
       <p className="weekly-winners-note">
@@ -423,6 +429,7 @@ const H2HBar: React.FC<{
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DashboardPage: React.FC<Props> = ({ user }) => {
+  const navigate = useNavigate();
   const {
     fixturesById,
     loadingFixtures,
@@ -825,6 +832,11 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
           : "Live alerts are on while this app is open."
         : "Turn on notifications to get free alerts for goals and full-time results.";
 
+  const openWinnersHistory = (userId?: string) => {
+    const suffix = userId ? `?winner=${encodeURIComponent(userId)}` : "";
+    navigate(`/winners-history${suffix}`);
+  };
+
   const handleNotificationToggle = async () => {
     if (!notificationsSupported) return;
 
@@ -1179,7 +1191,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
                 name.
               </p>
             </div>
-            <span className="pill pill--ghost">All history</span>
+            <Link className="pill pill--ghost pill--link" to="/winners-history">
+              All history
+            </Link>
           </div>
           {weeklyWinnersLoading ? (
             <div className="weekly-winners-empty">
@@ -1189,6 +1203,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             <WeeklyWinnersChart
               rows={weeklyWinners.rows}
               weeksCounted={weeklyWinners.weeksCounted}
+              onWinnerClick={openWinnersHistory}
             />
           )}
         </div>

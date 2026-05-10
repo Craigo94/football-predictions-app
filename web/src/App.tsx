@@ -13,6 +13,7 @@ import Navbar from "./components/layout/Navbar";
 import PredictionsPage from "./components/predictions/PredictionsPage";
 import LeaderboardPage from "./components/leaderboard/LeaderboardPage";
 import WeeklyGameweekPage from "./components/weekly/WeeklyGameweekPage";
+import WinnersHistoryPage from "./components/weekly/WinnersHistoryPage";
 import MyStatsPage from "./components/stats/MyStatsPage";
 import LeagueTablePage from "./components/league/LeagueTablePage";
 import LoginPage from "./components/auth/LoginPage";
@@ -176,6 +177,7 @@ const App: React.FC = () => {
                   <Route path="/leaderboard" element={<LeaderboardPage user={user} />} />
                   <Route path="/league-table" element={<LeagueTablePage />} />
                   <Route path="/weekly" element={<WeeklyGameweekPage />} />
+                  <Route path="/winners-history" element={<WinnersHistoryPage />} />
                   <Route path="/world-cup" element={<WorldCupPage user={user} />} />
                   <Route path="/stats" element={<MyStatsPage user={user} />} />
                   <Route
