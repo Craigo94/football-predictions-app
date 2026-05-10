@@ -180,23 +180,29 @@ const WeeklyWinnersChart: React.FC<{
       role="img"
       aria-label="Weekly wins by player, sorted alphabetically"
     >
-      {rows.map((row) => {
+      {rows.map((row, index) => {
         const width =
           row.wins > 0 ? Math.max((row.wins / maxWins) * 100, 7) : 0;
+        const hue = (142 + index * 44) % 360;
+        const rowStyle = {
+          "--winner-hue": `${hue}`,
+          "--winner-width": `${width}%`,
+        } as React.CSSProperties;
 
         return (
           <button
             type="button"
             className="weekly-winners-row weekly-winners-row--button"
             key={row.userId}
+            style={rowStyle}
             onClick={() => onWinnerClick(row.userId)}
           >
+            <span className="weekly-winners-rank" aria-hidden="true">
+              {index === 0 ? "🏆" : index + 1}
+            </span>
             <span className="weekly-winners-name">{row.name}</span>
             <span className="weekly-winners-track" aria-hidden="true">
-              <span
-                className="weekly-winners-fill"
-                style={{ width: `${width}%` }}
-              />
+              <span className="weekly-winners-fill" />
             </span>
             <span className="weekly-winners-value">{row.wins}</span>
           </button>
@@ -1181,8 +1187,8 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
           </div>
         </div>
 
-        <div className="card dashboard-panel dashboard-panel--wide">
-          <div className="panel-header">
+        <div className="card dashboard-panel dashboard-panel--wide dashboard-panel--bragging">
+          <div className="panel-header panel-header--bragging">
             <div>
               <p className="eyebrow">Season bragging rights</p>
               <h3>Weekly winners</h3>
