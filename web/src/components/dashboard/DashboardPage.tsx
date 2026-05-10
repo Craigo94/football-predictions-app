@@ -44,7 +44,6 @@ interface WeeklyWinnerRow {
   userId: string;
   name: string;
   wins: number;
-  points: number;
 }
 
 const parseRoundNumber = (round: string) => {
@@ -197,7 +196,7 @@ const WeeklyWinnersChart: React.FC<{
     <div
       className="weekly-winners-chart"
       role="img"
-      aria-label="Weekly wins by player, sorted by most wins and points"
+      aria-label="Weekly wins by player, sorted by most wins"
     >
       {rows.map((row, index) => {
         const width =
@@ -205,16 +204,11 @@ const WeeklyWinnersChart: React.FC<{
         const rowStyle = {
           "--winner-width": `${width}%`,
         } as React.CSSProperties;
-        const rank = getTiedRank(
-          rows,
-          index,
-          (winnerRow) => winnerRow.wins * 1_000_000 + winnerRow.points,
-        );
+        const rank = getTiedRank(rows, index, (winnerRow) => winnerRow.wins);
         const isJoint = rows.some(
           (otherRow, otherIndex) =>
             otherIndex !== index &&
-            otherRow.wins === row.wins &&
-            otherRow.points === row.points,
+            otherRow.wins === row.wins,
         );
         const rankLabel = `${isJoint ? "Joint " : ""}${formatOrdinal(rank)}`;
 
@@ -229,10 +223,7 @@ const WeeklyWinnersChart: React.FC<{
             <span className="weekly-winners-rank">
               {row.wins > 0 && rank === 1 ? `🏆 ${rankLabel}` : rankLabel}
             </span>
-            <span className="weekly-winners-name">
-              {row.name}
-              <span className="weekly-winners-points">{row.points} pts</span>
-            </span>
+            <span className="weekly-winners-name">{row.name}</span>
             <span className="weekly-winners-track" aria-hidden="true">
               <span className="weekly-winners-fill" />
             </span>
@@ -242,7 +233,7 @@ const WeeklyWinnersChart: React.FC<{
       })}
       <p className="weekly-winners-note">
         {weeksCounted} completed gameweek{weeksCounted === 1 ? "" : "s"}
-        counted. Unfinished gameweeks are excluded, points break ties, and exact ties are
+        counted. Unfinished gameweeks are excluded, and matching win totals are
         shown as joint ranks.
       </p>
     </div>
@@ -815,7 +806,6 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     });
 
     const winCounts = new Map<string, number>();
-    const seasonPoints = new Map<string, number>();
     let weeksCounted = 0;
 
     pointsByRound.forEach((pointsByUser) => {
@@ -824,29 +814,21 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
       weeksCounted += 1;
       pointsByUser.forEach((points, userId) => {
-        seasonPoints.set(userId, (seasonPoints.get(userId) ?? 0) + points);
-
         if (points === highestScore) {
           winCounts.set(userId, (winCounts.get(userId) ?? 0) + 1);
         }
       });
     });
 
-    const userIds = new Set<string>([
-      ...userNames.keys(),
-      ...winCounts.keys(),
-      ...seasonPoints.keys(),
-    ]);
+    const userIds = new Set<string>([...userNames.keys(), ...winCounts.keys()]);
     const rows = Array.from(userIds).map((userId) => ({
       userId,
       name: userNames.get(userId) ?? "Unknown",
       wins: winCounts.get(userId) ?? 0,
-      points: seasonPoints.get(userId) ?? 0,
     }));
 
     rows.sort((a, b) => {
       if (b.wins !== a.wins) return b.wins - a.wins;
-      if (b.points !== a.points) return b.points - a.points;
       return a.name.localeCompare(b.name);
     });
 
@@ -1233,8 +1215,8 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               <p className="eyebrow">Season bragging rights</p>
               <h3>Weekly winners</h3>
               <p className="panel-subtitle">
-                Every completed gameweek in prediction history, sorted by most
-                weekly wins and then season points.
+                Every completed gameweek in prediction history, sorted by weekly
+                wins with tied players sharing the same rank.
               </p>
             </div>
             <Link className="pill pill--ghost pill--link" to="/winners-history">
