@@ -1,6 +1,7 @@
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import { getPremierLeagueTable, type LeagueTableRow } from "../../api/football";
+import { getTiedRank } from "../../utils/ranking";
 
 const normalizeTeamKey = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -99,7 +100,7 @@ const LeagueTablePage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {table.map((row) => (
+              {table.map((row, index) => (
                 <tr
                   key={row.team.id}
                   className={
@@ -108,7 +109,7 @@ const LeagueTablePage: React.FC = () => {
                       : "league-table__row"
                   }
                 >
-                  <td>{row.position}</td>
+                  <td>{getTiedRank(table, index, (tableRow) => tableRow.points)}</td>
                   <td className="league-table__team">
                     <img
                       className="league-table__crest"
