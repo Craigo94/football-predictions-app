@@ -7,8 +7,14 @@ import { useUsers } from "../../hooks/useUsers";
 import type { Fixture } from "../../api/football";
 import { formatFirstName } from "../../utils/displayName";
 import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
-import { hasFixtureScore } from "../../utils/fixtures";
+import { hasFixtureScore, isFixturePostponed } from "../../utils/fixtures";
 import { getTiedRank } from "../../utils/ranking";
+import {
+  getWeeklyWinnerCounts,
+  isRoundComplete,
+  parseRoundNumber,
+  sortRoundsDescending,
+} from "../../utils/weeklyWinners";
 
 interface AllPredictionDoc {
   userId: string;
@@ -48,11 +54,6 @@ interface WeeklyHistoryRound {
   playerScores: RoundPlayerScore[];
   fixtures: RoundFixtureScore[];
 }
-
-const parseRoundNumber = (round: string) => {
-  const match = round.match(/(\d+)/);
-  return match ? Number(match[1]) : Number.NaN;
-};
 
 const statusToCountKey = (status: PredictionStatus) => {
   if (status === "exact") return "exact";
@@ -130,8 +131,10 @@ const WinnersHistoryPage: React.FC = () => {
     const roundPredictions = new Map<string, AllPredictionDoc[]>();
 
     predictions.forEach((prediction) => {
+      if (!isRoundComplete(prediction.round, fixturesById)) return;
+
       const fixture = fixturesById[prediction.fixtureId];
-      if (!fixture) return;
+      if (!fixture || isFixturePostponed(fixture)) return;
 
       const scored = scorePrediction(
         prediction.predHome,
@@ -232,33 +235,20 @@ const WinnersHistoryPage: React.FC = () => {
       });
     });
 
-    return rounds.sort((a, b) => {
-      if (!Number.isNaN(a.roundNumber) && !Number.isNaN(b.roundNumber)) {
-        return b.roundNumber - a.roundNumber;
-      }
-      return b.round.localeCompare(a.round);
-    });
+    return rounds.sort((a, b) => sortRoundsDescending(a.round, b.round));
   }, [fixturesById, predictions, userNames]);
 
   const winnerFilters = React.useMemo(() => {
-    const winsByUser = new Map<string, { userId: string; name: string; wins: number }>();
+    const { winCounts } = getWeeklyWinnerCounts(predictions, fixturesById);
 
-    history.forEach((round) => {
-      round.winners.forEach((winner) => {
-        const current = winsByUser.get(winner.userId) ?? {
-          userId: winner.userId,
-          name: winner.name,
-          wins: 0,
-        };
-        current.wins += 1;
-        winsByUser.set(winner.userId, current);
-      });
-    });
-
-    return Array.from(winsByUser.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
-  }, [history]);
+    return Array.from(winCounts.entries())
+      .map(([userId, wins]) => ({
+        userId,
+        name: userNames.get(userId) ?? "Unknown",
+        wins,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [fixturesById, predictions, userNames]);
 
   const selectedWinner = winnerFilters.find(
     (winner) => winner.userId === selectedWinnerId,

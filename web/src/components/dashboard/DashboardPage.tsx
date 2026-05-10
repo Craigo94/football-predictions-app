@@ -11,6 +11,11 @@ import {
 import { scorePrediction } from "../../utils/scoring";
 import { timeUK, UK_TZ } from "../../utils/dates";
 import { formatOrdinal, getTiedRank } from "../../utils/ranking";
+import {
+  getWeeklyWinnerCounts,
+  parseRoundNumber,
+  sortRoundsAscending,
+} from "../../utils/weeklyWinners";
 import { useUsers } from "../../hooks/useUsers";
 import { formatFirstName } from "../../utils/displayName";
 import {
@@ -45,28 +50,6 @@ interface WeeklyWinnerRow {
   name: string;
   wins: number;
 }
-
-const parseRoundNumber = (round: string) => {
-  const match = round.match(/(\d+)/);
-  return match ? Number(match[1]) : Number.NaN;
-};
-
-const isRoundFinished = (
-  round: string,
-  fixturesById: Record<number, Fixture>,
-) => {
-  const roundFixtures = Object.values(fixturesById).filter(
-    (fixture) => fixture.round === round,
-  );
-  const countableFixtures = roundFixtures.filter(
-    (fixture) => !isFixturePostponed(fixture),
-  );
-
-  return (
-    countableFixtures.length > 0 &&
-    countableFixtures.every((fixture) => isFixtureFinished(fixture))
-  );
-};
 
 const Sparkline: React.FC<{ values: number[] }> = ({ values }) => {
   if (values.length === 0) {
@@ -702,14 +685,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       pointsByRound.set(prediction.round, current + scored.points);
     });
 
-    const ordered = Array.from(pointsByRound.entries()).sort((a, b) => {
-      const numA = parseRoundNumber(a[0]);
-      const numB = parseRoundNumber(b[0]);
-      if (Number.isNaN(numA) || Number.isNaN(numB)) {
-        return a[0].localeCompare(b[0]);
-      }
-      return numA - numB;
-    });
+    const ordered = Array.from(pointsByRound.entries()).sort((a, b) =>
+      sortRoundsAscending(a[0], b[0]),
+    );
 
     return ordered.slice(-6).map(([, value]) => value);
   }, [fixturesById, predictions]);
@@ -741,14 +719,9 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       countsByRound.set(prediction.round, current);
     });
 
-    const ordered = Array.from(countsByRound.entries()).sort((a, b) => {
-      const numA = parseRoundNumber(a[0]);
-      const numB = parseRoundNumber(b[0]);
-      if (Number.isNaN(numA) || Number.isNaN(numB)) {
-        return a[0].localeCompare(b[0]);
-      }
-      return numA - numB;
-    });
+    const ordered = Array.from(countsByRound.entries()).sort((a, b) =>
+      sortRoundsAscending(a[0], b[0]),
+    );
 
     return ordered.slice(-6).map(([round, values]) => ({ round, ...values }));
   }, [fixturesById, predictions]);
@@ -770,55 +743,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       );
     });
 
-    const pointsByRound = new Map<string, Map<string, number>>();
-    const predictedRounds = new Set(
-      allPredictions.map((prediction) => prediction.round),
+    const { winCounts, weeksCounted } = getWeeklyWinnerCounts(
+      allPredictions,
+      fixturesById,
     );
-    const completedRounds = new Set(
-      Array.from(predictedRounds).filter((round) =>
-        isRoundFinished(round, fixturesById),
-      ),
-    );
-
-    allPredictions.forEach((prediction) => {
-      if (!prediction.userId || !completedRounds.has(prediction.round)) return;
-      const fixture = fixturesById[prediction.fixtureId];
-      if (!fixture) return;
-
-      const { points } = scorePrediction(
-        prediction.predHome,
-        prediction.predAway,
-        fixture.homeGoals,
-        fixture.awayGoals,
-      );
-
-      if (points == null) return;
-
-      if (!pointsByRound.has(prediction.round)) {
-        pointsByRound.set(prediction.round, new Map<string, number>());
-      }
-
-      const pointsByUser = pointsByRound.get(prediction.round)!;
-      pointsByUser.set(
-        prediction.userId,
-        (pointsByUser.get(prediction.userId) ?? 0) + points,
-      );
-    });
-
-    const winCounts = new Map<string, number>();
-    let weeksCounted = 0;
-
-    pointsByRound.forEach((pointsByUser) => {
-      const highestScore = Math.max(...pointsByUser.values());
-      if (highestScore <= 0) return;
-
-      weeksCounted += 1;
-      pointsByUser.forEach((points, userId) => {
-        if (points === highestScore) {
-          winCounts.set(userId, (winCounts.get(userId) ?? 0) + 1);
-        }
-      });
-    });
 
     const userIds = new Set<string>([...userNames.keys(), ...winCounts.keys()]);
     const rows = Array.from(userIds).map((userId) => ({
