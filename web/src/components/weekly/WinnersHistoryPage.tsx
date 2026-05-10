@@ -8,6 +8,7 @@ import type { Fixture } from "../../api/football";
 import { formatFirstName } from "../../utils/displayName";
 import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
 import { hasFixtureScore } from "../../utils/fixtures";
+import { getTiedRank } from "../../utils/ranking";
 
 interface AllPredictionDoc {
   userId: string;
@@ -396,7 +397,7 @@ const WinnersHistoryPage: React.FC = () => {
                         role="row"
                         key={player.userId}
                       >
-                        <span>{index + 1}</span>
+                        <span>{getTiedRank(round.playerScores, index, (playerScore) => playerScore.points)}</span>
                         <span>{player.name}</span>
                         <span>{player.exact} exact</span>
                         <span>{player.results} results</span>

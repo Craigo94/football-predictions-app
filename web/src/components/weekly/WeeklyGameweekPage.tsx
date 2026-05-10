@@ -18,6 +18,7 @@ import {
   isFixtureLive,
 } from "../../utils/fixtures";
 import { timeUK } from "../../utils/dates";
+import { getTiedRank } from "../../utils/ranking";
 
 interface PredictionDoc {
   userId: string;
@@ -50,9 +51,6 @@ const sortByPointsThenName = <T extends { totalPoints: number; userDisplayName: 
 ) =>
   b.totalPoints - a.totalPoints ||
   a.userDisplayName.localeCompare(b.userDisplayName, undefined, { sensitivity: "base" });
-
-const getCompetitionRank = <T extends { totalPoints: number }>(rows: T[], index: number) =>
-  rows.slice(0, index).filter((row) => row.totalPoints > rows[index].totalPoints).length + 1;
 
 const hasCompletedPrediction = (prediction?: PredictionDoc): boolean =>
   Boolean(prediction && prediction.predHome != null && prediction.predAway != null);
@@ -338,13 +336,12 @@ const WeeklyGameweekPage: React.FC = () => {
             </thead>
             <tbody>
               {weeklyRows.map((row, index) => {
-                const isLeader = roundData.leaderPoints > 0 && row.totalPoints === roundData.leaderPoints;
-                const rank = getCompetitionRank(weeklyRows, index);
+                const rank = getTiedRank(weeklyRows, index, (weeklyRow) => weeklyRow.totalPoints);
                 return (
                   <tr key={row.userId}>
                     <td className="gw-pred-td-player">
                       <div className="gw-pred-player-cell">
-                        <span className="gw-pred-rank">{isLeader ? "🏆" : rank}</span>
+                        <span className="gw-pred-rank">{rank}</span>
                         <div className="gw-pred-player-info">
                           <span className="gw-pred-player-name">{row.userDisplayName}</span>
                           <span className="gw-pred-player-pts">{row.totalPoints} pts</span>

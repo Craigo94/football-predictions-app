@@ -10,6 +10,7 @@ import {
 } from "../../api/football";
 import { scorePrediction } from "../../utils/scoring";
 import { timeUK, UK_TZ } from "../../utils/dates";
+import { formatOrdinal } from "../../utils/ranking";
 import { useUsers } from "../../hooks/useUsers";
 import { formatFirstName } from "../../utils/displayName";
 import {
@@ -1041,17 +1042,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
           </div>
           <div className="stat-card__body">
             <span className="stat-value">
-              {leaderboardRank
-                ? `${leaderboardRank.rank}${
-                    leaderboardRank.rank === 1
-                      ? "st"
-                      : leaderboardRank.rank === 2
-                        ? "nd"
-                        : leaderboardRank.rank === 3
-                          ? "rd"
-                          : "th"
-                  }`
-                : "—"}
+              {leaderboardRank ? formatOrdinal(leaderboardRank.rank) : "—"}
             </span>
             <span className="stat-subtext">
               {leaderboardRank

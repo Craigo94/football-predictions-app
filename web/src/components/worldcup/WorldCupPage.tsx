@@ -7,6 +7,7 @@ import FixtureCard, { type Prediction } from "../predictions/FixtureCard";
 import { hasFixtureStarted, isFixtureFinished, isFixturePostponed } from "../../utils/fixtures";
 import { formatFirstName } from "../../utils/displayName";
 import { scorePrediction } from "../../utils/scoring";
+import { getTiedRank } from "../../utils/ranking";
 
 interface Props {
   user: User;
@@ -303,7 +304,11 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
       }
     });
 
-    return Object.values(byUser).sort((a, b) => b.totalPoints - a.totalPoints);
+    return Object.values(byUser).sort(
+      (a, b) =>
+        b.totalPoints - a.totalPoints ||
+        a.userDisplayName.localeCompare(b.userDisplayName, undefined, { sensitivity: "base" }),
+    );
   }, [allPredictions, fixtures]);
 
   const currentStagePredictionsByFixture = React.useMemo(() => {
@@ -402,7 +407,9 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
             <tbody>
               {leagueRows.map((row, index) => (
                 <tr key={row.userId} style={{ borderTop: "1px solid rgba(148,163,184,0.15)" }}>
-                  <td style={{ padding: "6px 0" }}>{index + 1}</td>
+                  <td style={{ padding: "6px 0" }}>
+                    {getTiedRank(leagueRows, index, (leagueRow) => leagueRow.totalPoints)}
+                  </td>
                   <td style={{ padding: "6px 0" }}>{row.userDisplayName}</td>
                   <td style={{ padding: "6px 0", textAlign: "right" }}><strong>{row.totalPoints}</strong></td>
                   <td style={{ padding: "6px 0", textAlign: "right" }}>{row.exactCount}</td>

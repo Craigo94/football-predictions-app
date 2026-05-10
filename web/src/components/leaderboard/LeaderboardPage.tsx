@@ -9,6 +9,7 @@ import {
 } from "../../utils/scoring";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import { formatFirstName } from "../../utils/displayName";
+import { getTiedRank } from "../../utils/ranking";
 
 interface Props {
   user: User;
@@ -172,7 +173,9 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
     }
 
     const sorted = Object.values(byUser).sort(
-      (a, b) => b.totalPoints - a.totalPoints
+      (a, b) =>
+        b.totalPoints - a.totalPoints ||
+        a.userDisplayName.localeCompare(b.userDisplayName, undefined, { sensitivity: "base" })
     );
 
     setRows(sorted);
@@ -289,9 +292,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
               <tbody>
                 {rows.map((row, index) => {
                   const isCurrentUser = row.userId === user.uid;
-                  const topScore = rows[0]?.totalPoints ?? 0;
-                  const isJointLeader = topScore > 0 && row.totalPoints === topScore;
-                  const displayRank = isJointLeader ? "🏆" : index + 1;
+                  const displayRank = getTiedRank(rows, index, (leaderboardRow) => leaderboardRow.totalPoints);
 
                   return (
                     <tr
