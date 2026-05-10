@@ -2962,7 +2962,8 @@ button,
 .weekly-winners-row {
   --winner-width: 0%;
   display: grid;
-  grid-template-columns: 34px minmax(76px, 130px) 1fr minmax(26px, auto);
+  grid-template-columns:
+    minmax(58px, auto) minmax(76px, 150px) 1fr minmax(26px, auto);
   gap: 10px;
   align-items: center;
   padding: 9px 10px;
@@ -2972,12 +2973,13 @@ button,
 }
 
 .weekly-winners-rank {
-  display: grid;
-  width: 28px;
-  height: 28px;
+  display: inline-grid;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 8px;
   place-items: center;
   border: 1px solid rgba(0, 200, 83, 0.32);
-  border-radius: 50%;
+  border-radius: 999px;
   background: rgba(0, 200, 83, 0.12);
   color: #b7ffd1;
   font-size: 12px;
@@ -2992,6 +2994,14 @@ button,
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.weekly-winners-points {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .weekly-winners-track {
