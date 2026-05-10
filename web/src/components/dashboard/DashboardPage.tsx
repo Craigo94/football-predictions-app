@@ -49,6 +49,7 @@ interface WeeklyWinnerRow {
   userId: string;
   name: string;
   wins: number;
+  jointWins: number;
 }
 
 const Sparkline: React.FC<{ values: number[] }> = ({ values }) => {
@@ -163,8 +164,9 @@ const ResultBreakdownChart: React.FC<{
 const WeeklyWinnersChart: React.FC<{
   rows: WeeklyWinnerRow[];
   weeksCounted: number;
+  jointRoundsCount: number;
   onWinnerClick: (userId: string) => void;
-}> = ({ rows, weeksCounted, onWinnerClick }) => {
+}> = ({ rows, weeksCounted, jointRoundsCount, onWinnerClick }) => {
   if (rows.length === 0) {
     return (
       <div className="weekly-winners-empty">
@@ -195,6 +197,10 @@ const WeeklyWinnersChart: React.FC<{
         );
         const rankLabel = `${isJoint ? "Joint " : ""}${formatOrdinal(rank)}`;
 
+        const jointWinLabel = row.jointWins
+          ? `, including ${row.jointWins} joint win${row.jointWins === 1 ? "" : "s"}`
+          : "";
+
         return (
           <button
             type="button"
@@ -202,6 +208,7 @@ const WeeklyWinnersChart: React.FC<{
             key={row.userId}
             style={rowStyle}
             onClick={() => onWinnerClick(row.userId)}
+            aria-label={`${row.name}: ${row.wins} weekly win${row.wins === 1 ? "" : "s"}${jointWinLabel}`}
           >
             <span className="weekly-winners-rank">
               {row.wins > 0 && rank === 1 ? `🏆 ${rankLabel}` : rankLabel}
@@ -216,8 +223,11 @@ const WeeklyWinnersChart: React.FC<{
       })}
       <p className="weekly-winners-note">
         {weeksCounted} completed gameweek{weeksCounted === 1 ? "" : "s"}
-        counted. Unfinished gameweeks are excluded, and matching win totals are
-        shown as joint ranks.
+        counted. Joint weekly winners are added to each player&apos;s total
+        {jointRoundsCount > 0
+          ? ` across ${jointRoundsCount} shared gameweek${jointRoundsCount === 1 ? "" : "s"}`
+          : ""}
+        {", without a separate joint-winner filter."}
       </p>
     </div>
   );
@@ -743,24 +753,29 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       );
     });
 
-    const { winCounts, weeksCounted } = getWeeklyWinnerCounts(
+    const { winCounts, weeksCounted, jointRoundsCount } = getWeeklyWinnerCounts(
       allPredictions,
       fixturesById,
     );
 
     const userIds = new Set<string>([...userNames.keys(), ...winCounts.keys()]);
-    const rows = Array.from(userIds).map((userId) => ({
-      userId,
-      name: userNames.get(userId) ?? "Unknown",
-      wins: winCounts.get(userId) ?? 0,
-    }));
+    const rows = Array.from(userIds).map((userId) => {
+      const winnerCount = winCounts.get(userId);
+
+      return {
+        userId,
+        name: userNames.get(userId) ?? "Unknown",
+        wins: winnerCount?.wins ?? 0,
+        jointWins: winnerCount?.jointWins ?? 0,
+      };
+    });
 
     rows.sort((a, b) => {
       if (b.wins !== a.wins) return b.wins - a.wins;
       return a.name.localeCompare(b.name);
     });
 
-    return { rows, weeksCounted };
+    return { rows, weeksCounted, jointRoundsCount };
   }, [allPredictions, fixturesById, users]);
 
   const kickoffLabel = firstFixture
@@ -1159,6 +1174,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
             <WeeklyWinnersChart
               rows={weeklyWinners.rows}
               weeksCounted={weeklyWinners.weeksCounted}
+              jointRoundsCount={weeklyWinners.jointRoundsCount}
               onWinnerClick={openWinnersHistory}
             />
           )}
