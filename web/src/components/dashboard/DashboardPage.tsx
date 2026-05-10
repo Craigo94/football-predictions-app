@@ -178,14 +178,12 @@ const WeeklyWinnersChart: React.FC<{
     <div
       className="weekly-winners-chart"
       role="img"
-      aria-label="Weekly wins by player, sorted alphabetically"
+      aria-label="Weekly wins by player, sorted by most wins"
     >
       {rows.map((row, index) => {
         const width =
           row.wins > 0 ? Math.max((row.wins / maxWins) * 100, 7) : 0;
-        const hue = (142 + index * 44) % 360;
         const rowStyle = {
-          "--winner-hue": `${hue}`,
           "--winner-width": `${width}%`,
         } as React.CSSProperties;
 
@@ -798,7 +796,10 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
       wins: winCounts.get(userId) ?? 0,
     }));
 
-    rows.sort((a, b) => a.name.localeCompare(b.name));
+    rows.sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return a.name.localeCompare(b.name);
+    });
 
     return { rows, weeksCounted };
   }, [allPredictions, fixturesById, users]);
@@ -1193,8 +1194,8 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               <p className="eyebrow">Season bragging rights</p>
               <h3>Weekly winners</h3>
               <p className="panel-subtitle">
-                Every completed gameweek in prediction history, sorted by player
-                name.
+                Every completed gameweek in prediction history, sorted by most
+                weekly wins.
               </p>
             </div>
             <Link className="pill pill--ghost pill--link" to="/winners-history">
