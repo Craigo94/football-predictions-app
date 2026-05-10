@@ -20,6 +20,7 @@ export interface WeeklyWinnerRound {
 export interface WeeklyWinnerCount {
   userId: string;
   wins: number;
+  jointWins: number;
 }
 
 export const parseRoundNumber = (round: string) => {
@@ -137,17 +138,32 @@ export const getWeeklyWinnerCounts = (
   fixturesById: Record<number, Fixture>,
 ) => {
   const rounds = getWeeklyWinnerRounds(predictions, fixturesById);
-  const winCounts = new Map<string, number>();
+  const winCounts = new Map<string, WeeklyWinnerCount>();
+  let jointRoundsCount = 0;
 
   rounds.forEach((round) => {
+    if (round.winners.length === 0) return;
+
+    const isJointWin = round.winners.length > 1;
+    if (isJointWin) jointRoundsCount += 1;
+
     round.winners.forEach((userId) => {
-      winCounts.set(userId, (winCounts.get(userId) ?? 0) + 1);
+      const current = winCounts.get(userId) ?? {
+        userId,
+        wins: 0,
+        jointWins: 0,
+      };
+
+      current.wins += 1;
+      if (isJointWin) current.jointWins += 1;
+      winCounts.set(userId, current);
     });
   });
 
   return {
     rounds,
     weeksCounted: rounds.length,
+    jointRoundsCount,
     winCounts,
   };
 };

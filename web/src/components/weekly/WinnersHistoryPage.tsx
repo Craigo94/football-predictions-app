@@ -241,11 +241,11 @@ const WinnersHistoryPage: React.FC = () => {
   const winnerFilters = React.useMemo(() => {
     const { winCounts } = getWeeklyWinnerCounts(predictions, fixturesById);
 
-    return Array.from(winCounts.entries())
-      .map(([userId, wins]) => ({
-        userId,
-        name: userNames.get(userId) ?? "Unknown",
-        wins,
+    return Array.from(winCounts.values())
+      .map((winnerCount) => ({
+        userId: winnerCount.userId,
+        name: userNames.get(winnerCount.userId) ?? "Unknown",
+        wins: winnerCount.wins,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [fixturesById, predictions, userNames]);
