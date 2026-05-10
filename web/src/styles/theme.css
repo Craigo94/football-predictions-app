@@ -2925,14 +2925,8 @@ button,
 .dashboard-panel--bragging {
   position: relative;
   overflow: hidden;
-  border-color: rgba(250, 204, 21, 0.34);
-  background:
-    radial-gradient(circle at top left, rgba(250, 204, 21, 0.16), transparent 36%),
-    radial-gradient(circle at 90% 18%, rgba(34, 197, 94, 0.18), transparent 30%),
-    linear-gradient(135deg, rgba(12, 22, 15, 0.95), rgba(15, 23, 42, 0.9));
-  box-shadow:
-    0 18px 45px rgba(0, 0, 0, 0.22),
-    0 0 28px rgba(250, 204, 21, 0.08);
+  border-color: var(--card-border);
+  background: var(--card-bg);
 }
 
 .dashboard-panel--bragging::before {
@@ -2942,7 +2936,7 @@ button,
   width: 120px;
   height: 120px;
   border-radius: 999px;
-  background: rgba(250, 204, 21, 0.08);
+  background: rgba(0, 200, 83, 0.05);
   content: "";
   filter: blur(3px);
   pointer-events: none;
@@ -2954,7 +2948,7 @@ button,
 }
 
 .panel-header--bragging .eyebrow {
-  color: #fde68a;
+  color: var(--accent);
 }
 
 .weekly-winners-chart {
@@ -2966,20 +2960,15 @@ button,
 }
 
 .weekly-winners-row {
-  --winner-hue: 142;
   --winner-width: 0%;
   display: grid;
   grid-template-columns: 34px minmax(76px, 130px) 1fr minmax(26px, auto);
   gap: 10px;
   align-items: center;
   padding: 9px 10px;
-  border: 1px solid hsla(var(--winner-hue), 80%, 62%, 0.24);
+  border: 1px solid var(--card-border);
   border-radius: 14px;
-  background: linear-gradient(
-    90deg,
-    hsla(var(--winner-hue), 76%, 52%, 0.14),
-    rgba(255, 255, 255, 0.04)
-  );
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .weekly-winners-rank {
@@ -2987,13 +2976,12 @@ button,
   width: 28px;
   height: 28px;
   place-items: center;
-  border: 1px solid hsla(var(--winner-hue), 88%, 70%, 0.45);
+  border: 1px solid rgba(0, 200, 83, 0.32);
   border-radius: 50%;
-  background: hsla(var(--winner-hue), 86%, 54%, 0.2);
-  color: hsl(var(--winner-hue), 95%, 82%);
+  background: rgba(0, 200, 83, 0.12);
+  color: #b7ffd1;
   font-size: 12px;
   font-weight: 900;
-  box-shadow: 0 0 14px hsla(var(--winner-hue), 82%, 56%, 0.18);
 }
 
 .weekly-winners-name {
@@ -3009,7 +2997,7 @@ button,
 .weekly-winners-track {
   height: 16px;
   overflow: hidden;
-  border: 1px solid hsla(var(--winner-hue), 88%, 72%, 0.22);
+  border: 1px solid var(--card-border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.07);
 }
@@ -3019,20 +3007,16 @@ button,
   width: var(--winner-width);
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    hsl(var(--winner-hue), 78%, 48%),
-    hsl(calc(var(--winner-hue) + 42), 88%, 62%)
-  );
-  box-shadow: 0 0 14px hsla(var(--winner-hue), 82%, 56%, 0.36);
+  background: linear-gradient(90deg, rgba(0, 200, 83, 0.85), #66ff99);
+  box-shadow: var(--accent-glow);
 }
 
 .weekly-winners-value {
   min-width: 28px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: hsla(var(--winner-hue), 76%, 52%, 0.18);
-  color: hsl(var(--winner-hue), 95%, 82%);
+  background: rgba(0, 200, 83, 0.12);
+  color: #b7ffd1;
   font-size: 13px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
@@ -3041,7 +3025,7 @@ button,
 
 .weekly-winners-note {
   margin: 4px 0 0;
-  color: #cbd5e1;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -3051,10 +3035,10 @@ button,
   min-height: 130px;
   display: grid;
   place-items: center;
-  border: 1px dashed rgba(250, 204, 21, 0.24);
+  border: 1px dashed var(--card-border);
   border-radius: 14px;
-  background: rgba(250, 204, 21, 0.06);
-  color: #fde68a;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -3081,17 +3065,17 @@ button,
 }
 
 .weekly-winners-row--button:hover {
-  border-color: hsla(var(--winner-hue), 88%, 72%, 0.52);
-  box-shadow: 0 8px 22px hsla(var(--winner-hue), 82%, 38%, 0.18);
+  border-color: rgba(0, 200, 83, 0.32);
+  box-shadow: 0 8px 22px rgba(0, 200, 83, 0.08);
   transform: translateX(3px);
 }
 
 .weekly-winners-row--button:hover .weekly-winners-name {
-  color: hsl(var(--winner-hue), 95%, 84%);
+  color: #b7ffd1;
 }
 
 .weekly-winners-row--button:hover .weekly-winners-track {
-  border-color: hsla(var(--winner-hue), 88%, 72%, 0.46);
+  border-color: rgba(0, 200, 83, 0.28);
 }
 
 .winners-history {
