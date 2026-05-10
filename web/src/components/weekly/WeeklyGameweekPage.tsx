@@ -44,6 +44,16 @@ interface RoundData {
   leaderPoints: number;
 }
 
+const sortByPointsThenName = <T extends { totalPoints: number; userDisplayName: string }>(
+  a: T,
+  b: T
+) =>
+  b.totalPoints - a.totalPoints ||
+  a.userDisplayName.localeCompare(b.userDisplayName, undefined, { sensitivity: "base" });
+
+const getCompetitionRank = <T extends { totalPoints: number }>(rows: T[], index: number) =>
+  rows.slice(0, index).filter((row) => row.totalPoints > rows[index].totalPoints).length + 1;
+
 const hasCompletedPrediction = (prediction?: PredictionDoc): boolean =>
   Boolean(prediction && prediction.predHome != null && prediction.predAway != null);
 
@@ -221,7 +231,7 @@ const WeeklyGameweekPage: React.FC = () => {
         if (points != null) byUser[p.userId].totalPoints += points;
       }
 
-      const weeklyRows = Object.values(byUser).sort((a, b) => b.totalPoints - a.totalPoints);
+      const weeklyRows = Object.values(byUser).sort(sortByPointsThenName);
       const leaderPoints = weeklyRows.length > 0 ? weeklyRows[0].totalPoints : 0;
 
       return { fixturesList, earliestKickoff, revealPredictions, weeklyRows, predsByUserFixture, leaderPoints };
@@ -329,11 +339,12 @@ const WeeklyGameweekPage: React.FC = () => {
             <tbody>
               {weeklyRows.map((row, index) => {
                 const isLeader = roundData.leaderPoints > 0 && row.totalPoints === roundData.leaderPoints;
+                const rank = getCompetitionRank(weeklyRows, index);
                 return (
                   <tr key={row.userId}>
                     <td className="gw-pred-td-player">
                       <div className="gw-pred-player-cell">
-                        <span className="gw-pred-rank">{isLeader ? "🏆" : index + 1}</span>
+                        <span className="gw-pred-rank">{isLeader ? "🏆" : rank}</span>
                         <div className="gw-pred-player-info">
                           <span className="gw-pred-player-name">{row.userDisplayName}</span>
                           <span className="gw-pred-player-pts">{row.totalPoints} pts</span>
@@ -448,7 +459,11 @@ const WeeklyGameweekPage: React.FC = () => {
               }, 0),
               total: countableFixtures.length,
             }))
-            .sort((a, b) => b.completed - a.completed);
+            .sort(
+              (a, b) =>
+                b.completed - a.completed ||
+                a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" })
+            );
 
           return (
             <div className="gw-progress-grid">
