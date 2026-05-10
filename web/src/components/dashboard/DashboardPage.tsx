@@ -10,7 +10,7 @@ import {
 } from "../../api/football";
 import { scorePrediction } from "../../utils/scoring";
 import { timeUK, UK_TZ } from "../../utils/dates";
-import { formatOrdinal } from "../../utils/ranking";
+import { formatOrdinal, getTiedRank } from "../../utils/ranking";
 import { useUsers } from "../../hooks/useUsers";
 import { formatFirstName } from "../../utils/displayName";
 import {
@@ -44,11 +44,29 @@ interface WeeklyWinnerRow {
   userId: string;
   name: string;
   wins: number;
+  points: number;
 }
 
 const parseRoundNumber = (round: string) => {
   const match = round.match(/(\d+)/);
   return match ? Number(match[1]) : Number.NaN;
+};
+
+const isRoundFinished = (
+  round: string,
+  fixturesById: Record<number, Fixture>,
+) => {
+  const roundFixtures = Object.values(fixturesById).filter(
+    (fixture) => fixture.round === round,
+  );
+  const countableFixtures = roundFixtures.filter(
+    (fixture) => !isFixturePostponed(fixture),
+  );
+
+  return (
+    countableFixtures.length > 0 &&
+    countableFixtures.every((fixture) => isFixtureFinished(fixture))
+  );
 };
 
 const Sparkline: React.FC<{ values: number[] }> = ({ values }) => {
@@ -179,7 +197,7 @@ const WeeklyWinnersChart: React.FC<{
     <div
       className="weekly-winners-chart"
       role="img"
-      aria-label="Weekly wins by player, sorted by most wins"
+      aria-label="Weekly wins by player, sorted by most wins and points"
     >
       {rows.map((row, index) => {
         const width =
@@ -187,6 +205,18 @@ const WeeklyWinnersChart: React.FC<{
         const rowStyle = {
           "--winner-width": `${width}%`,
         } as React.CSSProperties;
+        const rank = getTiedRank(
+          rows,
+          index,
+          (winnerRow) => winnerRow.wins * 1_000_000 + winnerRow.points,
+        );
+        const isJoint = rows.some(
+          (otherRow, otherIndex) =>
+            otherIndex !== index &&
+            otherRow.wins === row.wins &&
+            otherRow.points === row.points,
+        );
+        const rankLabel = `${isJoint ? "Joint " : ""}${formatOrdinal(rank)}`;
 
         return (
           <button
@@ -196,10 +226,13 @@ const WeeklyWinnersChart: React.FC<{
             style={rowStyle}
             onClick={() => onWinnerClick(row.userId)}
           >
-            <span className="weekly-winners-rank" aria-hidden="true">
-              {index === 0 ? "🏆" : index + 1}
+            <span className="weekly-winners-rank">
+              {row.wins > 0 && rank === 1 ? `🏆 ${rankLabel}` : rankLabel}
             </span>
-            <span className="weekly-winners-name">{row.name}</span>
+            <span className="weekly-winners-name">
+              {row.name}
+              <span className="weekly-winners-points">{row.points} pts</span>
+            </span>
             <span className="weekly-winners-track" aria-hidden="true">
               <span className="weekly-winners-fill" />
             </span>
@@ -208,8 +241,9 @@ const WeeklyWinnersChart: React.FC<{
         );
       })}
       <p className="weekly-winners-note">
-        {weeksCounted} gameweek{weeksCounted === 1 ? "" : "s"} counted. Tied
-        weekly winners all receive a win.
+        {weeksCounted} completed gameweek{weeksCounted === 1 ? "" : "s"}
+        counted. Unfinished gameweeks are excluded, points break ties, and exact ties are
+        shown as joint ranks.
       </p>
     </div>
   );
@@ -746,9 +780,17 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     });
 
     const pointsByRound = new Map<string, Map<string, number>>();
+    const predictedRounds = new Set(
+      allPredictions.map((prediction) => prediction.round),
+    );
+    const completedRounds = new Set(
+      Array.from(predictedRounds).filter((round) =>
+        isRoundFinished(round, fixturesById),
+      ),
+    );
 
     allPredictions.forEach((prediction) => {
-      if (!prediction.userId) return;
+      if (!prediction.userId || !completedRounds.has(prediction.round)) return;
       const fixture = fixturesById[prediction.fixtureId];
       if (!fixture) return;
 
@@ -773,6 +815,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
     });
 
     const winCounts = new Map<string, number>();
+    const seasonPoints = new Map<string, number>();
     let weeksCounted = 0;
 
     pointsByRound.forEach((pointsByUser) => {
@@ -781,21 +824,29 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
 
       weeksCounted += 1;
       pointsByUser.forEach((points, userId) => {
+        seasonPoints.set(userId, (seasonPoints.get(userId) ?? 0) + points);
+
         if (points === highestScore) {
           winCounts.set(userId, (winCounts.get(userId) ?? 0) + 1);
         }
       });
     });
 
-    const userIds = new Set<string>([...userNames.keys(), ...winCounts.keys()]);
+    const userIds = new Set<string>([
+      ...userNames.keys(),
+      ...winCounts.keys(),
+      ...seasonPoints.keys(),
+    ]);
     const rows = Array.from(userIds).map((userId) => ({
       userId,
       name: userNames.get(userId) ?? "Unknown",
       wins: winCounts.get(userId) ?? 0,
+      points: seasonPoints.get(userId) ?? 0,
     }));
 
     rows.sort((a, b) => {
       if (b.wins !== a.wins) return b.wins - a.wins;
+      if (b.points !== a.points) return b.points - a.points;
       return a.name.localeCompare(b.name);
     });
 
@@ -1183,7 +1234,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
               <h3>Weekly winners</h3>
               <p className="panel-subtitle">
                 Every completed gameweek in prediction history, sorted by most
-                weekly wins.
+                weekly wins and then season points.
               </p>
             </div>
             <Link className="pill pill--ghost pill--link" to="/winners-history">
