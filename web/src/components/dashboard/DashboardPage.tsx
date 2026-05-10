@@ -606,16 +606,13 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         (pointsByUser[prediction.userId] ?? 0) + points;
     });
 
-    const sorted = Object.entries(pointsByUser).sort((a, b) => b[1] - a[1]);
-    const total = sorted.length;
-    const rankIndex = sorted.findIndex(([uid]) => uid === user.uid);
+    const scoredPlayers = Object.entries(pointsByUser);
     const myPoints = pointsByUser[user.uid] ?? 0;
+    const total = pointsByUser[user.uid] == null ? scoredPlayers.length + 1 : scoredPlayers.length;
+    const rank = scoredPlayers.filter(([, points]) => points > myPoints).length + 1;
 
-    if (rankIndex !== -1) {
-      return { rank: rankIndex + 1, total, points: myPoints };
-    }
-    if (total > 0) {
-      return { rank: total, total, points: 0 };
+    if (scoredPlayers.length > 0) {
+      return { rank, total, points: myPoints };
     }
     return null;
   }, [allPredictions, currentRoundLabel, fixturesById, user.uid]);
