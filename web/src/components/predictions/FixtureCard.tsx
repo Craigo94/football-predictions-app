@@ -121,17 +121,24 @@ const FixtureCard: React.FC<Props> = ({
     home: fixture.homeTeam,
     away: fixture.awayTeam,
   }).toString();
+  const hasLongTeamLabels = fixture.homeShort.length > 14 || fixture.awayShort.length > 14;
 
   return (
     <div
-      className={`fx-card card ${required && !hasPrediction ? "fx-card--required" : ""}`}
+      className={[
+        "fx-card card",
+        required && !hasPrediction ? "fx-card--required" : "",
+        hasLongTeamLabels ? "fx-card--long-labels" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       style={{ borderColor }}
     >
       {/* Header */}
       <div className="fx-header">
         <div className="fx-team fx-team--home">
           <img className="fx-logo" src={fixture.homeLogo} alt={fixture.homeTeam} />
-          <span className="fx-tla">{fixture.homeShort}</span>
+          <span className="fx-tla" title={fixture.homeTeam}>{fixture.homeShort}</span>
         </div>
 
         <div className={`fx-badge ${isLive ? "fx-badge--live" : isFT || isPostponed ? "fx-badge--ft" : "fx-badge--ko"}`}>
@@ -139,7 +146,7 @@ const FixtureCard: React.FC<Props> = ({
         </div>
 
         <div className="fx-team fx-team--away">
-          <span className="fx-tla">{fixture.awayShort}</span>
+          <span className="fx-tla" title={fixture.awayTeam}>{fixture.awayShort}</span>
           <img className="fx-logo" src={fixture.awayLogo} alt={fixture.awayTeam} />
         </div>
       </div>

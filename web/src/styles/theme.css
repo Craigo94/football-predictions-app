@@ -3280,3 +3280,216 @@ button,
     display: none;
   }
 }
+
+/* ─── World Cup round navigation and knockout readability ────────────────── */
+.world-cup-page {
+  scroll-behavior: smooth;
+}
+
+.world-cup-stage-nav {
+  position: sticky;
+  top: 8px;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 2px 12px;
+  margin: 0 -2px 4px;
+  scroll-padding-inline: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.world-cup-stage-chip {
+  flex: 0 0 auto;
+  min-width: 138px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: rgba(12, 22, 15, 0.94);
+  color: var(--text);
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+
+.world-cup-stage-chip span {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.world-cup-stage-chip small {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.world-cup-stage-chip--current {
+  border-color: rgba(46, 204, 113, 0.75);
+  background: linear-gradient(135deg, rgba(0, 200, 83, 0.25), rgba(12, 22, 15, 0.96));
+}
+
+.world-cup-stage-list {
+  display: grid;
+  gap: 12px;
+}
+
+.world-cup-stage-card {
+  scroll-margin-top: 84px;
+}
+
+.world-cup-stage-card--current {
+  border-color: rgba(46, 204, 113, 0.35);
+}
+
+.world-cup-stage-summary,
+.world-cup-subsummary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.world-cup-stage-summary::-webkit-details-marker,
+.world-cup-subsummary::-webkit-details-marker {
+  display: none;
+}
+
+.world-cup-stage-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.world-cup-stage-summary::before,
+.world-cup-subsummary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--accent);
+  transition: transform 0.2s ease;
+}
+
+.world-cup-stage-card[open] > .world-cup-stage-summary::before,
+.world-cup-predictions-panel[open] > .world-cup-subsummary::before,
+.world-cup-fixture-group[open] > .world-cup-subsummary::before {
+  transform: rotate(90deg);
+}
+
+.world-cup-stage-summary__title {
+  font-weight: 800;
+  min-width: 0;
+}
+
+.world-cup-stage-summary__meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.world-cup-stage-window {
+  margin: 10px 0 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.world-cup-predictions-panel {
+  margin-bottom: 12px;
+}
+
+.world-cup-fixture-group {
+  margin-top: 10px;
+}
+
+.world-cup-subsummary {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.world-cup-fixtures-list {
+  margin-top: 10px;
+}
+
+.fx-team {
+  min-width: 0;
+}
+
+.fx-tla {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
+.fx-card--long-labels .fx-header {
+  grid-template-columns: 1fr;
+  gap: 8px;
+  justify-items: stretch;
+}
+
+.fx-card--long-labels .fx-badge {
+  justify-self: center;
+  order: 2;
+}
+
+.fx-card--long-labels .fx-team {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.fx-card--long-labels .fx-team--home {
+  order: 1;
+}
+
+.fx-card--long-labels .fx-team--away {
+  order: 3;
+  justify-content: flex-start;
+}
+
+.fx-card--long-labels .fx-team--away .fx-logo {
+  order: -1;
+}
+
+.fx-card--long-labels .fx-tla {
+  white-space: normal;
+  text-align: left;
+  font-size: 14px;
+  letter-spacing: 0.1px;
+}
+
+@media (max-width: 560px) {
+  .world-cup-stage-nav {
+    top: 4px;
+    margin-inline: -12px;
+    padding-inline: 12px;
+  }
+
+  .world-cup-stage-chip {
+    min-width: 128px;
+  }
+
+  .world-cup-stage-summary {
+    grid-template-columns: auto 1fr;
+    gap: 4px 8px;
+  }
+
+  .world-cup-stage-summary__meta {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .fx-card--long-labels .fx-tla {
+    font-size: 13px;
+  }
+}
