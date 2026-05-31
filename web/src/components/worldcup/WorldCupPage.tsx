@@ -9,6 +9,9 @@ import { formatFirstName } from "../../utils/displayName";
 import { scorePrediction } from "../../utils/scoring";
 import { getTiedRank } from "../../utils/ranking";
 import { dateTimeUK } from "../../utils/dates";
+import { useUsers } from "../../hooks/useUsers";
+
+const ENTRY_FEE = 20; // £ per player
 
 interface Props {
   user: User;
@@ -236,6 +239,7 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  const { users } = useUsers();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -473,6 +477,27 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
     return byFixture;
   }, [allPredictions]);
 
+  // Everyone who plays pays the same entry fee, so the pot is simply the number
+  // of players times the fee. Count players marked as paid if anyone has been,
+  // otherwise fall back to everyone signed up.
+  const paidPlayers = users.filter((u) => u.hasPaid).length;
+  const playerCount = paidPlayers > 0 ? paidPlayers : users.length;
+  const pot = playerCount * ENTRY_FEE;
+
+  // Once the final has been played, whoever has the most points wins the pot.
+  const finalStageGroup = fixturesByStage.find((stage) => stage.stage === "Final");
+  const tournamentComplete = Boolean(
+    finalStageGroup &&
+      finalStageGroup.fixtures.length > 0 &&
+      finalStageGroup.fixtures
+        .filter((fixture) => !isFixturePostponed(fixture))
+        .every((fixture) => isFixtureFinished(fixture)),
+  );
+  const champions =
+    tournamentComplete && leagueRows.length && leagueRows[0].totalPoints > 0
+      ? leagueRows.filter((row) => row.totalPoints === leagueRows[0].totalPoints)
+      : [];
+
   if (loading) {
     return <div>Loading World Cup…</div>;
   }
@@ -503,15 +528,25 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
         <div className="gw-header-top">
           <div>
             <p className="gw-header-text">
-              £20 World Cup pool: every player predicts each round, points accumulate from the group
-              stage through the final, and the overall top scorer wins.
+              £{ENTRY_FEE} to enter, winner takes all. Predict every game from the group stage right
+              through to the final — your points build up across the whole tournament and whoever has
+              the most points when the final is played wins the pot.
             </p>
             <p className="gw-header-text">
-              Group-stage predictions are open now. Knockout rounds unlock automatically when the
-              previous round is fully finished, then lock at that round&apos;s first kick-off.
+              Group-stage predictions are open now. Each knockout round opens automatically as soon as
+              the previous round has finished, then locks when that round&apos;s first game kicks off.
             </p>
             <p className="gw-round-label">Current open round: {currentStageName}</p>
           </div>
+        </div>
+        <div className="gw-points-row">
+          <span className="gw-points-label">Prize pot</span>
+          <span className="gw-points-value">
+            £{pot}
+            {playerCount > 0
+              ? ` · ${playerCount} ${playerCount === 1 ? "player" : "players"}`
+              : ""}
+          </span>
         </div>
         <div className="gw-points-row">
           <span className="gw-points-label">Your current round progress</span>
@@ -528,6 +563,22 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
 
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ marginTop: 0 }}>World Cup League (cumulative)</h3>
+        {champions.length > 0 && (
+          <div
+            style={{
+              background: "rgba(34,197,94,0.12)",
+              border: "1px solid var(--green)",
+              borderRadius: 8,
+              padding: "10px 12px",
+              margin: "8px 0 12px",
+              fontSize: 14,
+            }}
+          >
+            🏆 <strong>{champions.map((c) => c.userDisplayName).join(" & ")}</strong>{" "}
+            {champions.length > 1 ? "win" : "wins"} the £{pot} pot with {champions[0].totalPoints}{" "}
+            points!
+          </div>
+        )}
         <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: -4 }}>
           Scores are totalled across every World Cup fixture. Exact scores are worth 20 points;
           correct results are worth 6 points.
@@ -564,15 +615,6 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
             </tbody>
           </table>
         )}
-      </div>
-
-      <div className="card" style={{ marginBottom: 12 }}>
-        <h3 style={{ marginTop: 0 }}>Data coverage</h3>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 0 }}>
-          Uses football-data.org&apos;s World Cup coverage for fixtures, schedules, scores and live-score
-          status. Deep data such as line-ups, scorers, cards and substitutions is intentionally not
-          required for this pool.
-        </p>
       </div>
 
       <div style={{ display: "grid", gap: 12 }}>
