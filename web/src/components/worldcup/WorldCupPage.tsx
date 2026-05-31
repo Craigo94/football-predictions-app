@@ -523,8 +523,8 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
   }
 
   return (
-    <div>
-      <div className="card gw-header-card" style={{ marginBottom: 12 }}>
+    <div className="world-cup-page">
+      <div className="card gw-header-card world-cup-hero" style={{ marginBottom: 12 }}>
         <div className="gw-header-top">
           <div>
             <p className="gw-header-text">
@@ -617,7 +617,25 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
         )}
       </div>
 
-      <div style={{ display: "grid", gap: 12 }}>
+      <nav className="world-cup-stage-nav" aria-label="World Cup stages">
+        {fixturesByStage.map((stage) => {
+          const stageIsCurrent = stage.stage === currentStageName;
+          const status = stageStatusLabel(stage, currentStageName);
+
+          return (
+            <a
+              key={stage.stage}
+              className={`world-cup-stage-chip ${stageIsCurrent ? "world-cup-stage-chip--current" : ""}`}
+              href={`#world-cup-stage-${stage.stage.toLowerCase().replaceAll(" ", "-").replaceAll("/", "-")}`}
+            >
+              <span>{stage.stage}</span>
+              <small>{status}</small>
+            </a>
+          );
+        })}
+      </nav>
+
+      <div className="world-cup-stage-list">
         {fixturesByStage.map((stage) => {
           const stageIsCurrent = stage.stage === currentStageName;
           const stageLocked = stage.fixtures.some((fixture) => hasFixtureStarted(fixture));
@@ -627,29 +645,25 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
           const status = stageStatusLabel(stage, currentStageName);
 
           return (
-            <details key={stage.stage} className="card" open={stageIsCurrent}>
-              <summary
-                style={{
-                  cursor: "pointer",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "center",
-                  fontWeight: 700,
-                }}
-              >
-                <span>{stage.stage}</span>
-                <span style={{ color: "var(--text-muted)", fontSize: 12, fontWeight: 500 }}>
+            <details
+              key={stage.stage}
+              id={`world-cup-stage-${stage.stage.toLowerCase().replaceAll(" ", "-").replaceAll("/", "-")}`}
+              className={`card world-cup-stage-card ${stageIsCurrent ? "world-cup-stage-card--current" : ""}`}
+              open={stageIsCurrent}
+            >
+              <summary className="world-cup-stage-summary">
+                <span className="world-cup-stage-summary__title">{stage.stage}</span>
+                <span className="world-cup-stage-summary__meta">
                   {status} · {stage.fixtures.length} games
                 </span>
               </summary>
 
-              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "10px 0" }}>
+              <p className="world-cup-stage-window">
                 {formatStageWindow(stage.fixtures)}
               </p>
 
-              <details style={{ marginBottom: 12 }} open={stageIsCurrent && revealPredictions}>
-                <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+              <details className="world-cup-predictions-panel" open={stageIsCurrent && revealPredictions}>
+                <summary className="world-cup-subsummary">
                   Everyone&apos;s predictions ({stage.stage})
                 </summary>
                 {!revealPredictions ? (
@@ -700,11 +714,11 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
               </details>
 
               {groupedFixtures.map(({ groupLabel, fixtures: groupedStageFixtures }) => (
-                <details key={groupLabel} open={stageIsCurrent} style={{ marginTop: 10 }}>
-                  <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                <details key={groupLabel} className="world-cup-fixture-group" open={stageIsCurrent}>
+                  <summary className="world-cup-subsummary">
                     {groupLabel}
                   </summary>
-                  <div className="fixtures-list" style={{ marginTop: 10 }}>
+                  <div className="fixtures-list world-cup-fixtures-list">
                     {groupedStageFixtures.map((fixture) => (
                       <FixtureCard
                         key={fixture.id}
