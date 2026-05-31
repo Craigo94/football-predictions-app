@@ -19,6 +19,7 @@ interface ApiMatch {
   status: string;
   matchday?: number;
   round?: string;
+  stage?: string;
   group?: string;
   homeTeam?: ApiTeam;
   awayTeam?: ApiTeam;
@@ -75,7 +76,7 @@ export interface Fixture {
   kickoff: string;            // ISO datetime string (UTC)
   statusShort: string;        // "NS" | "FT" | "LIVE" etc for our UI
   statusLong: string;         // original status from API
-  round: string;              // e.g. "Matchday 13"
+  round: string;              // e.g. "Matchday 13", "Group A", "Round of 32"
   matchday?: number;          // numeric matchday
   season?: number;            // season year (e.g. 2025)
   homeTeam: string;
@@ -384,13 +385,36 @@ export async function getWorldCupFixtures(): Promise<Fixture[]> {
   return matches
     .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
     .map((m) => {
+      const stageLabel = formatWorldCupStage(m.stage || m.round);
+      const groupLabel = m.group ? formatWorldCupGroup(m.group) : null;
       const roundLabel =
-        m.round ||
-        m.group ||
-        (typeof m.matchday === "number" ? `Matchday ${m.matchday}` : "World Cup");
+        stageLabel === "Group Stage" && groupLabel
+          ? groupLabel
+          : stageLabel ||
+            groupLabel ||
+            (typeof m.matchday === "number" ? `Matchday ${m.matchday}` : "World Cup");
       const md = typeof m.matchday === "number" ? m.matchday : undefined;
       return mapApiMatchToFixture(roundLabel, md, WORLD_CUP_SEASON)(m);
     });
+}
+
+function formatWorldCupStage(stage?: string): string | null {
+  if (!stage) return null;
+  const normalized = stage.toLowerCase().replaceAll("_", " ").replaceAll("-", " ");
+  if (normalized.includes("group")) return "Group Stage";
+  if (normalized.includes("round of 32") || normalized.includes("last 32")) return "Round of 32";
+  if (normalized.includes("round of 16") || normalized.includes("last 16")) return "Round of 16";
+  if (normalized.includes("quarter")) return "Quarter-finals";
+  if (normalized.includes("semi")) return "Semi-finals";
+  if (normalized.includes("third")) return "Third-place play-off";
+  if (normalized.includes("final")) return "Final";
+  return stage;
+}
+
+function formatWorldCupGroup(group: string): string {
+  const match = group.match(/group[\s_]+([a-z])/i);
+  if (match) return `Group ${match[1].toUpperCase()}`;
+  return group.replaceAll("_", " ");
 }
 
 /**
