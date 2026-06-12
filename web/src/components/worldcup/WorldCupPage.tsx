@@ -674,36 +674,67 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
                   <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
                     {stage.fixtures.map((fixture) => {
                       const fixturePredictions = predictionsByFixture.get(fixture.id) ?? [];
+                      const fixtureStarted = hasFixtureStarted(fixture);
+                      const hasScore = fixture.homeGoals != null && fixture.awayGoals != null;
+                      const fixtureDetail = fixtureStarted
+                        ? hasScore
+                          ? `${isFixtureFinished(fixture) ? "FT" : "Score"} · ${fixture.homeGoals} - ${fixture.awayGoals}`
+                          : "Score pending"
+                        : dateTimeUK(fixture.kickoff);
+
                       return (
-                        <div
-                          key={fixture.id}
-                          style={{ borderTop: "1px solid rgba(148,163,184,0.15)", paddingTop: 8 }}
-                        >
-                          <p style={{ margin: "0 0 6px 0", fontSize: 13, fontWeight: 600 }}>
-                            {fixture.homeTeam} vs {fixture.awayTeam}
-                          </p>
+                        <div key={fixture.id} className="world-cup-prediction-fixture">
+                          <div className="world-cup-prediction-fixture__header">
+                            <p className="world-cup-prediction-fixture__teams">
+                              {fixture.homeTeam} vs {fixture.awayTeam}
+                            </p>
+                            <span
+                              className={`world-cup-prediction-fixture__detail ${
+                                fixtureStarted ? "world-cup-prediction-fixture__detail--started" : ""
+                              }`}
+                            >
+                              {fixtureDetail}
+                            </span>
+                          </div>
                           {fixturePredictions.length === 0 ? (
-                            <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 12 }}>
+                            <p className="world-cup-prediction-fixture__empty">
                               No predictions entered yet.
                             </p>
                           ) : (
-                            <div style={{ display: "grid", gap: 4 }}>
-                              {fixturePredictions.map((prediction) => (
-                                <div
-                                  key={`${prediction.userId}_${prediction.fixtureId}`}
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    gap: 10,
-                                    fontSize: 12,
-                                  }}
-                                >
-                                  <span>{prediction.userDisplayName}</span>
-                                  <strong>
-                                    {prediction.predHome} - {prediction.predAway}
-                                  </strong>
-                                </div>
-                              ))}
+                            <div className="world-cup-prediction-list">
+                              {fixturePredictions.map((prediction) => {
+                                const predictionStatus = fixtureStarted
+                                  ? scorePrediction(
+                                      prediction.predHome,
+                                      prediction.predAway,
+                                      fixture.homeGoals,
+                                      fixture.awayGoals,
+                                    ).status
+                                  : "pending";
+
+                                return (
+                                  <div
+                                    key={`${prediction.userId}_${prediction.fixtureId}`}
+                                    className="world-cup-prediction-row"
+                                  >
+                                    <span>{prediction.userDisplayName}</span>
+                                    <strong
+                                      className={`world-cup-prediction-score world-cup-prediction-score--${predictionStatus}`}
+                                      title={
+                                        predictionStatus === "exact"
+                                          ? "Correct score"
+                                          : predictionStatus === "result"
+                                            ? "Correct result"
+                                            : predictionStatus === "wrong"
+                                              ? "Wrong result"
+                                              : "Awaiting kickoff"
+                                      }
+                                    >
+                                      {prediction.predHome} - {prediction.predAway}
+                                    </strong>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
