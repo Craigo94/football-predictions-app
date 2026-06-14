@@ -750,26 +750,52 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
                     {groupLabel}
                   </summary>
                   <div className="fixtures-list world-cup-fixtures-list">
-                    {groupedStageFixtures.map((fixture) => (
-                      <FixtureCard
-                        key={fixture.id}
-                        fixture={fixture}
-                        prediction={predictions[fixture.id] || null}
-                        onChangePrediction={(prediction) => {
-                          handleChangePrediction(fixture, prediction).catch((err) => {
-                            console.error("Failed to save World Cup prediction", err);
-                            setSaveError("Could not save your World Cup prediction. Please try again.");
-                          });
-                        }}
-                        gameweekLocked={gameweekLocked}
-                        required={
-                          stageIsCurrent &&
-                          !isFixturePostponed(fixture) &&
-                          !(predictions[fixture.id]?.predHome != null && predictions[fixture.id]?.predAway != null)
-                        }
-                        showLeagueTableLink={false}
-                      />
-                    ))}
+                    {groupedStageFixtures.map((fixture) => {
+                      const fixtureCard = (
+                        <FixtureCard
+                          fixture={fixture}
+                          prediction={predictions[fixture.id] || null}
+                          onChangePrediction={(prediction) => {
+                            handleChangePrediction(fixture, prediction).catch((err) => {
+                              console.error("Failed to save World Cup prediction", err);
+                              setSaveError("Could not save your World Cup prediction. Please try again.");
+                            });
+                          }}
+                          gameweekLocked={gameweekLocked}
+                          required={
+                            stageIsCurrent &&
+                            !isFixturePostponed(fixture) &&
+                            !(predictions[fixture.id]?.predHome != null && predictions[fixture.id]?.predAway != null)
+                          }
+                          showLeagueTableLink={false}
+                        />
+                      );
+
+                      if (!isFixtureFinished(fixture)) {
+                        return <React.Fragment key={fixture.id}>{fixtureCard}</React.Fragment>;
+                      }
+
+                      return (
+                        <details key={fixture.id} className="world-cup-completed-fixture">
+                          <summary
+                            className="world-cup-completed-fixture__summary"
+                            aria-label={`${fixture.homeTeam} ${fixture.homeGoals} to ${fixture.awayGoals} ${fixture.awayTeam}. Expand match details.`}
+                          >
+                            <span className="world-cup-completed-fixture__team world-cup-completed-fixture__team--home">
+                              {fixture.homeShort}
+                            </span>
+                            <strong className="world-cup-completed-fixture__score">
+                              {fixture.homeGoals} - {fixture.awayGoals}
+                            </strong>
+                            <span className="world-cup-completed-fixture__team world-cup-completed-fixture__team--away">
+                              {fixture.awayShort}
+                            </span>
+                            <span className="world-cup-completed-fixture__hint">Details</span>
+                          </summary>
+                          <div className="world-cup-completed-fixture__details">{fixtureCard}</div>
+                        </details>
+                      );
+                    })}
                   </div>
                 </details>
               ))}

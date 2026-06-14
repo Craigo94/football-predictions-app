@@ -3419,6 +3419,76 @@ button,
   margin-top: 10px;
 }
 
+.world-cup-completed-fixture {
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+
+.world-cup-completed-fixture__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 7px 11px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.world-cup-completed-fixture__summary::-webkit-details-marker {
+  display: none;
+}
+
+.world-cup-completed-fixture__summary::after {
+  content: "▸";
+  color: var(--accent);
+  font-size: 13px;
+  transition: transform 0.2s ease;
+}
+
+.world-cup-completed-fixture[open] > .world-cup-completed-fixture__summary::after {
+  transform: rotate(90deg);
+}
+
+.world-cup-completed-fixture__team {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.world-cup-completed-fixture__team--away {
+  text-align: right;
+}
+
+.world-cup-completed-fixture__score {
+  min-width: 50px;
+  color: var(--text);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.world-cup-completed-fixture__hint {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.world-cup-completed-fixture__details {
+  padding: 0 8px 8px;
+}
+
+.world-cup-completed-fixture__details .fx-card {
+  margin-bottom: 0;
+}
+
 .fx-team {
   min-width: 0;
 }
@@ -3487,6 +3557,15 @@ button,
   .world-cup-stage-summary__meta {
     grid-column: 2;
     text-align: left;
+  }
+
+  .world-cup-completed-fixture__summary {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+    gap: 7px;
+  }
+
+  .world-cup-completed-fixture__hint {
+    display: none;
   }
 
   .fx-card--long-labels .fx-tla {
