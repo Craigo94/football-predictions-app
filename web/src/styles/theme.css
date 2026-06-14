@@ -3419,6 +3419,61 @@ button,
   margin-top: 10px;
 }
 
+.world-cup-completed-fixture__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 7px 11px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.world-cup-completed-fixture__summary::-webkit-details-marker {
+  display: none;
+}
+
+.world-cup-completed-fixture__summary::after {
+  content: "▸";
+  color: var(--accent);
+  font-size: 13px;
+  transition: transform 0.2s ease;
+}
+
+.world-cup-prediction-fixture--completed[open] > .world-cup-completed-fixture__summary::after {
+  transform: rotate(90deg);
+}
+
+.world-cup-completed-fixture__team {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.world-cup-completed-fixture__team--away {
+  text-align: right;
+}
+
+.world-cup-completed-fixture__score {
+  min-width: 50px;
+  color: var(--text);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.world-cup-completed-fixture__hint {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .fx-team {
   min-width: 0;
 }
@@ -3489,6 +3544,15 @@ button,
     text-align: left;
   }
 
+  .world-cup-completed-fixture__summary {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+    gap: 7px;
+  }
+
+  .world-cup-completed-fixture__hint {
+    display: none;
+  }
+
   .fx-card--long-labels .fx-tla {
     font-size: 13px;
   }
@@ -3498,6 +3562,18 @@ button,
 .world-cup-prediction-fixture {
   padding-top: 10px;
   border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.world-cup-prediction-fixture--completed {
+  padding-top: 0;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+
+.world-cup-prediction-fixture__body {
+  padding: 2px 11px 10px;
 }
 
 .world-cup-prediction-fixture__header {
@@ -3581,6 +3657,55 @@ button,
   background: rgba(230, 57, 70, 0.28);
   box-shadow: inset 0 0 0 1px rgba(230, 57, 70, 0.58);
   color: #ffdadd;
+}
+
+.world-cup-my-prediction {
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+
+.world-cup-my-prediction__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 7px 11px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.world-cup-my-prediction__summary::-webkit-details-marker {
+  display: none;
+}
+
+.world-cup-my-prediction__summary::after {
+  content: "▸";
+  color: var(--accent);
+  font-size: 13px;
+  transition: transform 0.2s ease;
+}
+
+.world-cup-my-prediction[open] > .world-cup-my-prediction__summary::after {
+  transform: rotate(90deg);
+}
+
+.world-cup-my-prediction__score {
+  min-width: 64px;
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.world-cup-my-prediction__details {
+  padding: 0 8px 8px;
+}
+
+.world-cup-my-prediction__details .fx-card {
+  margin-bottom: 0;
 }
 
 @media (max-width: 420px) {

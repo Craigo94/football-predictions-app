@@ -675,27 +675,30 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
                     {stage.fixtures.map((fixture) => {
                       const fixturePredictions = predictionsByFixture.get(fixture.id) ?? [];
                       const fixtureStarted = hasFixtureStarted(fixture);
+                      const fixtureFinished = isFixtureFinished(fixture);
                       const hasScore = fixture.homeGoals != null && fixture.awayGoals != null;
                       const fixtureDetail = fixtureStarted
                         ? hasScore
-                          ? `${isFixtureFinished(fixture) ? "FT" : "Score"} · ${fixture.homeGoals} - ${fixture.awayGoals}`
+                          ? `${fixtureFinished ? "FT" : "Score"} · ${fixture.homeGoals} - ${fixture.awayGoals}`
                           : "Score pending"
                         : dateTimeUK(fixture.kickoff);
 
-                      return (
-                        <div key={fixture.id} className="world-cup-prediction-fixture">
-                          <div className="world-cup-prediction-fixture__header">
-                            <p className="world-cup-prediction-fixture__teams">
-                              {fixture.homeTeam} vs {fixture.awayTeam}
-                            </p>
-                            <span
-                              className={`world-cup-prediction-fixture__detail ${
-                                fixtureStarted ? "world-cup-prediction-fixture__detail--started" : ""
-                              }`}
-                            >
-                              {fixtureDetail}
-                            </span>
-                          </div>
+                      const predictionDetails = (
+                        <>
+                          {!fixtureFinished && (
+                            <div className="world-cup-prediction-fixture__header">
+                              <p className="world-cup-prediction-fixture__teams">
+                                {fixture.homeTeam} vs {fixture.awayTeam}
+                              </p>
+                              <span
+                                className={`world-cup-prediction-fixture__detail ${
+                                  fixtureStarted ? "world-cup-prediction-fixture__detail--started" : ""
+                                }`}
+                              >
+                                {fixtureDetail}
+                              </span>
+                            </div>
+                          )}
                           {fixturePredictions.length === 0 ? (
                             <p className="world-cup-prediction-fixture__empty">
                               No predictions entered yet.
@@ -737,6 +740,37 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
                               })}
                             </div>
                           )}
+                        </>
+                      );
+
+                      if (fixtureFinished) {
+                        return (
+                          <details
+                            key={fixture.id}
+                            className="world-cup-prediction-fixture world-cup-prediction-fixture--completed"
+                          >
+                            <summary className="world-cup-completed-fixture__summary">
+                              <span className="world-cup-completed-fixture__team world-cup-completed-fixture__team--home">
+                                {fixture.homeShort}
+                              </span>
+                              <strong className="world-cup-completed-fixture__score">
+                                {fixture.homeGoals} - {fixture.awayGoals}
+                              </strong>
+                              <span className="world-cup-completed-fixture__team world-cup-completed-fixture__team--away">
+                                {fixture.awayShort}
+                              </span>
+                              <span className="world-cup-completed-fixture__hint">Predictions</span>
+                            </summary>
+                            <div className="world-cup-prediction-fixture__body">
+                              {predictionDetails}
+                            </div>
+                          </details>
+                        );
+                      }
+
+                      return (
+                        <div key={fixture.id} className="world-cup-prediction-fixture">
+                          {predictionDetails}
                         </div>
                       );
                     })}
@@ -750,26 +784,48 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
                     {groupLabel}
                   </summary>
                   <div className="fixtures-list world-cup-fixtures-list">
-                    {groupedStageFixtures.map((fixture) => (
-                      <FixtureCard
-                        key={fixture.id}
-                        fixture={fixture}
-                        prediction={predictions[fixture.id] || null}
-                        onChangePrediction={(prediction) => {
-                          handleChangePrediction(fixture, prediction).catch((err) => {
-                            console.error("Failed to save World Cup prediction", err);
-                            setSaveError("Could not save your World Cup prediction. Please try again.");
-                          });
-                        }}
-                        gameweekLocked={gameweekLocked}
-                        required={
-                          stageIsCurrent &&
-                          !isFixturePostponed(fixture) &&
-                          !(predictions[fixture.id]?.predHome != null && predictions[fixture.id]?.predAway != null)
-                        }
-                        showLeagueTableLink={false}
-                      />
-                    ))}
+                    {groupedStageFixtures.map((fixture) => {
+                      const ownPrediction = predictions[fixture.id] || null;
+                      const hasOwnPrediction =
+                        ownPrediction?.predHome != null && ownPrediction?.predAway != null;
+
+                      return (
+                        <details key={fixture.id} className="world-cup-my-prediction">
+                          <summary className="world-cup-my-prediction__summary">
+                            <span className="world-cup-completed-fixture__team world-cup-completed-fixture__team--home">
+                              {fixture.homeShort}
+                            </span>
+                            <strong className="world-cup-my-prediction__score">
+                              {hasOwnPrediction
+                                ? `${ownPrediction.predHome} - ${ownPrediction.predAway}`
+                                : "Add score"}
+                            </strong>
+                            <span className="world-cup-completed-fixture__team world-cup-completed-fixture__team--away">
+                              {fixture.awayShort}
+                            </span>
+                          </summary>
+                          <div className="world-cup-my-prediction__details">
+                            <FixtureCard
+                              fixture={fixture}
+                              prediction={ownPrediction}
+                              onChangePrediction={(prediction) => {
+                                handleChangePrediction(fixture, prediction).catch((err) => {
+                                  console.error("Failed to save World Cup prediction", err);
+                                  setSaveError("Could not save your World Cup prediction. Please try again.");
+                                });
+                              }}
+                              gameweekLocked={gameweekLocked}
+                              required={
+                                stageIsCurrent &&
+                                !isFixturePostponed(fixture) &&
+                                !hasOwnPrediction
+                              }
+                              showLeagueTableLink={false}
+                            />
+                          </div>
+                        </details>
+                      );
+                    })}
                   </div>
                 </details>
               ))}
