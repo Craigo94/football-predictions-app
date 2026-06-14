@@ -3373,6 +3373,7 @@ button,
 
 .world-cup-stage-card[open] > .world-cup-stage-summary::before,
 .world-cup-predictions-panel[open] > .world-cup-subsummary::before,
+.world-cup-my-predictions[open] > .world-cup-subsummary::before,
 .world-cup-fixture-group[open] > .world-cup-subsummary::before {
   transform: rotate(90deg);
 }
@@ -3395,7 +3396,8 @@ button,
   font-size: 12px;
 }
 
-.world-cup-predictions-panel {
+.world-cup-predictions-panel,
+.world-cup-my-predictions {
   margin-bottom: 12px;
 }
 
