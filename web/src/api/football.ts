@@ -28,6 +28,13 @@ interface ApiMatch {
       home?: number | null;
       away?: number | null;
     };
+    // Score after 90 minutes. Only present when a match went to extra time /
+    // penalties; omitted for games decided in regular time (where fullTime is
+    // already the 90-minute score).
+    regularTime?: {
+      home?: number | null;
+      away?: number | null;
+    };
   };
 }
 
@@ -457,9 +464,26 @@ export async function getPremierLeagueTable(): Promise<LeagueTableRow[]> {
 
 function mapApiMatchToFixture(roundLabel: string, md?: number, season?: number) {
   return (m: ApiMatch): Fixture => {
+    // Predictions are scored on the score after 90 minutes only — extra time
+    // and penalty shootouts are ignored. In the football-data v4 API the
+    // 90-minute score lives in `regularTime` for games that went to extra time
+    // / penalties; for everything else (group games, ties settled in normal
+    // time, and live in-play scores) that field is omitted and `fullTime` is
+    // already the 90-minute score, so we fall back to it.
+    const regularTime = m.score?.regularTime || {};
     const fullTime = m.score?.fullTime || {};
-    const homeGoals = typeof fullTime.home === "number" ? fullTime.home : null;
-    const awayGoals = typeof fullTime.away === "number" ? fullTime.away : null;
+    const homeGoals =
+      typeof regularTime.home === "number"
+        ? regularTime.home
+        : typeof fullTime.home === "number"
+          ? fullTime.home
+          : null;
+    const awayGoals =
+      typeof regularTime.away === "number"
+        ? regularTime.away
+        : typeof fullTime.away === "number"
+          ? fullTime.away
+          : null;
 
     let statusShort = "NS";
     if (m.status === "FINISHED") statusShort = "FT";
