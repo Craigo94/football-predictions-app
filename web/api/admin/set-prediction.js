@@ -91,10 +91,15 @@ const checkCallerAdmin = async (callerUid, accessToken, projectId) => {
   }
 
   const doc = await response.json();
-  if (doc.fields?.isAdmin?.booleanValue !== true) {
+  // The app treats any truthy isAdmin as admin, so accept the string form of
+  // the flag too (e.g. set by hand in the Firestore console).
+  const isAdminField = doc.fields?.isAdmin;
+  const isAdmin =
+    isAdminField?.booleanValue === true || isAdminField?.stringValue === "true";
+  if (!isAdmin) {
     return {
       ok: false,
-      reason: `Your user record in project "${projectId}" does not have isAdmin set to true.`,
+      reason: `Your user record in project "${projectId}" has isAdmin = ${JSON.stringify(isAdminField ?? null)}, which is not true.`,
     };
   }
 
