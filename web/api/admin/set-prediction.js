@@ -70,11 +70,33 @@ const getAccessToken = async (scope) => {
   return { accessToken: json.access_token, projectId: serviceAccount.project_id };
 };
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Retry on 429/503 — Firestore sheds load with these when the project is
+// being rate limited, and a single retry after a short pause usually lands.
+const fetchWithRetry = async (url, options) => {
+  let response;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) await sleep(700 * attempt);
+    response = await fetch(url, options);
+    if (response.status !== 429 && response.status !== 503) return response;
+  }
+  return response;
+};
+
 const checkCallerAdmin = async (callerUid, accessToken, projectId) => {
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${callerUid}`;
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+
+  if (response.status === 429) {
+    return {
+      ok: false,
+      reason:
+        "Firestore is rejecting requests with 429 (quota exceeded). The project has likely used up its free-tier daily reads — check Firestore → Usage in the Firebase console, or try again after the daily quota resets (midnight US Pacific time).",
+    };
+  }
 
   if (response.status === 404) {
     return {
@@ -128,7 +150,7 @@ const setPrediction = async (docId, prediction, accessToken, projectId) => {
     .join("&");
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/predictions/${encodeURIComponent(docId)}?${mask}`;
 
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${accessToken}`,
