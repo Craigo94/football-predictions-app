@@ -16,8 +16,18 @@ Add these variables in Vercel (Project Settings → Environment Variables) for t
 | `VITE_PRIMARY_ADMIN_EMAIL` | Optional. Email allowed to view the admin dashboard; other users are redirected. |
 | `VITE_FOOTBALL_SEASON` | Optional. Numeric season override; defaults to current PL season. |
 | `VITE_FIREBASE_VAPID_KEY` | Firebase Web Push certificate key (VAPID public key) for browser token registration. |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | Full JSON of a Firebase service account key. Required by the server-side admin endpoints (`/api/admin/set-password`, `/api/admin/delete-user`, `/api/admin/set-prediction`) and push notifications. Without it those admin actions fail with "Missing FIREBASE_SERVICE_ACCOUNT_KEY". |
+| `FOOTBALL_DATA_TOKEN` | football-data.org API token used by the fixtures proxy endpoints. |
 
 If any of the `VITE_FIREBASE_*` values are missing, the UI renders a configuration error before the router loads.
+
+### Getting the service account key
+1. Firebase Console → Project settings (gear icon) → **Service accounts** tab.
+2. Click **Generate new private key** — this downloads a JSON file.
+3. In Vercel → Project Settings → Environment Variables, add `FIREBASE_SERVICE_ACCOUNT_KEY` with the **entire contents of that JSON file** as the value (paste it as-is; Vercel handles multi-line values).
+4. Redeploy — environment variables only take effect on new deployments.
+
+Keep this key secret: it grants full admin access to the Firebase project. Never commit it to the repository.
 
 ## Firebase setup checklist
 1. Create a Firebase project and enable **Authentication** and **Cloud Firestore**.
