@@ -441,11 +441,22 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
     setAmendSaving(true);
     setSaveError(null);
     try {
-      await setDoc(
-        doc(db, "predictions", prediction.docId),
-        { predHome, predAway, locked: true },
-        { merge: true },
-      );
+      // Write the full document so this also works when the player never made
+      // a pick for the fixture and the doc doesn't exist yet.
+      const data: PredictionDoc = {
+        userId: prediction.userId,
+        userDisplayName: prediction.userDisplayName,
+        fixtureId: prediction.fixtureId,
+        predHome,
+        predAway,
+        locked: true,
+        homeTeam: prediction.homeTeam,
+        awayTeam: prediction.awayTeam,
+        kickoff: prediction.kickoff,
+        round: prediction.round,
+        competition: "WORLD_CUP",
+      };
+      await setDoc(doc(db, "predictions", prediction.docId), data, { merge: true });
       cancelAmend();
     } catch (err) {
       console.error("Failed to amend prediction", err);
@@ -522,6 +533,23 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
     });
 
     return byFixture;
+  }, [allPredictions]);
+
+  // Everyone who has entered a World Cup prediction in any round counts as a
+  // participant, so players who forgot a round still show up (and admins can
+  // add a pick for them).
+  const participants = React.useMemo(() => {
+    const byUserId = new Map<string, string>();
+    allPredictions.forEach((prediction) => {
+      if (!byUserId.has(prediction.userId)) {
+        byUserId.set(prediction.userId, prediction.userDisplayName);
+      }
+    });
+    return Array.from(byUserId.entries())
+      .map(([userId, userDisplayName]) => ({ userId, userDisplayName }))
+      .sort((a, b) =>
+        a.userDisplayName.localeCompare(b.userDisplayName, undefined, { sensitivity: "base" }),
+      );
   }, [allPredictions]);
 
   // Everyone who plays pays the same entry fee, so the pot is simply the number
@@ -721,13 +749,36 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
                   <>
                     {isAdmin && (
                       <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "8px 0 0" }}>
-                        Admin: use “Amend” to correct a player&apos;s prediction — this works even
-                        after kickoff.
+                        Admin: use “Amend” to correct a player&apos;s prediction, or “Add” to
+                        enter one for a player who forgot — both work even after kickoff.
                       </p>
                     )}
                   <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
                     {stage.fixtures.map((fixture) => {
                       const fixturePredictions = predictionsByFixture.get(fixture.id) ?? [];
+                      const predictedUserIds = new Set(
+                        fixturePredictions.map((prediction) => prediction.userId),
+                      );
+                      // Participants with no pick for this fixture still get a
+                      // row, so forgotten picks are visible (and fixable by an
+                      // admin).
+                      const missingRows: StoredPrediction[] = participants
+                        .filter((participant) => !predictedUserIds.has(participant.userId))
+                        .map((participant) => ({
+                          docId: `wc_${participant.userId}_${fixture.id}`,
+                          userId: participant.userId,
+                          userDisplayName: participant.userDisplayName,
+                          fixtureId: fixture.id,
+                          predHome: null,
+                          predAway: null,
+                          locked: false,
+                          homeTeam: fixture.homeTeam,
+                          awayTeam: fixture.awayTeam,
+                          kickoff: fixture.kickoff,
+                          round: normalizeStage(fixture.round),
+                          competition: "WORLD_CUP",
+                        }));
+                      const fixtureRows = [...fixturePredictions, ...missingRows];
                       const fixtureStarted = hasFixtureStarted(fixture);
                       const fixtureFinished = isFixtureFinished(fixture);
                       const hasScore = fixture.homeGoals != null && fixture.awayGoals != null;
@@ -753,13 +804,15 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
                       );
 
                       const body =
-                        fixturePredictions.length === 0 ? (
+                        fixtureRows.length === 0 ? (
                           <p className="world-cup-prediction-fixture__empty">
                             No predictions entered yet.
                           </p>
                         ) : (
                           <div className="world-cup-prediction-list">
-                            {fixturePredictions.map((prediction) => {
+                            {fixtureRows.map((prediction) => {
+                              const hasPick =
+                                prediction.predHome != null && prediction.predAway != null;
                               const predictionStatus = fixtureStarted
                                 ? scorePrediction(
                                     prediction.predHome,
@@ -824,28 +877,41 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
                                     <span
                                       style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                                     >
-                                      <strong
-                                        className={`world-cup-prediction-score world-cup-prediction-score--${predictionStatus}`}
-                                        title={
-                                          predictionStatus === "exact"
-                                            ? "Correct score"
-                                            : predictionStatus === "result"
-                                              ? "Correct result"
-                                              : predictionStatus === "wrong"
-                                                ? "Wrong result"
-                                                : "Awaiting kickoff"
-                                        }
-                                      >
-                                        {prediction.predHome} - {prediction.predAway}
-                                      </strong>
+                                      {hasPick ? (
+                                        <strong
+                                          className={`world-cup-prediction-score world-cup-prediction-score--${predictionStatus}`}
+                                          title={
+                                            predictionStatus === "exact"
+                                              ? "Correct score"
+                                              : predictionStatus === "result"
+                                                ? "Correct result"
+                                                : predictionStatus === "wrong"
+                                                  ? "Wrong result"
+                                                  : "Awaiting kickoff"
+                                          }
+                                        >
+                                          {prediction.predHome} - {prediction.predAway}
+                                        </strong>
+                                      ) : (
+                                        <em
+                                          style={{ fontSize: 12, color: "var(--text-muted)" }}
+                                          title="No prediction entered"
+                                        >
+                                          No pick
+                                        </em>
+                                      )}
                                       {isAdmin && (
                                         <button
                                           className="fx-btn"
                                           type="button"
                                           onClick={() => startAmend(prediction)}
-                                          title={`Amend ${prediction.userDisplayName}'s prediction`}
+                                          title={
+                                            hasPick
+                                              ? `Amend ${prediction.userDisplayName}'s prediction`
+                                              : `Add a prediction for ${prediction.userDisplayName}`
+                                          }
                                         >
-                                          Amend
+                                          {hasPick ? "Amend" : "Add"}
                                         </button>
                                       )}
                                     </span>
