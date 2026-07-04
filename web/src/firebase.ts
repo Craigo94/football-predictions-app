@@ -1,6 +1,12 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 
 const firebaseEnv = {
   apiKey: {
@@ -55,9 +61,25 @@ try {
   console.error(firebaseInitializationError.message);
 }
 
+// Persist Firestore data in IndexedDB so re-attaching a listener (e.g. when
+// navigating between pages) only downloads documents that changed, instead of
+// re-reading whole collections. This is the main defence against burning
+// through the free-tier daily read quota. Falls back to the in-memory cache
+// on browsers without IndexedDB.
+const createFirestore = (firebaseApp: FirebaseApp): Firestore => {
+  try {
+    return initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch (err) {
+    console.warn("Persistent Firestore cache unavailable, using memory cache", err);
+    return getFirestore(firebaseApp);
+  }
+};
+
 export const firebaseApp: FirebaseApp = app as FirebaseApp;
 export const auth: Auth = app ? getAuth(app) : (null as unknown as Auth);
-export const db: Firestore = app ? getFirestore(app) : (null as unknown as Firestore);
+export const db: Firestore = app ? createFirestore(app) : (null as unknown as Firestore);
 export const isFirebaseConfigured = Boolean(app && !firebaseInitializationError);
 export { firebaseInitializationError };
 

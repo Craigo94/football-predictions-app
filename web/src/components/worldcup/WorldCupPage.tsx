@@ -291,13 +291,13 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
     const ownPredictionsQuery = query(
       collection(db, "predictions"),
       where("userId", "==", user.uid),
+      where("competition", "==", "WORLD_CUP"),
     );
 
     const unsub = onSnapshot(ownPredictionsQuery, (snap) => {
       const map: Record<number, PredictionDoc> = {};
       snap.forEach((snapshotDoc) => {
         const data = snapshotDoc.data() as PredictionDoc;
-        if (data.competition !== "WORLD_CUP") return;
         map[data.fixtureId] = data;
       });
       setPredictions(map);
