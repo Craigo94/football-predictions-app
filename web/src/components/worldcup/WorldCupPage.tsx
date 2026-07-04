@@ -15,6 +15,7 @@ const ENTRY_FEE = 20; // £ per player
 
 interface Props {
   user: User;
+  isAdmin?: boolean;
 }
 
 interface PredictionDoc extends Prediction {
@@ -26,6 +27,10 @@ interface PredictionDoc extends Prediction {
   kickoff: string;
   round: string;
   competition: "WORLD_CUP";
+}
+
+interface StoredPrediction extends PredictionDoc {
+  docId: string;
 }
 
 interface LeagueRow {
@@ -232,10 +237,14 @@ const groupFixturesForStage = (stage: string, fixtures: Fixture[]) => {
     .filter((entry) => stage !== "Group Stage" || hasNamedGroups || entry.groupLabel !== "Other fixtures");
 };
 
-const WorldCupPage: React.FC<Props> = ({ user }) => {
+const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
   const [fixtures, setFixtures] = React.useState<Fixture[]>([]);
   const [predictions, setPredictions] = React.useState<Record<number, PredictionDoc>>({});
-  const [allPredictions, setAllPredictions] = React.useState<PredictionDoc[]>([]);
+  const [allPredictions, setAllPredictions] = React.useState<StoredPrediction[]>([]);
+  const [amendKey, setAmendKey] = React.useState<string | null>(null);
+  const [amendHome, setAmendHome] = React.useState("");
+  const [amendAway, setAmendAway] = React.useState("");
+  const [amendSaving, setAmendSaving] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
@@ -303,9 +312,9 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
     );
 
     const unsub = onSnapshot(allPredictionsQuery, (snap) => {
-      const list: PredictionDoc[] = [];
+      const list: StoredPrediction[] = [];
       snap.forEach((snapshotDoc) => {
-        list.push(snapshotDoc.data() as PredictionDoc);
+        list.push({ ...(snapshotDoc.data() as PredictionDoc), docId: snapshotDoc.id });
       });
       setAllPredictions(list);
     });
@@ -410,6 +419,44 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
     }
   };
 
+  // Admins can correct any player's prediction at any time — including after
+  // kickoff — so no round-open or lock checks here.
+  const startAmend = (prediction: StoredPrediction) => {
+    setAmendKey(prediction.docId);
+    setAmendHome(prediction.predHome?.toString() ?? "");
+    setAmendAway(prediction.predAway?.toString() ?? "");
+  };
+
+  const cancelAmend = () => {
+    setAmendKey(null);
+    setAmendHome("");
+    setAmendAway("");
+  };
+
+  const saveAmend = async (prediction: StoredPrediction) => {
+    const predHome = amendHome === "" ? NaN : Math.max(0, parseInt(amendHome, 10));
+    const predAway = amendAway === "" ? NaN : Math.max(0, parseInt(amendAway, 10));
+    if (Number.isNaN(predHome) || Number.isNaN(predAway)) return;
+
+    setAmendSaving(true);
+    setSaveError(null);
+    try {
+      await setDoc(
+        doc(db, "predictions", prediction.docId),
+        { predHome, predAway, locked: true },
+        { merge: true },
+      );
+      cancelAmend();
+    } catch (err) {
+      console.error("Failed to amend prediction", err);
+      setSaveError(
+        `Could not amend ${prediction.userDisplayName}'s prediction. Please try again.`,
+      );
+    } finally {
+      setAmendSaving(false);
+    }
+  };
+
   const leagueRows = React.useMemo(() => {
     const byUser: Record<string, LeagueRow> = {};
 
@@ -454,7 +501,7 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
   }, [allPredictions, fixtures]);
 
   const predictionsByFixture = React.useMemo(() => {
-    const byFixture = new Map<number, PredictionDoc[]>();
+    const byFixture = new Map<number, StoredPrediction[]>();
 
     allPredictions.forEach((prediction) => {
       if (prediction.predHome == null || prediction.predAway == null) return;
@@ -671,6 +718,13 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
                     Predictions are hidden until this round kicks off.
                   </p>
                 ) : (
+                  <>
+                    {isAdmin && (
+                      <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "8px 0 0" }}>
+                        Admin: use “Amend” to correct a player&apos;s prediction — this works even
+                        after kickoff.
+                      </p>
+                    )}
                   <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
                     {stage.fixtures.map((fixture) => {
                       const fixturePredictions = predictionsByFixture.get(fixture.id) ?? [];
@@ -714,6 +768,7 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
                                     fixture.awayGoals,
                                   ).status
                                 : "pending";
+                              const isAmending = isAdmin && amendKey === prediction.docId;
 
                               return (
                                 <div
@@ -721,20 +776,80 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
                                   className="world-cup-prediction-row"
                                 >
                                   <span>{prediction.userDisplayName}</span>
-                                  <strong
-                                    className={`world-cup-prediction-score world-cup-prediction-score--${predictionStatus}`}
-                                    title={
-                                      predictionStatus === "exact"
-                                        ? "Correct score"
-                                        : predictionStatus === "result"
-                                          ? "Correct result"
-                                          : predictionStatus === "wrong"
-                                            ? "Wrong result"
-                                            : "Awaiting kickoff"
-                                    }
-                                  >
-                                    {prediction.predHome} - {prediction.predAway}
-                                  </strong>
+                                  {isAmending ? (
+                                    <span
+                                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                                    >
+                                      <input
+                                        className="input-score fx-input"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        value={amendHome}
+                                        onChange={(e) => setAmendHome(e.target.value)}
+                                        aria-label={`${prediction.userDisplayName} home prediction`}
+                                        disabled={amendSaving}
+                                      />
+                                      <span className="fx-sep">–</span>
+                                      <input
+                                        className="input-score fx-input"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        value={amendAway}
+                                        onChange={(e) => setAmendAway(e.target.value)}
+                                        aria-label={`${prediction.userDisplayName} away prediction`}
+                                        disabled={amendSaving}
+                                      />
+                                      <button
+                                        className="fx-btn"
+                                        type="button"
+                                        onClick={() => saveAmend(prediction)}
+                                        disabled={amendSaving || amendHome === "" || amendAway === ""}
+                                        title="Save amended prediction"
+                                      >
+                                        {amendSaving ? "…" : "Save ✓"}
+                                      </button>
+                                      <button
+                                        className="fx-btn"
+                                        type="button"
+                                        onClick={cancelAmend}
+                                        disabled={amendSaving}
+                                        title="Cancel amendment"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </span>
+                                  ) : (
+                                    <span
+                                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                                    >
+                                      <strong
+                                        className={`world-cup-prediction-score world-cup-prediction-score--${predictionStatus}`}
+                                        title={
+                                          predictionStatus === "exact"
+                                            ? "Correct score"
+                                            : predictionStatus === "result"
+                                              ? "Correct result"
+                                              : predictionStatus === "wrong"
+                                                ? "Wrong result"
+                                                : "Awaiting kickoff"
+                                        }
+                                      >
+                                        {prediction.predHome} - {prediction.predAway}
+                                      </strong>
+                                      {isAdmin && (
+                                        <button
+                                          className="fx-btn"
+                                          type="button"
+                                          onClick={() => startAmend(prediction)}
+                                          title={`Amend ${prediction.userDisplayName}'s prediction`}
+                                        >
+                                          Amend
+                                        </button>
+                                      )}
+                                    </span>
+                                  )}
                                 </div>
                               );
                             })}
@@ -765,6 +880,7 @@ const WorldCupPage: React.FC<Props> = ({ user }) => {
                       );
                     })}
                   </div>
+                  </>
                 )}
               </details>
 
