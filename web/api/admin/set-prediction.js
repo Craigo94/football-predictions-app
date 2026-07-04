@@ -70,17 +70,35 @@ const getAccessToken = async (scope) => {
   return { accessToken: json.access_token, projectId: serviceAccount.project_id };
 };
 
-const isCallerAdmin = async (callerUid, accessToken, projectId) => {
+const checkCallerAdmin = async (callerUid, accessToken, projectId) => {
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${callerUid}`;
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  if (!response.ok) return false;
+  if (response.status === 404) {
+    return {
+      ok: false,
+      reason: `Your user record was not found in Firebase project "${projectId}". The service account key was probably generated for a different Firebase project than the app uses — check VITE_FIREBASE_PROJECT_ID matches.`,
+    };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      reason: `Could not read your user record (Firestore responded ${response.status}). The service account may be missing permissions.`,
+    };
+  }
 
   const doc = await response.json();
-  const isAdmin = doc.fields?.isAdmin?.booleanValue === true;
-  return isAdmin;
+  if (doc.fields?.isAdmin?.booleanValue !== true) {
+    return {
+      ok: false,
+      reason: `Your user record in project "${projectId}" does not have isAdmin set to true.`,
+    };
+  }
+
+  return { ok: true };
 };
 
 const setPrediction = async (docId, prediction, accessToken, projectId) => {
@@ -168,9 +186,9 @@ export default async function handler(req, res) {
       "https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase"
     );
 
-    const adminCheck = await isCallerAdmin(callerUid, accessToken, projectId);
-    if (!adminCheck) {
-      return res.status(403).json({ error: "Caller is not an admin" });
+    const adminCheck = await checkCallerAdmin(callerUid, accessToken, projectId);
+    if (!adminCheck.ok) {
+      return res.status(403).json({ error: adminCheck.reason });
     }
 
     await setPrediction(docId, prediction, accessToken, projectId);
