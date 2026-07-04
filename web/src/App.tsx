@@ -178,7 +178,7 @@ const App: React.FC = () => {
                   <Route path="/league-table" element={<LeagueTablePage />} />
                   <Route path="/weekly" element={<WeeklyGameweekPage />} />
                   <Route path="/winners-history" element={<WinnersHistoryPage />} />
-                  <Route path="/world-cup" element={<WorldCupPage user={user} />} />
+                  <Route path="/world-cup" element={<WorldCupPage user={user} isAdmin={isAdmin} />} />
                   <Route path="/stats" element={<MyStatsPage user={user} />} />
                   <Route
                     path="/admin"
