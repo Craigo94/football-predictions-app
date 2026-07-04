@@ -1,7 +1,7 @@
 import React from "react";
 import type { User } from "firebase/auth";
 import { collection, doc, onSnapshot, query, setDoc, where } from "firebase/firestore";
-import { db } from "../../firebase";
+import { auth, db } from "../../firebase";
 import { getWorldCupFixtures, type Fixture } from "../../api/football";
 import FixtureCard, { type Prediction } from "../predictions/FixtureCard";
 import { hasFixtureStarted, isFixtureFinished, isFixturePostponed } from "../../utils/fixtures";
@@ -245,6 +245,7 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
   const [amendHome, setAmendHome] = React.useState("");
   const [amendAway, setAmendAway] = React.useState("");
   const [amendSaving, setAmendSaving] = React.useState(false);
+  const [amendError, setAmendError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
@@ -420,17 +421,21 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
   };
 
   // Admins can correct any player's prediction at any time — including after
-  // kickoff — so no round-open or lock checks here.
+  // kickoff — so no round-open or lock checks here. The write goes through the
+  // admin API (service account) because Firestore rules block editing another
+  // user's prediction from the browser.
   const startAmend = (prediction: StoredPrediction) => {
     setAmendKey(prediction.docId);
     setAmendHome(prediction.predHome?.toString() ?? "");
     setAmendAway(prediction.predAway?.toString() ?? "");
+    setAmendError(null);
   };
 
   const cancelAmend = () => {
     setAmendKey(null);
     setAmendHome("");
     setAmendAway("");
+    setAmendError(null);
   };
 
   const saveAmend = async (prediction: StoredPrediction) => {
@@ -439,29 +444,42 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
     if (Number.isNaN(predHome) || Number.isNaN(predAway)) return;
 
     setAmendSaving(true);
-    setSaveError(null);
+    setAmendError(null);
     try {
-      // Write the full document so this also works when the player never made
+      const callerUid = auth?.currentUser?.uid;
+      if (!callerUid) throw new Error("Not signed in.");
+
+      // Send the full document so this also works when the player never made
       // a pick for the fixture and the doc doesn't exist yet.
-      const data: PredictionDoc = {
-        userId: prediction.userId,
-        userDisplayName: prediction.userDisplayName,
-        fixtureId: prediction.fixtureId,
-        predHome,
-        predAway,
-        locked: true,
-        homeTeam: prediction.homeTeam,
-        awayTeam: prediction.awayTeam,
-        kickoff: prediction.kickoff,
-        round: prediction.round,
-        competition: "WORLD_CUP",
-      };
-      await setDoc(doc(db, "predictions", prediction.docId), data, { merge: true });
+      const res = await fetch("/api/admin/set-prediction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          callerUid,
+          docId: prediction.docId,
+          prediction: {
+            userId: prediction.userId,
+            userDisplayName: prediction.userDisplayName,
+            fixtureId: prediction.fixtureId,
+            predHome,
+            predAway,
+            homeTeam: prediction.homeTeam,
+            awayTeam: prediction.awayTeam,
+            kickoff: prediction.kickoff,
+            round: prediction.round,
+          },
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
       cancelAmend();
     } catch (err) {
       console.error("Failed to amend prediction", err);
-      setSaveError(
-        `Could not amend ${prediction.userDisplayName}'s prediction. Please try again.`,
+      setAmendError(
+        err instanceof Error && err.message
+          ? err.message
+          : `Could not save ${prediction.userDisplayName}'s prediction. Please try again.`,
       );
     } finally {
       setAmendSaving(false);
@@ -831,7 +849,13 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
                                   <span>{prediction.userDisplayName}</span>
                                   {isAmending ? (
                                     <span
-                                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                        flexWrap: "wrap",
+                                        justifyContent: "flex-end",
+                                      }}
                                     >
                                       <input
                                         className="input-score fx-input"
@@ -872,6 +896,19 @@ const WorldCupPage: React.FC<Props> = ({ user, isAdmin = false }) => {
                                       >
                                         Cancel
                                       </button>
+                                      {amendError && (
+                                        <span
+                                          role="alert"
+                                          style={{
+                                            flexBasis: "100%",
+                                            fontSize: 11,
+                                            color: "var(--red)",
+                                            textAlign: "right",
+                                          }}
+                                        >
+                                          {amendError}
+                                        </span>
+                                      )}
                                     </span>
                                   ) : (
                                     <span
