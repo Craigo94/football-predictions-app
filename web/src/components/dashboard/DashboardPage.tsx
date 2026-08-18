@@ -18,6 +18,7 @@ import {
 } from "../../utils/weeklyWinners";
 import { useUsers } from "../../hooks/useUsers";
 import { formatFirstName } from "../../utils/displayName";
+import { isCurrentSeasonPrediction } from "../../utils/season";
 import {
   getFixtureStatusLabel,
   hasFixtureStarted,
@@ -540,6 +541,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         const list: PredictionDoc[] = [];
         snap.forEach((doc) => {
           const data = doc.data();
+          if (!isCurrentSeasonPrediction(data)) return;
           list.push({
             fixtureId: data.fixtureId,
             predHome: data.predHome ?? null,
@@ -569,6 +571,7 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
         const list: AllPredictionDoc[] = [];
         snap.forEach((doc) => {
           const data = doc.data();
+          if (!isCurrentSeasonPrediction(data)) return;
           const fallbackName =
             data.userDisplayName || data.userEmail || "Unknown";
           list.push({

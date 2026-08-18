@@ -16,6 +16,8 @@ import { scorePrediction } from "../../utils/scoring";
 import { formatFirstName } from "../../utils/displayName";
 import { ymdUK, dayHeading } from "../../utils/dates";
 import { hasFixtureStarted, isFixturePostponed } from "../../utils/fixtures";
+import { CURRENT_SEASON, PREMIER_LEAGUE_COMPETITION } from "../../config/football";
+import { isCurrentSeasonPrediction } from "../../utils/season";
 
 interface Props {
   user: User;
@@ -29,6 +31,8 @@ interface PredictionDoc extends Prediction {
   awayTeam: string;
   kickoff: string;
   round: string;
+  season: number;
+  competition: string;
 }
 
 const PredictionsPage: React.FC<Props> = ({ user }) => {
@@ -109,6 +113,7 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
       const map: Record<number, PredictionDoc> = {};
       snap.forEach((d) => {
         const data = d.data() as PredictionDoc;
+        if (!isCurrentSeasonPrediction(data)) return;
         map[data.fixtureId] = data;
       });
       setPredictions(map);
@@ -136,6 +141,8 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
       awayTeam: fixture.awayTeam,
       kickoff: fixture.kickoff,
       round: fixture.round,
+      season: fixture.season ?? CURRENT_SEASON,
+      competition: PREMIER_LEAGUE_COMPETITION,
     };
 
     setLastAttempt({ fixture, prediction: p });

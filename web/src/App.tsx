@@ -22,7 +22,6 @@ import EditNamePage from "./components/profile/EditNamePage";
 import AdminPage from "./components/admin/AdminPage";
 import { PRIMARY_ADMIN_EMAIL, normalizeEmail } from "./config/admin";
 import DashboardPage from "./components/dashboard/DashboardPage";
-import WorldCupPage from "./components/worldcup/WorldCupPage";
 import BottomNav from "./components/layout/BottomNav";
 
 interface UserProfile {
@@ -178,7 +177,6 @@ const App: React.FC = () => {
                   <Route path="/league-table" element={<LeagueTablePage />} />
                   <Route path="/weekly" element={<WeeklyGameweekPage />} />
                   <Route path="/winners-history" element={<WinnersHistoryPage />} />
-                  <Route path="/world-cup" element={<WorldCupPage user={user} isAdmin={isAdmin} />} />
                   <Route path="/stats" element={<MyStatsPage user={user} />} />
                   <Route
                     path="/admin"

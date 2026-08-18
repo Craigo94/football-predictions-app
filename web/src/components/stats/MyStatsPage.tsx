@@ -8,6 +8,7 @@ import {
 } from "../../api/football";
 import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
 import { isFixturePostponed } from "../../utils/fixtures";
+import { isCurrentSeasonPrediction } from "../../utils/season";
 
 interface Props {
   user: User;
@@ -69,6 +70,7 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
         const list: PredictionDoc[] = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data();
+          if (!isCurrentSeasonPrediction(data)) return;
           list.push({
             userId: data.userId,
             userDisplayName: data.userDisplayName ?? "Unknown",

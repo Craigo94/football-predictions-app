@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const DEFAULT_COMPETITION = "PREMIER_LEAGUE";
 
 const base64UrlEncode = (value) =>
   Buffer.from(value)
@@ -140,8 +141,16 @@ const setPrediction = async (docId, prediction, accessToken, projectId) => {
     awayTeam: { stringValue: prediction.awayTeam },
     kickoff: { stringValue: prediction.kickoff },
     round: { stringValue: prediction.round },
-    competition: { stringValue: "WORLD_CUP" },
+    competition: {
+      stringValue: prediction.competition || DEFAULT_COMPETITION,
+    },
   };
+
+  // Season is optional so older callers keep working; when it is supplied the
+  // document is tagged with it and the client can scope reads to one season.
+  if (Number.isInteger(prediction.season)) {
+    fields.season = { integerValue: String(prediction.season) };
+  }
 
   // PATCH with an updateMask merges into (or creates) the document without
   // clobbering any other fields it may already have.

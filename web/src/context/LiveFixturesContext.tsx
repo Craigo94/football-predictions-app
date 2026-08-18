@@ -3,6 +3,7 @@ import { getPremierLeagueMatchesForRange, type Fixture } from "../api/football";
 import { arrayRemove, arrayUnion, doc, setDoc } from "firebase/firestore";
 import { CURRENT_SEASON } from "../config/football";
 import { db, firebaseApp } from "../firebase";
+import { getSeasonDateRange } from "../utils/season";
 import {
   deleteToken,
   getMessaging,
@@ -32,12 +33,6 @@ interface LiveFixturesContextValue {
 const LiveFixturesContext = React.createContext<
   LiveFixturesContextValue | undefined
 >(undefined);
-
-const seasonDateRange = (season: number) => {
-  const start = new Date(Date.UTC(season, 6, 1));
-  const end = new Date(Date.UTC(season + 1, 5, 30, 23, 59, 59, 999));
-  return { start, end };
-};
 
 const POLL_INTERVAL_MS = 120_000;
 const NOTIFICATION_PREF_KEY = "fp-live-notifications-enabled";
@@ -203,7 +198,7 @@ export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
           setLoadingFixtures(true);
         }
 
-        const { start, end } = seasonDateRange(CURRENT_SEASON);
+        const { start, end } = getSeasonDateRange(CURRENT_SEASON);
         const fixtures = await getPremierLeagueMatchesForRange(start, end);
         if (cancelled) return;
 

@@ -11,6 +11,7 @@ import {
 import { formatFirstName } from "../../utils/displayName";
 import { useUsers } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
+import { ENTRY_FEE_GBP } from "../../config/football";
 import {
   hasFixtureStarted,
   isFixtureFinished,
@@ -19,6 +20,7 @@ import {
 } from "../../utils/fixtures";
 import { timeUK } from "../../utils/dates";
 import { getTiedRank } from "../../utils/ranking";
+import { isCurrentSeasonPrediction } from "../../utils/season";
 
 interface PredictionDoc {
   userId: string;
@@ -75,6 +77,7 @@ const WeeklyGameweekPage: React.FC = () => {
         const list: PredictionDoc[] = [];
         snap.forEach((doc) => {
           const data = doc.data();
+          if (!isCurrentSeasonPrediction(data)) return;
           list.push({
             userId: data.userId,
             userDisplayName: formatFirstName(
@@ -277,7 +280,7 @@ const WeeklyGameweekPage: React.FC = () => {
   const previousKickoffLabel = fmtKickoff(previousRoundData.earliestKickoff);
 
   const paidCount = users.filter((u) => u.hasPaid).length;
-  const prizePot = paidCount * 5;
+  const prizePot = paidCount * ENTRY_FEE_GBP;
 
   const isRoundComplete = (roundData: RoundData) =>
     roundData.fixturesList.length > 0 &&

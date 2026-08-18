@@ -14,7 +14,7 @@ Add these variables in Vercel (Project Settings → Environment Variables) for t
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
 | `VITE_FIREBASE_APP_ID` | Firebase app ID |
 | `VITE_PRIMARY_ADMIN_EMAIL` | Optional. Email allowed to view the admin dashboard; other users are redirected. |
-| `VITE_FOOTBALL_SEASON` | Optional. Numeric season override; defaults to current PL season. |
+| `VITE_FOOTBALL_SEASON` | Optional. Numeric season override (the year the season starts in, e.g. `2026` for 2026/27); defaults to the current PL season. |
 | `VITE_FIREBASE_VAPID_KEY` | Firebase Web Push certificate key (VAPID public key) for browser token registration. |
 | `FIREBASE_SERVICE_ACCOUNT_KEY` | Full JSON of a Firebase service account key. Required by the server-side admin endpoints (`/api/admin/set-password`, `/api/admin/delete-user`, `/api/admin/set-prediction`) and push notifications. Without it those admin actions fail with "Missing FIREBASE_SERVICE_ACCOUNT_KEY". |
 | `FOOTBALL_DATA_TOKEN` | football-data.org API token used by the fixtures proxy endpoints. |
@@ -35,6 +35,24 @@ Keep this key secret: it grants full admin access to the Firebase project. Never
 3. Ensure your Firestore rules support the app collections (`users`, predictions data, etc.).
 4. Enable Firebase Cloud Messaging (free tier supported) and create a Web Push certificate key.
 5. Add `VITE_FIREBASE_VAPID_KEY` (public key) so browser devices can register push tokens.
+
+## Season rollover
+
+The app plays one Premier League season at a time. `CURRENT_SEASON` in
+`src/config/football.ts` is the year a season starts in — `2026` means 2026/27 —
+and it rolls over automatically on 1 August, so no change is needed each summer.
+Set `VITE_FOOTBALL_SEASON` only to pin the app to a different season.
+
+Every prediction ever made lives in the single `predictions` Firestore
+collection, so nothing needs deleting between seasons. Documents are tagged with
+`season` and `competition` on save, and every screen filters reads through
+`isCurrentSeasonPrediction` (`src/utils/season.ts`) so last season's points,
+weekly winners, and gameweek tables do not leak into the new one. Documents
+written before those fields existed are matched on kick-off date instead, using a
+1 July – 30 June window.
+
+At the start of a season the leaderboard, winners history, and My Stats are
+empty until the first gameweek finishes — that is expected, not a data loss.
 
 ## Local development
 Create `.env.local` next to `package.json`, then run:

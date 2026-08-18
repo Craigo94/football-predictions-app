@@ -13,6 +13,7 @@ import {
 import { auth, db } from "../../firebase";
 import { useUsers, type UserRecord } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
+import { ENTRY_FEE_GBP } from "../../config/football";
 import { formatFirstName } from "../../utils/displayName";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -291,7 +292,7 @@ const AdminPage: React.FC = () => {
     () => users.filter((u) => u.hasPaid).length,
     [users]
   );
-  const prizePot = paidCount * 5;
+  const prizePot = paidCount * ENTRY_FEE_GBP;
 
   const filteredUsers = React.useMemo(() => {
     const q = search.trim().toLowerCase();

@@ -9,6 +9,7 @@ import { formatFirstName } from "../../utils/displayName";
 import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
 import { hasFixtureScore, isFixturePostponed } from "../../utils/fixtures";
 import { getTiedRank } from "../../utils/ranking";
+import { isCurrentSeasonPrediction } from "../../utils/season";
 import {
   getWeeklyWinnerCounts,
   isRoundComplete,
@@ -81,6 +82,7 @@ const WinnersHistoryPage: React.FC = () => {
         const list: AllPredictionDoc[] = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data();
+          if (!isCurrentSeasonPrediction(data)) return;
           const fallbackName = data.userDisplayName || data.userEmail || "Unknown";
           list.push({
             userId: data.userId,

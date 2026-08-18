@@ -11,7 +11,6 @@ const primaryItems = [
   { to: "/dashboard", icon: "🏠", label: "Home" },
   { to: "/predictions", icon: "🎯", label: "Predictions" },
   { to: "/weekly", icon: "🗓️", label: "Gameweek" },
-  { to: "/world-cup", icon: "🌍", label: "World Cup" },
 ];
 
 const BottomNav: React.FC<Props> = ({ isAdmin = false }) => {
