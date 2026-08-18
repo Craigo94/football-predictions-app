@@ -10,6 +10,9 @@ import {
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import { formatFirstName } from "../../utils/displayName";
 import { getTiedRank } from "../../utils/ranking";
+import { isCurrentSeasonPrediction } from "../../utils/season";
+import { formatCurrencyGBP } from "../../utils/currency";
+import { CURRENT_SEASON_LABEL, ENTRY_FEE_GBP } from "../../config/football";
 
 interface Props {
   user: User;
@@ -93,6 +96,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
         const list: PredictionDoc[] = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data();
+          if (!isCurrentSeasonPrediction(data)) return;
           list.push({
             userId: data.userId,
             userDisplayName: formatFirstName(
@@ -188,7 +192,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
     () => Object.values(usersById).filter((u) => u.hasPaid).length,
     [usersById]
   );
-  const prizePot = paidCount * 5;
+  const prizePot = paidCount * ENTRY_FEE_GBP;
 
   if (loading) {
     return (
@@ -204,7 +208,8 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
       <div className="card" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <h2 style={{ margin: 0 }}>Leaderboard</h2>
         <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>
-          Live points across all Premier League predictions. Updates automatically.
+          Live points across all {CURRENT_SEASON_LABEL} Premier League predictions. Updates
+          automatically.
         </p>
 
         {/* Prize pot banner */}
@@ -235,7 +240,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
                 Prize pot
               </div>
               <div style={{ fontSize: 20, fontWeight: 800, color: "#b7ffd1" }}>
-                £{prizePot}
+                {formatCurrencyGBP(prizePot)}
               </div>
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
