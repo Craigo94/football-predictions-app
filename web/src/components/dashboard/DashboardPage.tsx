@@ -223,8 +223,8 @@ const WeeklyWinnersChart: React.FC<{
         );
       })}
       <p className="weekly-winners-note">
-        {weeksCounted} completed gameweek{weeksCounted === 1 ? "" : "s"}
-        counted. Joint weekly winners are added to each player&apos;s total
+        {weeksCounted} completed gameweek{weeksCounted === 1 ? "" : "s"} counted.
+        Joint weekly winners are added to each player&apos;s total
         {jointRoundsCount > 0
           ? ` across ${jointRoundsCount} shared gameweek${jointRoundsCount === 1 ? "" : "s"}`
           : ""}

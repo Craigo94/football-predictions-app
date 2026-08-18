@@ -26,6 +26,8 @@ export default defineConfig(({ mode }) => {
         srcDir: "src",
         filename: "sw.ts",
         includeAssets: [
+          "/apple-touch-icon.png",
+          "/icons/icon.svg",
           "/64px-Soccer_ball.png",
           "/128px-Soccer_ball.png",
           "/256px-Soccer_ball.png"
@@ -39,23 +41,34 @@ export default defineConfig(({ mode }) => {
           scope: "/",
           display: "standalone",
           orientation: "portrait",
-          background_color: "#020817",
-          theme_color: "#020817",
+          background_color: "#04210f",
+          theme_color: "#04210f",
           icons: [
             {
-              src: "/64px-Soccer_ball.png",
-              sizes: "64x64",
-              type: "image/png"
+              src: "/icons/icon-192.png",
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "any"
             },
             {
-              src: "/128px-Soccer_ball.png",
-              sizes: "128x128",
-              type: "image/png"
+              src: "/icons/icon-512.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any"
+            },
+            // Android needs a maskable icon, otherwise the launcher letterboxes
+            // the "any" icon inside a white rounded square.
+            {
+              src: "/icons/maskable-192.png",
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "maskable"
             },
             {
-              src: "/256px-Soccer_ball.png",
-              sizes: "256x256",
-              type: "image/png"
+              src: "/icons/maskable-512.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "maskable"
             }
           ]
         },
