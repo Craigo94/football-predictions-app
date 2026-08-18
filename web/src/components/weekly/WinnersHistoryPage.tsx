@@ -69,7 +69,7 @@ const WinnersHistoryPage: React.FC = () => {
   const [predictionsError, setPredictionsError] = React.useState<string | null>(
     null,
   );
-  const { fixturesById, loadingFixtures, fixturesError } = useLiveFixtures();
+  const { fixturesById, season, loadingFixtures, fixturesError } = useLiveFixtures();
   const { users, loading: usersLoading, error: usersError } = useUsers();
 
   const selectedWinnerId = searchParams.get("winner") ?? "";
@@ -82,7 +82,7 @@ const WinnersHistoryPage: React.FC = () => {
         const list: AllPredictionDoc[] = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data();
-          if (!isCurrentSeasonPrediction(data)) return;
+          if (!isCurrentSeasonPrediction(data, season)) return;
           const fallbackName = data.userDisplayName || data.userEmail || "Unknown";
           list.push({
             userId: data.userId,
@@ -107,7 +107,7 @@ const WinnersHistoryPage: React.FC = () => {
     );
 
     return () => unsub();
-  }, []);
+  }, [season]);
 
   const userNames = React.useMemo(() => {
     const names = new Map<string, string>();

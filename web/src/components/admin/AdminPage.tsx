@@ -419,8 +419,10 @@ const AdminPage: React.FC = () => {
         {/* Actions row */}
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <input
+            className="admin-search"
             type="text"
             placeholder="Search players…"
+            aria-label="Search players"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
@@ -566,15 +568,23 @@ const AdminPage: React.FC = () => {
                         </button>
                       </td>
                       <td style={{ padding: "10px 6px", textAlign: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={user.isAdmin}
-                          disabled={isBusy}
-                          title={user.isAdmin ? "Revoke admin" : "Grant admin"}
-                          onChange={(e) =>
-                            handleToggleAdmin(user.id, e.target.checked)
-                          }
-                        />
+                        {/* The label gives the 22px checkbox a 44px tap area
+                            and names the control for screen readers. */}
+                        <label className="admin-toggle">
+                          <input
+                            type="checkbox"
+                            checked={user.isAdmin}
+                            disabled={isBusy}
+                            onChange={(e) =>
+                              handleToggleAdmin(user.id, e.target.checked)
+                            }
+                          />
+                          <span className="visually-hidden">
+                            {user.isAdmin
+                              ? `Revoke admin for ${user.displayName}`
+                              : `Grant admin to ${user.displayName}`}
+                          </span>
+                        </label>
                       </td>
                       <td style={{ padding: "10px 6px" }}>
                         <div style={{ display: "flex", gap: 6 }}>

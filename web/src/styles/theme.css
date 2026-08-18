@@ -1,5 +1,11 @@
 /* ⚽ Modern Football Predictor App Theme */
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   /* Modern football-inspired palette */
   --bg: linear-gradient(180deg, #04210f 0%, #061b0e 100%);
@@ -19,6 +25,13 @@
   --glass: rgba(255, 255, 255, 0.04);
 }
 
+html {
+  /* Paints the iOS/Android over-scroll ("rubber band") area in the app's own
+     colour instead of flashing white past the top and bottom of the page. */
+  background-color: #04210f;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -27,6 +40,9 @@ body {
   -webkit-font-smoothing: antialiased;
   background-attachment: fixed;
   background-size: cover;
+  /* Stop a swipe that started inside a scrollable table from chaining out to
+     the page (and, on iOS, to the browser's back-swipe gesture). */
+  overscroll-behavior-y: contain;
 }
 
 .config-error {
@@ -260,7 +276,7 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .navbar {
   margin-bottom: 0;
-  padding: 16px 18px 0;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 18px 0;
   background: transparent;
 }
 
@@ -467,7 +483,8 @@ input[type="number"]::-webkit-inner-spin-button {
   background: rgba(8, 16, 12, 0.98);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
-  padding: 16px;
+  /* Bottom row would otherwise sit under the iOS home indicator. */
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
   border: 1px solid rgba(0, 255, 100, 0.15);
 }
 
@@ -509,7 +526,7 @@ input[type="number"]::-webkit-inner-spin-button {
 /* Mobile nav bar adjustments */
 @media (max-width: 640px) {
   .navbar {
-    padding: 8px 12px 0;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 0;
   }
 
   .navbar-links {
@@ -532,6 +549,19 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* Bottom nav: covers all phones + tablets (up to 1024px, i.e. iPad landscape) */
 @media (max-width: 1024px) {
+  /* Keep the header in view while scrolling. It needs a stacking order of its
+     own: the gameweek table's sticky player column sits at z-index 2 and would
+     otherwise slide over the top of it. */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 400;
+    background: rgba(6, 18, 10, 0.96);
+    border-bottom: 1px solid var(--card-border);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+
   /* Hide the floating desktop dock on touch devices */
   .navbar-links--dock {
     display: none;
@@ -540,7 +570,10 @@ input[type="number"]::-webkit-inner-spin-button {
   /* Full-width fixed bottom bar — no transform, no iOS drift */
   .bottom-nav-bar {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    /* Derive the columns from the buttons actually rendered — a hard-coded
+       count leaves a dead gap whenever a destination is added or removed. */
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     position: fixed;
     bottom: 0;
     left: 0;
@@ -588,6 +621,12 @@ input[type="number"]::-webkit-inner-spin-button {
   /* Push content above the fixed bar */
   .app-content-inner {
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Anything sticky inside the page has to clear the bar too, or it parks
+     underneath it and stops being tappable. */
+  :root {
+    --sticky-cta-offset: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -654,22 +693,6 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* ---------- Mobile polish ---------- */
 @media (max-width: 420px) {
-  /* Top bar / tabs (adjust class names if yours differ) */
-  .topbar,
-  .navbar {
-    position: sticky;
-    top: 0;
-    background: var(--card-bg, #0b1324);
-    border-bottom: 1px solid var(--card-border, #213);
-  }
-  .navbar .tabs {
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 8px 12px;
-  }
-
   /* Cards tighter on mobile */
   .card {
     padding: 12px !important;
@@ -981,6 +1004,8 @@ input[type="number"]::-webkit-inner-spin-button {
 .sticky-cta {
   position: sticky;
   bottom: 12px;
+  /* Falls back to 12px on desktop, where there is no fixed bottom bar. */
+  bottom: var(--sticky-cta-offset, 12px);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1202,6 +1227,7 @@ input[type="number"]::-webkit-inner-spin-button {
   width: min(520px, 100%);
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   padding: 18px 18px 14px;
@@ -1283,6 +1309,7 @@ input[type="number"]::-webkit-inner-spin-button {
     width: 100%;
     max-width: 420px;
     max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
     padding: 16px;
     border-radius: 14px;
   }
@@ -1318,6 +1345,8 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .league-table-scroll {
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .league-table {
@@ -2383,6 +2412,7 @@ details[open] .gw-previous-summary::before {
 
 .gw-pred-table-scroll {
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -2392,13 +2422,16 @@ details[open] .gw-previous-summary::before {
   font-size: 13px;
 }
 
-/* Sticky left column (player info) */
+/* Sticky left column (player info). The background has to be fully opaque —
+   at 0.99 alpha the fixture columns ghosted through as they scrolled under it.
+   The edge shading doubles as the "there is more to the right" affordance. */
 .gw-pred-table thead th:first-child,
 .gw-pred-table tbody td:first-child {
   position: sticky;
   left: 0;
   z-index: 2;
-  background: rgba(10, 20, 14, 0.99);
+  background-color: #0b1810;
+  box-shadow: 6px 0 8px -6px rgba(0, 0, 0, 0.65);
 }
 
 /* "Player" header — sticky left */
@@ -3334,5 +3367,90 @@ button,
 @media (max-width: 560px) {
   .fx-card--long-labels .fx-tla {
     font-size: 13px;
+  }
+}
+
+/* ─── Touch targets ───────────────────────────────────────────────────────────
+   Apple asks for 44x44pt and Android for 48dp of tappable area. Kept last in
+   the sheet so it wins over the compact sizes the base components set. */
+@media (max-width: 1024px) {
+  .fx-table-link,
+  .pill--ghost,
+  .button-secondary,
+  .winners-history-chip,
+  .winners-history-back {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .fx-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .winners-history-filters select,
+  .form-field input,
+  .modal-input,
+  .admin-search,
+  .login-form input,
+  .login-form button {
+    min-height: 44px;
+  }
+
+  /* The default checkbox renders about 13px square — far too small to hit. */
+  input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--accent);
+  }
+}
+
+/* Screen-reader-only text (kept focusable-safe: never display:none). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.admin-toggle {
+  /* Positioned so the absolutely-placed .visually-hidden label resolves against
+     this cell rather than escaping the scrolling table and widening the page. */
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+/* ─── Accessibility ──────────────────────────────────────────────────────── */
+
+/* A visible keyboard/switch-control focus ring. The browser default is a thin
+   dark outline that all but disappears against this theme. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Honour the OS "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

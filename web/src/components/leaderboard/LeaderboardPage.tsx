@@ -51,6 +51,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
 
   const {
     fixturesById,
+    season,
     loadingFixtures,
     fixturesError,
   } = useLiveFixtures();
@@ -96,7 +97,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
         const list: PredictionDoc[] = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data();
-          if (!isCurrentSeasonPrediction(data)) return;
+          if (!isCurrentSeasonPrediction(data, season)) return;
           list.push({
             userId: data.userId,
             userDisplayName: formatFirstName(
@@ -120,7 +121,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
     );
 
     return () => unsub();
-  }, []);
+  }, [season]);
 
   /* 2) Compute leaderboard */
   React.useEffect(() => {

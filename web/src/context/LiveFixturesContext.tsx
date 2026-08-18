@@ -1,5 +1,9 @@
 import React from "react";
-import { getPremierLeagueMatchesForRange, type Fixture } from "../api/football";
+import {
+  getPremierLeagueMatchesForRange,
+  getSeasonInfo,
+  type Fixture,
+} from "../api/football";
 import { arrayRemove, arrayUnion, doc, setDoc } from "firebase/firestore";
 import { CURRENT_SEASON } from "../config/football";
 import { db, firebaseApp } from "../firebase";
@@ -19,6 +23,8 @@ interface LiveFixturesProviderProps {
 
 interface LiveFixturesContextValue {
   fixturesById: Record<number, Fixture>;
+  /** Season the fixtures above belong to, as reported by the football API. */
+  season: number;
   loadingFixtures: boolean;
   fixturesError: string | null;
   lastUpdated: number | null;
@@ -78,6 +84,7 @@ export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
   const [loadingFixtures, setLoadingFixtures] = React.useState(true);
   const [fixturesError, setFixturesError] = React.useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = React.useState<number | null>(null);
+  const [season, setSeason] = React.useState<number>(CURRENT_SEASON);
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(false);
   const [notificationPermission, setNotificationPermission] = React.useState<
     NotificationPermission | "unsupported"
@@ -198,7 +205,11 @@ export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
           setLoadingFixtures(true);
         }
 
-        const { start, end } = getSeasonDateRange(CURRENT_SEASON);
+        // Scope live scores to whichever season the competition says is live,
+        // not a guess from the clock.
+        const { season: liveSeason } = await getSeasonInfo();
+        if (!cancelled) setSeason(liveSeason);
+        const { start, end } = getSeasonDateRange(liveSeason);
         const fixtures = await getPremierLeagueMatchesForRange(start, end);
         if (cancelled) return;
 
@@ -322,6 +333,7 @@ export const LiveFixturesProvider: React.FC<LiveFixturesProviderProps> = ({
 
   const value: LiveFixturesContextValue = {
     fixturesById,
+    season,
     loadingFixtures,
     fixturesError,
     lastUpdated,

@@ -65,7 +65,7 @@ const WeeklyGameweekPage: React.FC = () => {
   const [currentGameweekLoading, setCurrentGameweekLoading] = React.useState(true);
   const [currentGameweekError, setCurrentGameweekError] = React.useState<string | null>(null);
 
-  const { fixturesById, loadingFixtures, fixturesError } = useLiveFixtures();
+  const { fixturesById, season, loadingFixtures, fixturesError } = useLiveFixtures();
   const { users, loading: loadingUsers, error: usersError } = useUsers();
 
   /* 1) Listen to ALL predictions */
@@ -77,7 +77,7 @@ const WeeklyGameweekPage: React.FC = () => {
         const list: PredictionDoc[] = [];
         snap.forEach((doc) => {
           const data = doc.data();
-          if (!isCurrentSeasonPrediction(data)) return;
+          if (!isCurrentSeasonPrediction(data, season)) return;
           list.push({
             userId: data.userId,
             userDisplayName: formatFirstName(
@@ -100,7 +100,7 @@ const WeeklyGameweekPage: React.FC = () => {
       }
     );
     return () => unsub();
-  }, []);
+  }, [season]);
 
   /* 2) Fetch current gameweek fixtures (polled every 60s) */
   React.useEffect(() => {

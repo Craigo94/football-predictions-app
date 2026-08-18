@@ -2,15 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/128px-Soccer_ball.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/icons/maskable-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <!-- iOS ignores the manifest; it needs a 180px opaque icon of its own. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Football Predictions" />
+    <meta name="apple-mobile-web-app-title" content="Footy Picks" />
+    <meta name="application-name" content="Footy Picks" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Football Predictor</title>
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="Premier League score predictions with live points, weekly winners and leaderboards." />
+    <meta name="color-scheme" content="dark" />
+    <title>Footy Picks — Premier League Predictions</title>
+    <!-- The manifest link is injected by vite-plugin-pwa; don't add a second one. -->
+    <meta name="theme-color" content="#04210f" />
   </head>
   <body>
     <div id="root"></div>

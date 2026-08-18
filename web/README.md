@@ -38,10 +38,11 @@ Keep this key secret: it grants full admin access to the Firebase project. Never
 
 ## Season rollover
 
-The app plays one Premier League season at a time. `CURRENT_SEASON` in
-`src/config/football.ts` is the year a season starts in — `2026` means 2026/27 —
-and it rolls over automatically on 1 August, so no change is needed each summer.
-Set `VITE_FOOTBALL_SEASON` only to pin the app to a different season.
+The app plays one Premier League season at a time, identified by the year it
+starts in — `2026` means 2026/27. `getSeasonInfo()` in `src/api/football.ts`
+reads the live season from football-data's own competition endpoint, so
+rollover needs no change each summer. The date-based guess in
+`src/config/football.ts` is only a fallback for when that call fails.
 
 Every prediction ever made lives in the single `predictions` Firestore
 collection, so nothing needs deleting between seasons. Documents are tagged with
@@ -53,6 +54,34 @@ written before those fields existed are matched on kick-off date instead, using 
 
 At the start of a season the leaderboard, winners history, and My Stats are
 empty until the first gameweek finishes — that is expected, not a data loss.
+
+## When no fixtures show up
+
+Hit the health endpoint on the deployment first — it runs the same three calls
+the app makes, using the server's token, and says which one broke:
+
+```
+curl -s https://<your-app>/api/football/health | jq
+```
+
+It reports the season football-data says is live, what is scheduled in the next
+ten days, and whether fetching that round *by season* returns the same games.
+`problems` names anything that does not line up. Common causes:
+
+| Symptom in the response | Cause | Fix |
+| --- | --- | --- |
+| `tokenPresent: false` | `FOOTBALL_DATA_TOKEN` missing on this deployment | Add it in Vercel, then redeploy — env vars only apply to new deployments |
+| `roundBySeason.matchesTheDateLookup: false` | The app is asking for the right matchday of the wrong season | Unset `VITE_FOOTBALL_SEASON` and redeploy |
+| status `429` | Free plan allows 10 requests/minute | Wait a minute; scores return on the next poll |
+| status `403` | Free plan only covers the competition's current season | Unset `VITE_FOOTBALL_SEASON` |
+| `upcoming.count: 0` | Genuinely no fixtures in the next 10 days | Nothing to fix — international break |
+
+**`VITE_FOOTBALL_SEASON` is the usual culprit.** Pinning it to a season that has
+finished makes every fixture lookup ask for the right matchday of the wrong
+year. Leave it unset: the app reads the live season from the competition itself
+and only falls back to a date-based guess if that call fails. If it is set and
+disagrees with the API, the app keeps using it (it is an explicit override) but
+logs a warning naming both seasons.
 
 ## Local development
 Create `.env.local` next to `package.json`, then run:

@@ -78,22 +78,28 @@ export default async function handler(
 
     const text = await upstreamRes.text();
 
-    // Try JSON first
+    // Only successful responses are worth caching. Storing a 429 or a 403 meant
+    // one rate-limited request kept every caller failing for the next minute,
+    // long after the upstream limit had reset.
     try {
       const json = JSON.parse(text);
-      cache.set(cacheKey, {
-        body: json,
-        status: upstreamRes.status,
-        expiresAt: Date.now() + CACHE_TTL_MS,
-      });
+      if (upstreamRes.ok) {
+        cache.set(cacheKey, {
+          body: json,
+          status: upstreamRes.status,
+          expiresAt: Date.now() + CACHE_TTL_MS,
+        });
+      }
       return response.status(upstreamRes.status).json(json);
     } catch {
       // Fallback: plain text/HTML (for debugging)
-      cache.set(cacheKey, {
-        body: text,
-        status: upstreamRes.status,
-        expiresAt: Date.now() + CACHE_TTL_MS,
-      });
+      if (upstreamRes.ok) {
+        cache.set(cacheKey, {
+          body: text,
+          status: upstreamRes.status,
+          expiresAt: Date.now() + CACHE_TTL_MS,
+        });
+      }
       return response.status(upstreamRes.status).send(text);
     }
   } catch (err) {
