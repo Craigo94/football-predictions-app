@@ -1,5 +1,9 @@
 // web/src/api/football.ts
-import { CURRENT_SEASON } from "../config/football";
+import {
+  FALLBACK_SEASON,
+  SEASON_OVERRIDE,
+  seasonLabel,
+} from "../config/football";
 import { UK_TZ } from "../utils/dates";
 
 interface ApiTeam {
@@ -164,30 +168,66 @@ function buildStandingsUrl(
   return query ? `${basePath}?${query}` : basePath;
 }
 
-async function fetchMatches(
-  params: Record<string, string | number | undefined>
-): Promise<ApiMatch[]> {
-  const url = buildMatchesUrl(params);
+/**
+ * Turn an upstream failure into something a person can act on. The raw body
+ * football-data returns is a bare `{"message": "..."}` that told us nothing
+ * about which of the usual causes we had hit.
+ */
+function describeApiError(status: number, body: unknown): string {
+  const upstream =
+    (body && typeof body === "object" && "message" in body
+      ? String((body as { message?: unknown }).message ?? "")
+      : "") || JSON.stringify(body);
 
+  if (status === 400) {
+    return `Football API rejected the request (400). ${upstream}`;
+  }
+  if (status === 403) {
+    return (
+      "Football API denied the request (403). The free plan only covers the " +
+      "competition's current season, so this usually means the season being " +
+      `requested is not the live one. ${upstream}`
+    );
+  }
+  if (status === 429) {
+    return (
+      "Football API rate limit reached (429). The free plan allows 10 requests " +
+      "per minute; scores will reappear on the next poll."
+    );
+  }
+  if (status === 404) {
+    return `Football API has no data at that path (404). ${upstream}`;
+  }
+  return `Football API error ${status}: ${upstream}`;
+}
+
+async function requestJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { cache: "no-store" });
   const text = await res.text();
 
-  let data: ApiMatchResponse;
+  let data: T;
   try {
-    data = JSON.parse(text) as ApiMatchResponse;
+    data = JSON.parse(text) as T;
   } catch {
-    console.error("Non-JSON response from Football API:", text);
-    throw new Error("Football API returned non-JSON response");
+    console.error("Non-JSON response from Football API:", text.slice(0, 500));
+    throw new Error(
+      "Football API returned a non-JSON response. The fixtures proxy is " +
+        "probably misconfigured or missing FOOTBALL_DATA_TOKEN."
+    );
   }
 
   if (!res.ok) {
     console.error("Football API HTTP error:", res.status, data);
-    throw new Error(
-      `Football API error ${res.status}: ${JSON.stringify(
-        (data && data.error) || data
-      )}`
-    );
+    throw new Error(describeApiError(res.status, data));
   }
+
+  return data;
+}
+
+async function fetchMatches(
+  params: Record<string, string | number | undefined>
+): Promise<ApiMatch[]> {
+  const data = await requestJson<ApiMatchResponse>(buildMatchesUrl(params));
 
   if (!Array.isArray(data.matches)) {
     console.error("Football API returned unexpected payload", data);
@@ -200,26 +240,7 @@ async function fetchMatches(
 async function fetchStandings(
   params: Record<string, string | number | undefined>
 ): Promise<ApiStandingsEntry[]> {
-  const url = buildStandingsUrl(params);
-  const res = await fetch(url, { cache: "no-store" });
-  const text = await res.text();
-
-  let data: ApiStandingsResponse;
-  try {
-    data = JSON.parse(text) as ApiStandingsResponse;
-  } catch {
-    console.error("Non-JSON response from Football API:", text);
-    throw new Error("Football API returned non-JSON response");
-  }
-
-  if (!res.ok) {
-    console.error("Football API HTTP error:", res.status, data);
-    throw new Error(
-      `Football API error ${res.status}: ${JSON.stringify(
-        (data && data.error) || data
-      )}`
-    );
-  }
+  const data = await requestJson<ApiStandingsResponse>(buildStandingsUrl(params));
 
   if (!Array.isArray(data.standings)) {
     console.error("Football API returned unexpected payload", data);
@@ -227,6 +248,91 @@ async function fetchStandings(
   }
 
   return data.standings;
+}
+
+// ---- Season resolution ---------------------------------------------
+
+interface ApiCompetitionResponse {
+  currentSeason?: {
+    startDate?: string;
+    endDate?: string;
+    currentMatchday?: number | null;
+  };
+}
+
+export interface SeasonInfo {
+  /** Season start year, e.g. 2026 for 2026/27. */
+  season: number;
+  /** The competition's own idea of the live matchday, when it publishes one. */
+  currentMatchday: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  /** Where the number came from, for diagnostics. */
+  source: "override" | "api" | "clock";
+}
+
+let seasonInfoPromise: Promise<SeasonInfo> | null = null;
+
+/**
+ * Which season are we actually in?
+ *
+ * This used to be inferred from the clock ("month >= August, so use this
+ * year"). When that guess disagreed with reality — most easily by leaving
+ * VITE_FOOTBALL_SEASON pinned to a finished season — fixture lookups asked for
+ * the right matchday of the wrong season, every result fell outside the
+ * date window, and the app rendered an empty list with no error.
+ *
+ * football-data publishes the answer on the competition itself, so use that
+ * and keep the clock only as a fallback for when the call fails.
+ */
+export async function getSeasonInfo(forceRefresh = false): Promise<SeasonInfo> {
+  if (!forceRefresh && seasonInfoPromise) return seasonInfoPromise;
+
+  seasonInfoPromise = (async (): Promise<SeasonInfo> => {
+    try {
+      const data = await requestJson<ApiCompetitionResponse>(
+        "/api/football/competitions/PL"
+      );
+      const startDate = data.currentSeason?.startDate ?? null;
+      const parsed = startDate ? new Date(startDate).getUTCFullYear() : Number.NaN;
+
+      if (Number.isFinite(parsed)) {
+        if (SEASON_OVERRIDE && SEASON_OVERRIDE !== parsed) {
+          console.warn(
+            `[Football API] VITE_FOOTBALL_SEASON is pinned to ${seasonLabel(
+              SEASON_OVERRIDE
+            )} but the Premier League's live season is ${seasonLabel(parsed)}. ` +
+              "Using the pinned value — unset VITE_FOOTBALL_SEASON to follow the live season."
+          );
+        }
+        return {
+          season: SEASON_OVERRIDE ?? parsed,
+          currentMatchday: data.currentSeason?.currentMatchday ?? null,
+          startDate,
+          endDate: data.currentSeason?.endDate ?? null,
+          source: SEASON_OVERRIDE ? "override" : "api",
+        };
+      }
+    } catch (err) {
+      console.warn(
+        "[Football API] Could not read the live season from the competition " +
+          "endpoint; falling back to the date-based guess.",
+        err
+      );
+      // Don't cache a failure — the next caller should try the API again.
+      seasonInfoPromise = null;
+    }
+
+    return {
+      season: SEASON_OVERRIDE ?? FALLBACK_SEASON,
+      currentMatchday: null,
+      startDate: null,
+      endDate: null,
+      source: SEASON_OVERRIDE ? "override" : "clock",
+    };
+  })();
+
+  return seasonInfoPromise;
 }
 
 // ---- Public API ----------------------------------------------------
@@ -261,6 +367,8 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
     status: CURRENT_GAMEWEEK_STATUSES,
   });
 
+  const { season, currentMatchday, source } = await getSeasonInfo();
+
   const nextKickoffMatch = [...upcoming]
     .filter((m) => typeof m.matchday === "number")
     .sort(
@@ -268,25 +376,35 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
         new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime()
     )[0];
 
-  if (!nextKickoffMatch || typeof nextKickoffMatch.matchday !== "number") {
-    throw new Error("No upcoming PL matchdays found in the detection window.");
+  // If nothing is scheduled in the detection window (an international break at
+  // the edge of it, say), fall back to the matchday the competition itself
+  // reports rather than giving up.
+  const nextMatchday =
+    typeof nextKickoffMatch?.matchday === "number"
+      ? nextKickoffMatch.matchday
+      : currentMatchday;
+
+  if (typeof nextMatchday !== "number") {
+    throw new Error(
+      `No upcoming Premier League matchdays found between ${dateFrom} and ${dateTo}, ` +
+        `and the competition did not report a current matchday for ${seasonLabel(season)}.`
+    );
   }
 
-  const nextMatchday = nextKickoffMatch.matchday;
   const roundLabel = `Matchday ${nextMatchday}`;
 
   console.log("[Football API] Fetch full GW:", {
     matchday: nextMatchday,
-    season: CURRENT_SEASON,
+    season,
+    seasonSource: source,
   });
 
-  const matches = await fetchMatches({
-    matchday: nextMatchday,
-    season: CURRENT_SEASON,
-  });
+  const matches = await fetchMatches({ matchday: nextMatchday, season });
 
   if (!matches.length) {
-    throw new Error("No matches returned for the detected matchday.");
+    throw new Error(
+      `The Football API returned no fixtures for ${roundLabel} of ${seasonLabel(season)}.`
+    );
   }
 
   // Matchdays can occasionally contain a much older rearranged fixture.
@@ -308,8 +426,22 @@ export async function getNextPremierLeagueGameweekFixtures(): Promise<Fixture[]>
       })
     : matches;
 
+  // Every fixture being filtered out means the round we fetched sits in a
+  // different season from the one kicking off — the symptom of a season
+  // mismatch. Say so, instead of handing back an empty list that reads as
+  // "no games this week".
+  if (!filteredMatches.length) {
+    throw new Error(
+      `${roundLabel} of ${seasonLabel(season)} came back with no fixtures near ` +
+        `${firstUpcomingKickoff?.slice(0, 10)}. The app is looking at the wrong season` +
+        (source === "override"
+          ? " because VITE_FOOTBALL_SEASON is pinned — unset it to follow the live season."
+          : ".")
+    );
+  }
+
   return filteredMatches.map(
-    mapApiMatchToFixture(roundLabel, nextMatchday, CURRENT_SEASON)
+    mapApiMatchToFixture(roundLabel, nextMatchday, season)
   );
 }
 
@@ -325,15 +457,15 @@ export async function getPremierLeagueMatchesForRange(
 
   console.log("[Football API] Requesting range:", { dateFrom, dateTo });
 
-  const matches = await fetchMatches({
-    dateFrom,
-    dateTo,
-  });
+  const [matches, { season }] = await Promise.all([
+    fetchMatches({ dateFrom, dateTo }),
+    getSeasonInfo(),
+  ]);
 
   return matches.map((m) => {
     const md = typeof m.matchday === "number" ? m.matchday : undefined;
     const roundLabel = md ? `Matchday ${md}` : m.group || "Premier League";
-    return mapApiMatchToFixture(roundLabel, md, CURRENT_SEASON)(m);
+    return mapApiMatchToFixture(roundLabel, md, season)(m);
   });
 }
 
@@ -341,15 +473,15 @@ export async function getPremierLeagueMatchesForRange(
  * Fetch Premier League standings for the current season.
  */
 export async function getPremierLeagueTable(): Promise<LeagueTableRow[]> {
-  const standings = await fetchStandings({
-    season: CURRENT_SEASON,
-    standingType: "TOTAL",
-  });
+  const { season } = await getSeasonInfo();
+  const standings = await fetchStandings({ season, standingType: "TOTAL" });
 
   const totalTable = standings.find((entry) => entry.type === "TOTAL");
 
   if (!totalTable?.table?.length) {
-    throw new Error("No standings returned for the Premier League table.");
+    throw new Error(
+      `No Premier League standings returned for ${seasonLabel(season)}.`
+    );
   }
 
   return totalTable.table.map((row) => ({
