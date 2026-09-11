@@ -50,6 +50,7 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
   } | null>(null);
   const saveNoticeTimeout = React.useRef<number | null>(null);
   const fixturesPollInterval = React.useRef<number | null>(null);
+  const [profileName, setProfileName] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     return () => {
@@ -102,6 +103,31 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
     };
   }, []);
 
+  // Subscribe to the user's profile so saved predictions carry the name an
+  // admin (or the user) last set in Firestore, not a stale Firebase Auth one.
+  React.useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, "users", user.uid),
+      (snap) => {
+        const data = snap.data();
+        if (!data) {
+          setProfileName(null);
+          return;
+        }
+        const fullName =
+          (typeof data.displayName === "string" && data.displayName.trim()) ||
+          `${data.firstName ?? ""} ${data.lastName ?? ""}`.trim();
+        setProfileName(fullName || null);
+      },
+      (err) => {
+        console.error("Error loading user profile", err);
+        setProfileName(null);
+      }
+    );
+
+    return () => unsub();
+  }, [user.uid]);
+
   // Subscribe to current user's predictions
   React.useEffect(() => {
     const q = query(
@@ -127,7 +153,7 @@ const PredictionsPage: React.FC<Props> = ({ user }) => {
 
     // Store the user's first name for display across leaderboards and stats
     const userDisplayName = formatFirstName(
-      user.displayName || user.email || "Unknown"
+      profileName || user.displayName || user.email || "Unknown"
     );
 
     const data: PredictionDoc = {

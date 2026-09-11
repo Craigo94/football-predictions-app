@@ -207,13 +207,15 @@ const WeeklyGameweekPage: React.FC = () => {
         fixturesList.some((f) => hasFixtureStarted(f)) ||
         roundPreds.some((p) => new Date(p.kickoff).getTime() <= Date.now());
 
-      const activeUserIds = new Set(users.map((u) => u.id));
+      // Names come from the live user profiles so an admin rename shows up
+      // straight away; the name stored on the prediction is only a fallback.
+      const profileNames = new Map(users.map((u) => [u.id, u.displayName]));
 
       const byUser: Record<string, WeeklyRow> = {};
       const predsByUserFixture: Record<string, PredictionDoc> = {};
 
       for (const p of roundPreds) {
-        if (!loadingUsers && !activeUserIds.has(p.userId)) continue;
+        if (!loadingUsers && !profileNames.has(p.userId)) continue;
         predsByUserFixture[`${p.userId}_${p.fixtureId}`] = p;
 
         const fixture: Fixture | undefined =
@@ -227,7 +229,11 @@ const WeeklyGameweekPage: React.FC = () => {
         }
 
         if (!byUser[p.userId]) {
-          byUser[p.userId] = { userId: p.userId, userDisplayName: p.userDisplayName, totalPoints: 0 };
+          byUser[p.userId] = {
+            userId: p.userId,
+            userDisplayName: profileNames.get(p.userId) ?? p.userDisplayName,
+            totalPoints: 0,
+          };
         }
         if (points != null) byUser[p.userId].totalPoints += points;
       }
