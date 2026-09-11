@@ -8,10 +8,11 @@ import { formatFirstName } from "../../utils/displayName";
 interface Props {
   user: User;
   isAdmin?: boolean;
+  profileName?: string | null;
 }
 
-const getDisplayName = (user: User) =>
-  formatFirstName(user.displayName || user.email || "User");
+const getDisplayName = (user: User, profileName?: string | null) =>
+  formatFirstName(profileName || user.displayName || user.email || "User");
 
 const LogoMark = () => (
   <svg
@@ -40,7 +41,7 @@ const LogoMark = () => (
   </svg>
 );
 
-const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
+const Navbar: React.FC<Props> = ({ user, isAdmin = false, profileName }) => {
   const [currentUser, setCurrentUser] = React.useState(user);
   const navigate = useNavigate();
 
@@ -53,7 +54,7 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false }) => {
     setCurrentUser(user);
   }, [user]);
 
-  const displayName = getDisplayName(currentUser);
+  const displayName = getDisplayName(currentUser, profileName);
 
   const navItems = [
     { to: "/dashboard", icon: "🏠", label: "Home" },

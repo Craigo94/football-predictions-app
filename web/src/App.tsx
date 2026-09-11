@@ -160,7 +160,15 @@ const App: React.FC = () => {
       {user ? (
         <LiveFixturesProvider userId={user.uid}>
           <div className="app-layout">
-            <Navbar user={user} isAdmin={isAdmin} />
+            <Navbar
+              user={user}
+              isAdmin={isAdmin}
+              profileName={
+                userProfile?.displayName ||
+                `${userProfile?.firstName ?? ""} ${userProfile?.lastName ?? ""}`.trim() ||
+                null
+              }
+            />
             <main className="app-content">
               <div className="app-content-inner">
                 <Routes>
