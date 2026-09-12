@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -12,10 +13,12 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../firebase";
 import { useUsers, type UserRecord } from "../../hooks/useUsers";
+import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import { formatCurrencyGBP } from "../../utils/currency";
 import { ENTRY_FEE_GBP } from "../../config/football";
 import { formatFirstName } from "../../utils/displayName";
-import { formatDayMonthYear } from "../../utils/timestamps";
+import { formatDayMonthYear, toIsoString } from "../../utils/timestamps";
+import { getLatestCompletedRound } from "../../utils/weeklyWinners";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -36,6 +39,29 @@ const updatePredictionNames = async (uid: string, fullName: string) => {
     });
     await batch.commit();
   }
+};
+
+/**
+ * Records the last gameweek whose completion cleared everybody's paid status,
+ * so the reset runs once for the whole group rather than once per admin device.
+ */
+const paidResetDoc = () => doc(db, "settings", "payments");
+
+const clearPaidStatuses = async (users: UserRecord[]) => {
+  const paidUsers = users.filter((user) => user.hasPaid);
+  if (paidUsers.length === 0) return 0;
+
+  const batch = writeBatch(db);
+  paidUsers.forEach((user) => {
+    batch.set(
+      doc(db, "users", user.id),
+      { hasPaid: false, paidAt: null },
+      { merge: true }
+    );
+  });
+  await batch.commit();
+
+  return paidUsers.length;
 };
 
 const callAdminApi = async (endpoint: string, body: Record<string, unknown>) => {
@@ -257,8 +283,17 @@ const SetPasswordModal: React.FC<SetPasswordModalProps> = ({ user, onClose, onSu
 
 // ─── Main admin page ─────────────────────────────────────────────────────────
 
+interface PaidResetMarker {
+  /** Round number of the last finished gameweek we have acted on. */
+  round: number | null;
+  roundLabel: string | null;
+  /** Set only when a reset actually cleared statuses. */
+  clearedAt: string | null;
+}
+
 const AdminPage: React.FC = () => {
   const { users, loading, error } = useUsers();
+  const { fixturesById, loadingFixtures } = useLiveFixtures();
 
   const [search, setSearch] = React.useState("");
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
@@ -268,6 +303,14 @@ const AdminPage: React.FC = () => {
   const [editNameUser, setEditNameUser] = React.useState<UserRecord | null>(null);
   const [setPasswordUser, setSetPasswordUser] = React.useState<UserRecord | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [paidReset, setPaidReset] = React.useState<PaidResetMarker>({
+    round: null,
+    roundLabel: null,
+    clearedAt: null,
+  });
+  const [paidResetLoaded, setPaidResetLoaded] = React.useState(false);
+  const [paidResetUnavailable, setPaidResetUnavailable] = React.useState(false);
+  const autoResetRound = React.useRef<number | null>(null);
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -288,13 +331,119 @@ const AdminPage: React.FC = () => {
 
   const filteredUsers = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter(
-      (u) =>
-        u.displayName.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q)
+    const matching = q
+      ? users.filter(
+          (u) =>
+            u.displayName.toLowerCase().includes(q) ||
+            u.email.toLowerCase().includes(q)
+        )
+      : users;
+
+    // Firestore hands documents back in ID order, which looks random in a list
+    // of people. Sort on what the Name column actually shows, then fall back to
+    // the surname and email so players sharing a first name keep a fixed order.
+    const byName = (a: string, b: string) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" });
+
+    return [...matching].sort(
+      (a, b) =>
+        byName(a.displayName, b.displayName) ||
+        byName(a.lastName, b.lastName) ||
+        byName(a.email, b.email)
     );
   }, [users, search]);
+
+  const latestCompletedRound = React.useMemo(
+    () => getLatestCompletedRound(fixturesById),
+    [fixturesById]
+  );
+
+  React.useEffect(() => {
+    const unsub = onSnapshot(
+      paidResetDoc(),
+      (snap) => {
+        const data = snap.data();
+        setPaidReset({
+          round:
+            typeof data?.lastResetRoundNumber === "number"
+              ? data.lastResetRoundNumber
+              : null,
+          roundLabel:
+            typeof data?.lastResetRound === "string" ? data.lastResetRound : null,
+          clearedAt: toIsoString(data?.lastResetAt),
+        });
+        setPaidResetUnavailable(false);
+        setPaidResetLoaded(true);
+      },
+      (err) => {
+        console.error("Failed to read the paid-reset marker", err);
+        setPaidResetUnavailable(true);
+        setPaidResetLoaded(false);
+      }
+    );
+
+    return () => unsub();
+  }, []);
+
+  /**
+   * Once a gameweek finishes, everyone owes again for the next one — so clear
+   * every paid status and record the round, which stops it running twice.
+   *
+   * The very first run only records where we are. Clearing then would wipe
+   * payments the admin has already taken for the gameweek coming up, since the
+   * gameweek that triggers it finished before this ever ran.
+   */
+  React.useEffect(() => {
+    if (loading || loadingFixtures || !paidResetLoaded) return;
+    if (!latestCompletedRound) return;
+    if (paidReset.round != null && latestCompletedRound.number <= paidReset.round) {
+      return;
+    }
+    if (autoResetRound.current === latestCompletedRound.number) return;
+
+    autoResetRound.current = latestCompletedRound.number;
+    const isFirstRun = paidReset.round == null;
+
+    const run = async () => {
+      try {
+        const cleared = isFirstRun ? 0 : await clearPaidStatuses(users);
+
+        await setDoc(
+          paidResetDoc(),
+          {
+            lastResetRound: latestCompletedRound.round,
+            lastResetRoundNumber: latestCompletedRound.number,
+            ...(isFirstRun ? {} : { lastResetAt: serverTimestamp() }),
+          },
+          { merge: true }
+        );
+
+        if (!isFirstRun) {
+          showSuccess(
+            `${latestCompletedRound.round} has finished — ${cleared} player${
+              cleared === 1 ? "" : "s"
+            } marked as not paid for the next gameweek.`
+          );
+        }
+      } catch (err) {
+        console.error("Failed to reset paid statuses automatically", err);
+        showError(
+          `Unable to clear paid statuses after ${latestCompletedRound.round}. Use "Clear all paid" to do it by hand.`
+        );
+        // Let the next render try again.
+        autoResetRound.current = null;
+      }
+    };
+
+    run();
+  }, [
+    latestCompletedRound,
+    loading,
+    loadingFixtures,
+    paidReset.round,
+    paidResetLoaded,
+    users,
+  ]);
 
   const handleUpdatePaid = async (user: UserRecord, hasPaid: boolean) => {
     setUpdatingId(user.id);
@@ -336,17 +485,7 @@ const AdminPage: React.FC = () => {
     setClearingPaid(true);
     setActionError(null);
     try {
-      const batch = writeBatch(db);
-      users.forEach((user) => {
-        if (user.hasPaid) {
-          batch.set(
-            doc(db, "users", user.id),
-            { hasPaid: false, paidAt: null },
-            { merge: true }
-          );
-        }
-      });
-      await batch.commit();
+      await clearPaidStatuses(users);
       showSuccess("All paid statuses cleared.");
     } catch (err) {
       showError("Unable to clear paid statuses.");
@@ -355,6 +494,37 @@ const AdminPage: React.FC = () => {
       setClearingPaid(false);
     }
   };
+
+  const autoResetStatus = React.useMemo(() => {
+    if (paidResetUnavailable) {
+      return "Automatic resets are off: the settings/payments document could not be read. Check your Firestore rules, or use \u201cClear all paid\u201d after each gameweek.";
+    }
+
+    if (!paidResetLoaded || loadingFixtures) {
+      return "Checking whether a gameweek has finished…";
+    }
+
+    if (!latestCompletedRound) {
+      return "No gameweek has finished yet. Everyone is marked as not paid automatically once one does.";
+    }
+
+    if (!paidReset.clearedAt) {
+      return `${latestCompletedRound.round} had already finished when automatic resets were set up, so nobody was cleared. Everyone will be marked as not paid when the next gameweek finishes.`;
+    }
+
+    const clearedOn = formatDayMonthYear(paidReset.clearedAt);
+
+    return `Everyone was marked as not paid after ${
+      paidReset.roundLabel ?? "the last gameweek"
+    }${clearedOn ? ` on ${clearedOn}` : ""}. It happens again when the next gameweek finishes.`;
+  }, [
+    latestCompletedRound,
+    loadingFixtures,
+    paidReset.clearedAt,
+    paidReset.roundLabel,
+    paidResetLoaded,
+    paidResetUnavailable,
+  ]);
 
   const handleDeleteUser = async (user: UserRecord) => {
     if (
@@ -451,6 +621,17 @@ const AdminPage: React.FC = () => {
             {clearingPaid ? "Clearing…" : "Clear all paid"}
           </button>
         </div>
+
+        {/* What the automatic end-of-gameweek reset is doing. */}
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            color: paidResetUnavailable ? "var(--yellow)" : "var(--text-muted)",
+          }}
+        >
+          {autoResetStatus}
+        </p>
 
         {/* Feedback banners */}
         {successMsg && (

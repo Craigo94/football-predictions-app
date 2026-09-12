@@ -204,10 +204,10 @@ const EditNamePage: React.FC<Props> = ({
               {hasPaid
                 ? `${formatCurrencyGBP(ENTRY_FEE_GBP)} received${
                     paidOnLabel ? ` on ${paidOnLabel}` : ""
-                  }. You're in the prize pot.`
+                  }. You're in this gameweek's prize pot.`
                 : `${formatCurrencyGBP(
                     ENTRY_FEE_GBP
-                  )} still to pay. The admin marks you as paid once they have it.`}
+                  )} still to pay for this gameweek. The admin marks you as paid once they have it.`}
             </p>
           </div>
           <PaidStatusPill hasPaid={hasPaid} />

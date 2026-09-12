@@ -32,8 +32,8 @@ const PaymentStatusBanner: React.FC<Props> = ({ hasPaid, paidAt, className }) =>
         <strong>{hasPaid ? "You're paid up" : `${fee} still to pay`}</strong>
         <p className="payment-banner__detail">
           {hasPaid
-            ? `${fee} received${paidOn ? ` · marked paid on ${paidOn}` : ""}. You're in the prize pot for the season.`
-            : `Pay the admin your ${fee} entry fee and they'll mark you as paid — this updates here as soon as they do.`}
+            ? `${fee} received${paidOn ? ` on ${paidOn}` : ""}. You're in this gameweek's prize pot — everyone starts as not paid again once it finishes.`
+            : `Pay the admin your ${fee} entry fee for this gameweek and they'll mark you as paid. This updates as soon as they do.`}
         </p>
       </div>
       <PaidStatusPill hasPaid={hasPaid} />
