@@ -9,9 +9,11 @@ import {
 import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
 import { isFixturePostponed } from "../../utils/fixtures";
 import { isCurrentSeasonPrediction } from "../../utils/season";
+import PaidStatusPill from "../common/PaidStatusPill";
 
 interface Props {
   user: User;
+  hasPaid?: boolean;
 }
 
 interface PredictionDoc {
@@ -43,7 +45,7 @@ interface RoundStats {
   start: Date;
 }
 
-const MyStatsPage: React.FC<Props> = ({ user }) => {
+const MyStatsPage: React.FC<Props> = ({ user, hasPaid = false }) => {
   const [predictions, setPredictions] = React.useState<PredictionDoc[]>([]);
   const [fixturesById, setFixturesById] = React.useState<Record<number, Fixture>>(
     {}
@@ -291,7 +293,17 @@ const MyStatsPage: React.FC<Props> = ({ user }) => {
           gap: 8,
         }}
       >
-        <h2 style={{ margin: 0 }}>My Stats</h2>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
+          <h2 style={{ margin: 0 }}>My Stats</h2>
+          <PaidStatusPill hasPaid={hasPaid} showFee />
+        </div>
         <p
           style={{
             fontSize: 13,

@@ -14,9 +14,15 @@ import {
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../firebase";
 import { formatFirstName } from "../../utils/displayName";
+import { formatCurrencyGBP } from "../../utils/currency";
+import { ENTRY_FEE_GBP } from "../../config/football";
+import { formatDayMonthYear } from "../../utils/timestamps";
+import PaidStatusPill from "../common/PaidStatusPill";
 
 interface Props {
   user: User;
+  hasPaid?: boolean;
+  paidAt?: string | null;
   onUserUpdated?: () => Promise<User | null>;
 }
 
@@ -37,7 +43,12 @@ const parseName = (raw?: string | null) => {
   return { first: parts[0], last: parts.slice(1).join(" ") };
 };
 
-const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
+const EditNamePage: React.FC<Props> = ({
+  user,
+  hasPaid = false,
+  paidAt,
+  onUserUpdated,
+}) => {
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -158,6 +169,8 @@ const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
     }
   };
 
+  const paidOnLabel = hasPaid ? formatDayMonthYear(paidAt) : null;
+
   if (configMissing) {
     return (
       <div className="card profile-card">
@@ -177,8 +190,27 @@ const EditNamePage: React.FC<Props> = ({ user, onUserUpdated }) => {
           <p className="eyebrow">Profile</p>
           <h1>Edit display name</h1>
           <p className="profile-subtitle">
-            Update the name that appears on your predictions, leaderboard, and stats.
+            Update the name that appears on your predictions, leaderboard, and stats, and
+            check whether your entry fee is settled.
           </p>
+        </div>
+
+        <div
+          className={`profile-payment profile-payment--${hasPaid ? "paid" : "unpaid"}`}
+        >
+          <div>
+            <span className="profile-payment__label">Entry fee</span>
+            <p className="profile-payment__detail">
+              {hasPaid
+                ? `${formatCurrencyGBP(ENTRY_FEE_GBP)} received${
+                    paidOnLabel ? ` on ${paidOnLabel}` : ""
+                  }. You're in the prize pot.`
+                : `${formatCurrencyGBP(
+                    ENTRY_FEE_GBP
+                  )} still to pay. The admin marks you as paid once they have it.`}
+            </p>
+          </div>
+          <PaidStatusPill hasPaid={hasPaid} />
         </div>
 
         <form className="profile-form" onSubmit={handleSubmit}>

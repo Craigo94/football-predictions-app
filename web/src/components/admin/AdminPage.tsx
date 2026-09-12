@@ -15,6 +15,7 @@ import { useUsers, type UserRecord } from "../../hooks/useUsers";
 import { formatCurrencyGBP } from "../../utils/currency";
 import { ENTRY_FEE_GBP } from "../../config/football";
 import { formatFirstName } from "../../utils/displayName";
+import { formatDayMonthYear } from "../../utils/timestamps";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -50,15 +51,6 @@ const callAdminApi = async (endpoint: string, body: Record<string, unknown>) => 
   const json = await res.json();
   if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
   return json;
-};
-
-const formatJoined = (iso: string | null) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 };
 
 // ─── Modals ─────────────────────────────────────────────────────────────────
@@ -304,11 +296,20 @@ const AdminPage: React.FC = () => {
     );
   }, [users, search]);
 
-  const handleUpdatePaid = async (userId: string, hasPaid: boolean) => {
-    setUpdatingId(userId);
+  const handleUpdatePaid = async (user: UserRecord, hasPaid: boolean) => {
+    setUpdatingId(user.id);
     setActionError(null);
     try {
-      await setDoc(doc(db, "users", userId), { hasPaid }, { merge: true });
+      // paidAt lets the player see when they were marked off, so clear it again
+      // whenever the status is reversed.
+      await setDoc(
+        doc(db, "users", user.id),
+        { hasPaid, paidAt: hasPaid ? serverTimestamp() : null },
+        { merge: true }
+      );
+      showSuccess(
+        `${user.displayName} marked as ${hasPaid ? "paid" : "unpaid"}.`
+      );
     } catch (err) {
       showError("Unable to update payment status.");
       console.error(err);
@@ -338,7 +339,11 @@ const AdminPage: React.FC = () => {
       const batch = writeBatch(db);
       users.forEach((user) => {
         if (user.hasPaid) {
-          batch.set(doc(db, "users", user.id), { hasPaid: false }, { merge: true });
+          batch.set(
+            doc(db, "users", user.id),
+            { hasPaid: false, paidAt: null },
+            { merge: true }
+          );
         }
       });
       await batch.commit();
@@ -538,13 +543,17 @@ const AdminPage: React.FC = () => {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {formatJoined(user.createdAt)}
+                        {formatDayMonthYear(user.createdAt) ?? "—"}
                       </td>
                       <td style={{ padding: "10px 6px", textAlign: "center" }}>
                         <button
-                          onClick={() => handleUpdatePaid(user.id, !user.hasPaid)}
+                          onClick={() => handleUpdatePaid(user, !user.hasPaid)}
                           disabled={isBusy}
-                          title={user.hasPaid ? "Mark as unpaid" : "Mark as paid"}
+                          title={
+                            user.hasPaid
+                              ? `Mark ${user.displayName} as unpaid — they will see "Not paid"`
+                              : `Mark ${user.displayName} as paid — they will see "Paid"`
+                          }
                           style={{
                             background: user.hasPaid
                               ? "rgba(46, 204, 113, 0.18)"
@@ -566,6 +575,18 @@ const AdminPage: React.FC = () => {
                         >
                           {user.hasPaid ? "✓ Paid" : "✗ Unpaid"}
                         </button>
+                        {user.hasPaid && user.paidAt && (
+                          <div
+                            style={{
+                              marginTop: 4,
+                              fontSize: 10,
+                              color: "var(--text-muted)",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {formatDayMonthYear(user.paidAt)}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: "10px 6px", textAlign: "center" }}>
                         {/* The label gives the 22px checkbox a 44px tap area
