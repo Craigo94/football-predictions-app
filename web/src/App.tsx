@@ -23,6 +23,7 @@ import AdminPage from "./components/admin/AdminPage";
 import { PRIMARY_ADMIN_EMAIL, normalizeEmail } from "./config/admin";
 import DashboardPage from "./components/dashboard/DashboardPage";
 import BottomNav from "./components/layout/BottomNav";
+import { toIsoString } from "./utils/timestamps";
 
 interface UserProfile {
   displayName?: string;
@@ -31,6 +32,7 @@ interface UserProfile {
   email?: string;
   isAdmin?: boolean;
   hasPaid?: boolean;
+  paidAt?: string | null;
 }
 
 const App: React.FC = () => {
@@ -82,6 +84,7 @@ const App: React.FC = () => {
               email: data.email,
               isAdmin: Boolean(data.isAdmin),
               hasPaid: Boolean(data.hasPaid),
+              paidAt: toIsoString(data.paidAt),
             }
           : null;
         setUserProfile(mapped);
@@ -116,6 +119,8 @@ const App: React.FC = () => {
   const isAdmin = Boolean(
     userProfile?.isAdmin && (!primaryAdminConfigured || matchesPrimaryAdmin)
   );
+  const hasPaid = Boolean(userProfile?.hasPaid);
+  const paidAt = userProfile?.paidAt ?? null;
 
   if (!firebaseReady) {
     return (
@@ -163,6 +168,7 @@ const App: React.FC = () => {
             <Navbar
               user={user}
               isAdmin={isAdmin}
+              hasPaid={hasPaid}
               profileName={
                 userProfile?.displayName ||
                 `${userProfile?.firstName ?? ""} ${userProfile?.lastName ?? ""}`.trim() ||
@@ -174,7 +180,13 @@ const App: React.FC = () => {
                 <Routes>
                   <Route
                     path="/dashboard"
-                    element={<DashboardPage user={user} />}
+                    element={
+                      <DashboardPage
+                        user={user}
+                        hasPaid={hasPaid}
+                        paidAt={paidAt}
+                      />
+                    }
                   />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route
@@ -185,7 +197,10 @@ const App: React.FC = () => {
                   <Route path="/league-table" element={<LeagueTablePage />} />
                   <Route path="/weekly" element={<WeeklyGameweekPage />} />
                   <Route path="/winners-history" element={<WinnersHistoryPage />} />
-                  <Route path="/stats" element={<MyStatsPage user={user} />} />
+                  <Route
+                    path="/stats"
+                    element={<MyStatsPage user={user} hasPaid={hasPaid} />}
+                  />
                   <Route
                     path="/admin"
                     element={
@@ -199,7 +214,12 @@ const App: React.FC = () => {
                   <Route
                     path="/profile/name"
                     element={
-                      <EditNamePage user={user} onUserUpdated={refreshUser} />
+                      <EditNamePage
+                        user={user}
+                        hasPaid={hasPaid}
+                        paidAt={paidAt}
+                        onUserUpdated={refreshUser}
+                      />
                     }
                   />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />

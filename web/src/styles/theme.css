@@ -3433,6 +3433,137 @@ button,
   cursor: pointer;
 }
 
+/* ─── Entry-fee (paid / not paid) status ──────────────────────────────────── */
+
+.paid-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.paid-pill--paid {
+  background: rgba(46, 204, 113, 0.16);
+  border: 1px solid rgba(46, 204, 113, 0.45);
+  color: #b7ffd1;
+}
+
+.paid-pill--unpaid {
+  background: rgba(230, 57, 70, 0.15);
+  border: 1px solid rgba(230, 57, 70, 0.4);
+  color: #ffcdd2;
+}
+
+.paid-pill--sm {
+  padding: 1px 7px;
+  font-size: 10px;
+  gap: 3px;
+}
+
+.paid-pill__icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* Dashboard / profile banner */
+.payment-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  text-align: left;
+}
+
+.payment-banner--paid {
+  border-color: rgba(46, 204, 113, 0.4);
+}
+
+.payment-banner--unpaid {
+  border-color: rgba(230, 57, 70, 0.45);
+  background: rgba(230, 57, 70, 0.07);
+}
+
+.payment-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.payment-banner__text strong {
+  font-size: 15px;
+}
+
+.payment-banner__detail {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Profile page section */
+.profile-payment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.profile-payment--unpaid {
+  border-color: rgba(230, 57, 70, 0.4);
+}
+
+.profile-payment--paid {
+  border-color: rgba(46, 204, 113, 0.35);
+}
+
+.profile-payment__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.profile-payment__detail {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Navbar chip */
+.navbar-paid {
+  align-self: center;
+}
+
+/* Leaderboard row: trails the player's name. */
+.leaderboard-paid {
+  margin-left: 6px;
+}
+
+@media (max-width: 420px) {
+  .payment-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .profile-payment {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 /* ─── Accessibility ──────────────────────────────────────────────────────── */
 
 /* A visible keyboard/switch-control focus ring. The browser default is a thin

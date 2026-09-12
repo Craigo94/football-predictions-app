@@ -4,10 +4,12 @@ import { signOut } from "firebase/auth";
 import { auth } from "../../firebase";
 import { NavLink, useNavigate } from "react-router-dom";
 import { formatFirstName } from "../../utils/displayName";
+import PaidStatusPill from "../common/PaidStatusPill";
 
 interface Props {
   user: User;
   isAdmin?: boolean;
+  hasPaid?: boolean;
   profileName?: string | null;
 }
 
@@ -41,7 +43,12 @@ const LogoMark = () => (
   </svg>
 );
 
-const Navbar: React.FC<Props> = ({ user, isAdmin = false, profileName }) => {
+const Navbar: React.FC<Props> = ({
+  user,
+  isAdmin = false,
+  hasPaid = false,
+  profileName,
+}) => {
   const [currentUser, setCurrentUser] = React.useState(user);
   const navigate = useNavigate();
 
@@ -82,6 +89,7 @@ const Navbar: React.FC<Props> = ({ user, isAdmin = false, profileName }) => {
           <LogoMark />
         </div>
         <div className="navbar-user">
+          <PaidStatusPill hasPaid={hasPaid} small className="navbar-paid" />
           <button
             className="userbox__chip"
             title={displayName}

@@ -2,6 +2,7 @@ import React from "react";
 import { collection, onSnapshot, type DocumentData } from "firebase/firestore";
 import { db } from "../firebase";
 import { formatFirstName } from "../utils/displayName";
+import { toIsoString } from "../utils/timestamps";
 
 interface UserDocData extends DocumentData {
   firstName?: string;
@@ -10,6 +11,7 @@ interface UserDocData extends DocumentData {
   email?: string;
   isAdmin?: boolean;
   hasPaid?: boolean;
+  paidAt?: { toDate?: () => Date } | string | null;
   createdAt?: { toDate?: () => Date } | string | null;
 }
 
@@ -21,6 +23,8 @@ export interface UserRecord {
   email: string;
   isAdmin: boolean;
   hasPaid: boolean;
+  /** When the admin last marked this player as paid, if it was recorded. */
+  paidAt: string | null;
   createdAt: string | null;
 }
 
@@ -47,20 +51,6 @@ export const useUsers = () => {
             data.displayName || fallbackName || data.email || "Unknown"
           );
 
-          let createdAt: string | null = null;
-          if (data.createdAt) {
-            if (
-              typeof data.createdAt === "object" &&
-              typeof (data.createdAt as { toDate?: () => Date }).toDate === "function"
-            ) {
-              createdAt = (data.createdAt as { toDate: () => Date })
-                .toDate()
-                .toISOString();
-            } else if (typeof data.createdAt === "string") {
-              createdAt = data.createdAt;
-            }
-          }
-
           list.push({
             id: docSnap.id,
             displayName,
@@ -69,7 +59,8 @@ export const useUsers = () => {
             email: data.email ?? "",
             isAdmin: Boolean(data.isAdmin),
             hasPaid: Boolean(data.hasPaid),
-            createdAt,
+            paidAt: toIsoString(data.paidAt),
+            createdAt: toIsoString(data.createdAt),
           });
         });
 

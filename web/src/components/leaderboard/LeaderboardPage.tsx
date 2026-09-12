@@ -13,6 +13,7 @@ import { getTiedRank } from "../../utils/ranking";
 import { isCurrentSeasonPrediction } from "../../utils/season";
 import { formatCurrencyGBP } from "../../utils/currency";
 import { CURRENT_SEASON_LABEL, ENTRY_FEE_GBP } from "../../config/football";
+import PaidStatusPill from "../common/PaidStatusPill";
 
 interface Props {
   user: User;
@@ -194,6 +195,11 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
     [usersById]
   );
   const prizePot = paidCount * ENTRY_FEE_GBP;
+  const unpaidCount = React.useMemo(
+    () => Object.values(usersById).filter((u) => !u.hasPaid).length,
+    [usersById]
+  );
+  const myHasPaid = Boolean(usersById[user.uid]?.hasPaid);
 
   if (loading) {
     return (
@@ -212,6 +218,23 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
           Live points across all {CURRENT_SEASON_LABEL} Premier League predictions. Updates
           automatically.
         </p>
+
+        {usersLoaded && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 4,
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              Your entry fee:
+            </span>
+            <PaidStatusPill hasPaid={myHasPaid} showFee />
+          </div>
+        )}
 
         {/* Prize pot banner */}
         {prizePot > 0 && (
@@ -247,6 +270,12 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
             <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
               {paidCount} player{paidCount === 1 ? "" : "s"} paid
               <br />
+              {unpaidCount > 0 && (
+                <>
+                  {unpaidCount} still to pay
+                  <br />
+                </>
+              )}
               {rows.length > 1 && rows[0].totalPoints > 0 && rows[0].totalPoints === rows[1].totalPoints
                 ? "Joint winners take all"
                 : "Winner takes all"}
@@ -329,23 +358,11 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
                             </span>
                           )}
                         </span>
-                        {row.hasPaid && (
-                          <span
-                            style={{
-                              marginLeft: 6,
-                              display: "inline-block",
-                              background: "rgba(46, 204, 113, 0.15)",
-                              border: "1px solid rgba(46, 204, 113, 0.35)",
-                              color: "#b7ffd1",
-                              borderRadius: 999,
-                              padding: "1px 6px",
-                              fontSize: 10,
-                              fontWeight: 700,
-                            }}
-                          >
-                            £
-                          </span>
-                        )}
+                        <PaidStatusPill
+                          hasPaid={row.hasPaid}
+                          small
+                          className="leaderboard-paid"
+                        />
                       </td>
                       <td style={{ padding: "8px 0", textAlign: "right" }}>
                         <strong>{row.totalPoints}</strong>

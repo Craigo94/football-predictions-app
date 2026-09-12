@@ -19,6 +19,7 @@ import {
 import { useUsers } from "../../hooks/useUsers";
 import { formatFirstName } from "../../utils/displayName";
 import { isCurrentSeasonPrediction } from "../../utils/season";
+import PaymentStatusBanner from "../common/PaymentStatusBanner";
 import {
   getFixtureStatusLabel,
   hasFixtureStarted,
@@ -30,6 +31,8 @@ import {
 
 interface Props {
   user: User;
+  hasPaid: boolean;
+  paidAt?: string | null;
 }
 
 interface PredictionDoc {
@@ -452,7 +455,7 @@ const H2HBar: React.FC<{
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DashboardPage: React.FC<Props> = ({ user }) => {
+const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
   const navigate = useNavigate();
   const {
     fixturesById,
@@ -943,6 +946,8 @@ const DashboardPage: React.FC<Props> = ({ user }) => {
           </Link>
         </div>
       </section>
+
+      <PaymentStatusBanner hasPaid={hasPaid} paidAt={paidAt} />
 
       {(fixturesError ||
         predictionsError ||

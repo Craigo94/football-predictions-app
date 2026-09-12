@@ -45,6 +45,37 @@ export const isRoundComplete = (
   );
 };
 
+/**
+ * Highest-numbered round whose fixtures have all been played, or null when no
+ * round has finished yet. Rounds whose label carries no number are skipped:
+ * there is no way to tell where they sit in the order.
+ */
+export const getLatestCompletedRound = (
+  fixturesById: Record<number, Fixture>,
+) => {
+  const rounds = new Set(
+    Object.values(fixturesById)
+      .map((fixture) => fixture.round)
+      .filter((round): round is string => Boolean(round)),
+  );
+
+  let latestRound: string | null = null;
+  let latestNumber = Number.NEGATIVE_INFINITY;
+
+  for (const round of rounds) {
+    const roundNumber = parseRoundNumber(round);
+    if (Number.isNaN(roundNumber) || roundNumber <= latestNumber) continue;
+    if (!isRoundComplete(round, fixturesById)) continue;
+
+    latestRound = round;
+    latestNumber = roundNumber;
+  }
+
+  return latestRound == null
+    ? null
+    : { round: latestRound, number: latestNumber };
+};
+
 export const getRoundSortValue = (round: string) => {
   const roundNumber = parseRoundNumber(round);
   return Number.isNaN(roundNumber) ? null : roundNumber;

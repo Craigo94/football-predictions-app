@@ -32,7 +32,7 @@ Keep this key secret: it grants full admin access to the Firebase project. Never
 ## Firebase setup checklist
 1. Create a Firebase project and enable **Authentication** and **Cloud Firestore**.
 2. Copy client config from Firebase Project Settings → Your apps and set all `VITE_FIREBASE_*` values.
-3. Ensure your Firestore rules support the app collections (`users`, predictions data, etc.).
+3. Ensure your Firestore rules support the app collections (`users`, predictions data, and `settings` — see **Entry fees** below).
 4. Enable Firebase Cloud Messaging (free tier supported) and create a Web Push certificate key.
 5. Add `VITE_FIREBASE_VAPID_KEY` (public key) so browser devices can register push tokens.
 
@@ -89,6 +89,33 @@ Create `.env.local` next to `package.json`, then run:
 ```bash
 npm install
 npm run dev
+```
+
+## Entry fees
+
+Players pay a per-gameweek entry fee (`ENTRY_FEE_GBP` in `src/config/football.ts`).
+The admin marks a player off with the **Paid** toggle on the Admin page, which
+sets `hasPaid` and `paidAt` on their user document; the player sees that status
+on the dashboard, in the navbar, on their profile, on My Stats and on the
+leaderboard.
+
+Once every fixture in a gameweek has finished, everybody is marked as not paid
+again for the next one. The reset runs when an admin opens the Admin page, and
+the gameweek it acted on is recorded in `settings/payments` so it happens once
+for the whole group rather than once per admin device. The first time it runs it
+only records the current gameweek — clearing straight away would wipe payments
+already taken for the gameweek coming up. The Admin page prints what the reset
+is doing, and **Clear all paid** still clears everyone by hand.
+
+That marker means Firestore rules have to allow the `settings` collection, or the
+Admin page will report that automatic resets are off:
+
+```
+match /settings/{document} {
+  allow read: if request.auth != null;
+  allow write: if request.auth != null
+    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+}
 ```
 
 ## Free notifications (no paid services required)
