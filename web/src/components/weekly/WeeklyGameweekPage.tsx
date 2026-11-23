@@ -10,6 +10,7 @@ import {
 } from "../../api/football";
 import { formatFirstName } from "../../utils/displayName";
 import { useUsers } from "../../hooks/useUsers";
+import { usePaidGameweeks } from "../../hooks/usePaidGameweeks";
 import { formatCurrencyGBP } from "../../utils/currency";
 import { ENTRY_FEE_GBP } from "../../config/football";
 import {
@@ -67,6 +68,8 @@ const WeeklyGameweekPage: React.FC = () => {
 
   const { fixturesById, season, loadingFixtures, fixturesError } = useLiveFixtures();
   const { users, loading: loadingUsers, error: usersError } = useUsers();
+  const { isPaidFor, requiresPayment, loading: paymentsLoading } =
+    usePaidGameweeks(users);
 
   /* 1) Listen to ALL predictions */
   React.useEffect(() => {
@@ -216,6 +219,9 @@ const WeeklyGameweekPage: React.FC = () => {
 
       for (const p of roundPreds) {
         if (!loadingUsers && !profileNames.has(p.userId)) continue;
+        // Players only join a gameweek once the admin marks them as paid for
+        // it; their points so far come with them when that happens.
+        if (!isPaidFor(p.userId, roundName)) continue;
         predsByUserFixture[`${p.userId}_${p.fixtureId}`] = p;
 
         const fixture: Fixture | undefined =
@@ -243,13 +249,26 @@ const WeeklyGameweekPage: React.FC = () => {
 
       return { fixturesList, earliestKickoff, revealPredictions, weeklyRows, predsByUserFixture, leaderPoints };
     },
-    [currentGameweekFixtures, detectedCurrentRound, fixturesById, predictions, users, loadingUsers]
+    [
+      currentGameweekFixtures,
+      detectedCurrentRound,
+      fixturesById,
+      predictions,
+      users,
+      loadingUsers,
+      isPaidFor,
+    ]
   );
 
   const currentRoundData = React.useMemo(() => buildRoundData(currentRound), [buildRoundData, currentRound]);
   const previousRoundData = React.useMemo(() => buildRoundData(previousRound), [buildRoundData, previousRound]);
 
-  const loading = predictionsLoading || loadingFixtures || currentGameweekLoading;
+  const loading =
+    predictionsLoading ||
+    loadingFixtures ||
+    currentGameweekLoading ||
+    loadingUsers ||
+    paymentsLoading;
   const combinedError = predictionsError || fixturesError || currentGameweekError || usersError;
 
   if (loading) {
@@ -285,7 +304,16 @@ const WeeklyGameweekPage: React.FC = () => {
   const kickoffLabel = fmtKickoff(currentRoundData.earliestKickoff);
   const previousKickoffLabel = fmtKickoff(previousRoundData.earliestKickoff);
 
-  const paidCount = users.filter((u) => u.hasPaid).length;
+  const paidCount = requiresPayment(currentRound)
+    ? users.filter((u) => isPaidFor(u.id, currentRound)).length
+    : users.filter((u) => u.hasPaid).length;
+  const waitingForPayment = requiresPayment(currentRound)
+    ? users.filter(
+        (u) =>
+          !isPaidFor(u.id, currentRound) &&
+          predictions.some((p) => p.userId === u.id && p.round === currentRound)
+      ).length
+    : 0;
   const prizePot = paidCount * ENTRY_FEE_GBP;
 
   const isRoundComplete = (roundData: RoundData) =>
@@ -438,6 +466,14 @@ const WeeklyGameweekPage: React.FC = () => {
           </div>
         )}
 
+        {showPrizePot && waitingForPayment > 0 && (
+          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "8px 0 0" }}>
+            {waitingForPayment} player{waitingForPayment === 1 ? " has" : "s have"} predicted
+            but {waitingForPayment === 1 ? "isn't" : "aren't"} marked as paid yet — they&apos;ll
+            appear here with their points once the admin marks them paid.
+          </p>
+        )}
+
         {combinedError && (
           <p style={{ fontSize: 12, color: "var(--red)", margin: "8px 0 0" }}>{combinedError}</p>
         )}
@@ -456,6 +492,7 @@ const WeeklyGameweekPage: React.FC = () => {
         {users.length > 0 && (() => {
           const countableFixtures = roundData.fixturesList.filter((f) => !isFixturePostponed(f));
           const usersWithCounts = users
+            .filter((u) => isPaidFor(u.id, roundName))
             .map((u) => ({
               userId: u.id,
               displayName: u.displayName,

@@ -9,7 +9,10 @@ import {
 import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
 import { isFixturePostponed } from "../../utils/fixtures";
 import { isCurrentSeasonPrediction } from "../../utils/season";
+import { sortRoundsAscending } from "../../utils/weeklyWinners";
 import PaidStatusPill from "../common/PaidStatusPill";
+import { useUsers } from "../../hooks/useUsers";
+import { usePaidGameweeks } from "../../hooks/usePaidGameweeks";
 
 interface Props {
   user: User;
@@ -58,6 +61,9 @@ const MyStatsPage: React.FC<Props> = ({ user, hasPaid = false }) => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [openRound, setOpenRound] = React.useState<string | null>(null);
+  const [unpaidRounds, setUnpaidRounds] = React.useState<string[]>([]);
+  const { users, loading: usersLoading } = useUsers();
+  const { isPaidFor, loading: paymentsLoading } = usePaidGameweeks(users);
 
   // 1) Listen to THIS USER'S predictions only
   React.useEffect(() => {
@@ -156,12 +162,19 @@ const MyStatsPage: React.FC<Props> = ({ user, hasPaid = false }) => {
       setOverallExact(0);
       setOverallResult(0);
       setOverallWrong(0);
+      setUnpaidRounds([]);
       return;
     }
 
-    // Group predictions by round
+    // Group predictions by round. Gameweeks you weren't marked as paid for
+    // don't count towards your stats.
     const byRound: Record<string, PredictionDoc[]> = {};
+    const skippedRounds = new Set<string>();
     predictions.forEach((p) => {
+      if (!isPaidFor(user.uid, p.round)) {
+        skippedRounds.add(p.round);
+        return;
+      }
       if (!byRound[p.round]) byRound[p.round] = [];
       byRound[p.round].push(p);
     });
@@ -275,9 +288,10 @@ const MyStatsPage: React.FC<Props> = ({ user, hasPaid = false }) => {
     setOverallExact(exactOverall);
     setOverallResult(resultOverall);
     setOverallWrong(wrongOverall);
-  }, [predictions, fixturesById]);
+    setUnpaidRounds(Array.from(skippedRounds).sort(sortRoundsAscending));
+  }, [predictions, fixturesById, isPaidFor, user.uid]);
 
-  if (loading) {
+  if (loading || usersLoading || paymentsLoading) {
     return <div>Loading your stats…</div>;
   }
 
@@ -340,6 +354,13 @@ const MyStatsPage: React.FC<Props> = ({ user, hasPaid = false }) => {
             <strong>{overallWrong}</strong>
           </div>
         </div>
+
+        {unpaidRounds.length > 0 && (
+          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0" }}>
+            Not counted (not marked as paid): {unpaidRounds.join(", ")}. A gameweek
+            counts once the admin marks you as paid for it.
+          </p>
+        )}
 
         {error && (
           <p
