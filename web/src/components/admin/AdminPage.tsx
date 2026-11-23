@@ -1,5 +1,7 @@
 import React from "react";
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -18,7 +20,17 @@ import { formatCurrencyGBP } from "../../utils/currency";
 import { ENTRY_FEE_GBP } from "../../config/football";
 import { formatFirstName } from "../../utils/displayName";
 import { formatDayMonthYear, toIsoString } from "../../utils/timestamps";
-import { getLatestCompletedRound } from "../../utils/weeklyWinners";
+import {
+  getLatestCompletedRound,
+  parseRoundNumber,
+} from "../../utils/weeklyWinners";
+import { getNextPremierLeagueGameweekFixtures } from "../../api/football";
+import {
+  GATE_FIELD,
+  PAID_GAMEWEEKS_FIELD,
+  gameweekKey,
+  parseGate,
+} from "../../utils/payments";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -47,15 +59,26 @@ const updatePredictionNames = async (uid: string, fullName: string) => {
  */
 const paidResetDoc = () => doc(db, "settings", "payments");
 
-const clearPaidStatuses = async (users: UserRecord[]) => {
-  const paidUsers = users.filter((user) => user.hasPaid);
+/**
+ * Marks everybody as not paid. The end-of-gameweek reset leaves the gameweeks
+ * they paid for alone (that history is what keeps their scores counting);
+ * clearing by hand passes the current gameweek so it is taken off them too.
+ */
+const clearPaidStatuses = async (users: UserRecord[], gameweek?: string) => {
+  const paidUsers = users.filter(
+    (user) => user.hasPaid || (gameweek && user.paidGameweeks.includes(gameweek))
+  );
   if (paidUsers.length === 0) return 0;
 
   const batch = writeBatch(db);
   paidUsers.forEach((user) => {
     batch.set(
       doc(db, "users", user.id),
-      { hasPaid: false, paidAt: null },
+      {
+        hasPaid: false,
+        paidAt: null,
+        ...(gameweek ? { [PAID_GAMEWEEKS_FIELD]: arrayRemove(gameweek) } : {}),
+      },
       { merge: true }
     );
   });
@@ -293,7 +316,7 @@ interface PaidResetMarker {
 
 const AdminPage: React.FC = () => {
   const { users, loading, error } = useUsers();
-  const { fixturesById, loadingFixtures } = useLiveFixtures();
+  const { fixturesById, loadingFixtures, season } = useLiveFixtures();
 
   const [search, setSearch] = React.useState("");
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
@@ -311,6 +334,16 @@ const AdminPage: React.FC = () => {
   const [paidResetLoaded, setPaidResetLoaded] = React.useState(false);
   const [paidResetUnavailable, setPaidResetUnavailable] = React.useState(false);
   const autoResetRound = React.useRef<number | null>(null);
+  /** The gameweek being played now (or next), which paid toggles apply to. */
+  const [currentGameweek, setCurrentGameweek] = React.useState<{
+    key: string;
+    label: string;
+  } | null>(null);
+  const [currentGameweekError, setCurrentGameweekError] = React.useState<
+    string | null
+  >(null);
+  const [paidGateKey, setPaidGateKey] = React.useState<string | null>(null);
+  const gateSetupStarted = React.useRef(false);
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -372,6 +405,8 @@ const AdminPage: React.FC = () => {
             typeof data?.lastResetRound === "string" ? data.lastResetRound : null,
           clearedAt: toIsoString(data?.lastResetAt),
         });
+        const gate = parseGate(data?.[GATE_FIELD]);
+        setPaidGateKey(gate ? gameweekKey(gate.season, gate.round) : null);
         setPaidResetUnavailable(false);
         setPaidResetLoaded(true);
       },
@@ -445,19 +480,120 @@ const AdminPage: React.FC = () => {
     users,
   ]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+    getNextPremierLeagueGameweekFixtures()
+      .then((fixtures) => {
+        if (cancelled) return;
+        const first = fixtures[0];
+        const roundNumber =
+          first?.matchday ?? (first ? parseRoundNumber(first.round) : Number.NaN);
+        if (!first || Number.isNaN(roundNumber)) {
+          setCurrentGameweekError("No upcoming gameweek was found.");
+          return;
+        }
+        setCurrentGameweek({
+          key: gameweekKey(first.season ?? season, roundNumber),
+          label: first.round,
+        });
+        setCurrentGameweekError(null);
+      })
+      .catch((err: unknown) => {
+        console.error("Failed to load the current gameweek", err);
+        if (!cancelled) {
+          setCurrentGameweekError(
+            err instanceof Error ? err.message : "Failed to load the current gameweek."
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [season]);
+
+  /**
+   * The first time this runs, start holding back unpaid players from the
+   * current gameweek on. Earlier gameweeks were played before payments were
+   * recorded per gameweek, so everyone's scores there stay as they are. Anyone
+   * already marked as paid is recorded as paid for the current gameweek.
+   *
+   * Waits for the end-of-gameweek reset to catch up first: until it has, a
+   * paid flag could still belong to the gameweek that just finished.
+   */
+  React.useEffect(() => {
+    if (gateSetupStarted.current || paidGateKey) return;
+    if (loading || loadingFixtures || !paidResetLoaded || !currentGameweek) return;
+    if (
+      latestCompletedRound &&
+      (paidReset.round == null || paidReset.round < latestCompletedRound.number)
+    ) {
+      return;
+    }
+
+    gateSetupStarted.current = true;
+    const run = async () => {
+      try {
+        const batch = writeBatch(db);
+        users
+          .filter((user) => user.hasPaid)
+          .forEach((user) => {
+            batch.set(
+              doc(db, "users", user.id),
+              { [PAID_GAMEWEEKS_FIELD]: arrayUnion(currentGameweek.key) },
+              { merge: true }
+            );
+          });
+        batch.set(
+          paidResetDoc(),
+          { [GATE_FIELD]: currentGameweek.key },
+          { merge: true }
+        );
+        await batch.commit();
+      } catch (err) {
+        console.error("Failed to start per-gameweek payments", err);
+        gateSetupStarted.current = false;
+      }
+    };
+    run();
+  }, [
+    currentGameweek,
+    latestCompletedRound,
+    loading,
+    loadingFixtures,
+    paidGateKey,
+    paidReset.round,
+    paidResetLoaded,
+    users,
+  ]);
+
   const handleUpdatePaid = async (user: UserRecord, hasPaid: boolean) => {
+    if (!currentGameweek) {
+      showError(
+        "Can't work out which gameweek this payment is for yet. Try again in a moment."
+      );
+      return;
+    }
     setUpdatingId(user.id);
     setActionError(null);
     try {
       // paidAt lets the player see when they were marked off, so clear it again
-      // whenever the status is reversed.
+      // whenever the status is reversed. The gameweek goes into their history
+      // so their points for it count, including any already scored.
       await setDoc(
         doc(db, "users", user.id),
-        { hasPaid, paidAt: hasPaid ? serverTimestamp() : null },
+        {
+          hasPaid,
+          paidAt: hasPaid ? serverTimestamp() : null,
+          [PAID_GAMEWEEKS_FIELD]: hasPaid
+            ? arrayUnion(currentGameweek.key)
+            : arrayRemove(currentGameweek.key),
+        },
         { merge: true }
       );
       showSuccess(
-        `${user.displayName} marked as ${hasPaid ? "paid" : "unpaid"}.`
+        `${user.displayName} marked as ${hasPaid ? "paid" : "unpaid"} for ${
+          currentGameweek.label
+        }.`
       );
     } catch (err) {
       showError("Unable to update payment status.");
@@ -485,8 +621,12 @@ const AdminPage: React.FC = () => {
     setClearingPaid(true);
     setActionError(null);
     try {
-      await clearPaidStatuses(users);
-      showSuccess("All paid statuses cleared.");
+      await clearPaidStatuses(users, currentGameweek?.key);
+      showSuccess(
+        currentGameweek
+          ? `All paid statuses cleared for ${currentGameweek.label}.`
+          : "All paid statuses cleared."
+      );
     } catch (err) {
       showError("Unable to clear paid statuses.");
       console.error(err);
@@ -631,6 +771,19 @@ const AdminPage: React.FC = () => {
           }}
         >
           {autoResetStatus}
+        </p>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            color: currentGameweekError ? "var(--yellow)" : "var(--text-muted)",
+          }}
+        >
+          {currentGameweek
+            ? `Marking someone as paid enters them into ${currentGameweek.label}. Until then they don't appear in that gameweek and its points don't count towards their stats — marking them paid later brings in everything they've scored that week so far.`
+            : currentGameweekError
+              ? `Couldn't load the current gameweek, so payments can't be recorded right now: ${currentGameweekError}`
+              : "Loading the current gameweek…"}
         </p>
 
         {/* Feedback banners */}

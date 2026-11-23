@@ -4,6 +4,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useLiveFixtures } from "../../context/LiveFixturesContext";
 import { useUsers } from "../../hooks/useUsers";
+import { usePaidGameweeks } from "../../hooks/usePaidGameweeks";
 import type { Fixture } from "../../api/football";
 import { formatFirstName } from "../../utils/displayName";
 import { scorePrediction, type PredictionStatus } from "../../utils/scoring";
@@ -64,13 +65,20 @@ const statusToCountKey = (status: PredictionStatus) => {
 
 const WinnersHistoryPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [predictions, setPredictions] = React.useState<AllPredictionDoc[]>([]);
+  const [allPredictions, setPredictions] = React.useState<AllPredictionDoc[]>([]);
   const [predictionsLoading, setPredictionsLoading] = React.useState(true);
   const [predictionsError, setPredictionsError] = React.useState<string | null>(
     null,
   );
   const { fixturesById, season, loadingFixtures, fixturesError } = useLiveFixtures();
   const { users, loading: usersLoading, error: usersError } = useUsers();
+  const { isPaidFor, loading: paymentsLoading } = usePaidGameweeks(users);
+
+  // Only players who paid for a gameweek take part in it.
+  const predictions = React.useMemo(
+    () => allPredictions.filter((p) => isPaidFor(p.userId, p.round)),
+    [allPredictions, isPaidFor],
+  );
 
   const selectedWinnerId = searchParams.get("winner") ?? "";
 
@@ -262,7 +270,8 @@ const WinnersHistoryPage: React.FC = () => {
       )
     : history;
 
-  const loading = predictionsLoading || loadingFixtures || usersLoading;
+  const loading =
+    predictionsLoading || loadingFixtures || usersLoading || paymentsLoading;
   const error = predictionsError || fixturesError || usersError;
 
   const updateWinnerFilter = (winnerId: string) => {

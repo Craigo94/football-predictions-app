@@ -33,7 +33,7 @@ const PaymentStatusBanner: React.FC<Props> = ({ hasPaid, paidAt, className }) =>
         <p className="payment-banner__detail">
           {hasPaid
             ? `${fee} received${paidOn ? ` on ${paidOn}` : ""}. You're in this gameweek's prize pot — everyone starts as not paid again once it finishes.`
-            : `Pay the admin your ${fee} entry fee for this gameweek and they'll mark you as paid. This updates as soon as they do.`}
+            : `Pay the admin your ${fee} entry fee for this gameweek. You won't appear in this gameweek's table, and its points won't count towards your stats, until they mark you as paid — then any points you've already scored come in with you.`}
         </p>
       </div>
       <PaidStatusPill hasPaid={hasPaid} />

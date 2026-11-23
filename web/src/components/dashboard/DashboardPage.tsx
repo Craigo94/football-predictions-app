@@ -17,6 +17,7 @@ import {
   sortRoundsAscending,
 } from "../../utils/weeklyWinners";
 import { useUsers } from "../../hooks/useUsers";
+import { usePaidGameweeks } from "../../hooks/usePaidGameweeks";
 import { formatFirstName } from "../../utils/displayName";
 import { isCurrentSeasonPrediction } from "../../utils/season";
 import PaymentStatusBanner from "../common/PaymentStatusBanner";
@@ -489,6 +490,7 @@ const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
   const [gameweekLoading, setGameweekLoading] = React.useState(true);
   const [gameweekError, setGameweekError] = React.useState<string | null>(null);
   const { users, loading: usersLoading, error: usersError } = useUsers();
+  const { isPaidFor, loading: paymentsLoading } = usePaidGameweeks(users);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -613,11 +615,14 @@ const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
 
   const leaderboardRank = React.useMemo(() => {
     if (!currentRoundLabel) return null;
+    // You're not in this gameweek's table until you've been marked as paid.
+    if (!isPaidFor(user.uid, currentRoundLabel)) return null;
 
     const pointsByUser: Record<string, number> = {};
 
     allPredictions.forEach((prediction) => {
       if (prediction.round !== currentRoundLabel) return;
+      if (!isPaidFor(prediction.userId, prediction.round)) return;
       const fixture = fixturesById[prediction.fixtureId];
       if (!fixture) return;
       const { points } = scorePrediction(
@@ -640,7 +645,7 @@ const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
       return { rank, total, points: myPoints };
     }
     return null;
-  }, [allPredictions, currentRoundLabel, fixturesById, user.uid]);
+  }, [allPredictions, currentRoundLabel, fixturesById, isPaidFor, user.uid]);
 
   const firstFixture = fixturesForRound[0] ?? null;
   const firstFixtureStarted = Boolean(
@@ -685,6 +690,7 @@ const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
     const pointsByRound = new Map<string, number>();
 
     predictions.forEach((prediction) => {
+      if (!isPaidFor(user.uid, prediction.round)) return;
       const fixture = fixturesById[prediction.fixtureId];
       if (!fixture) return;
 
@@ -706,12 +712,13 @@ const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
     );
 
     return ordered.slice(-6).map(([, value]) => value);
-  }, [fixturesById, predictions]);
+  }, [fixturesById, isPaidFor, predictions, user.uid]);
 
   const resultBreakdown = React.useMemo(() => {
     const countsByRound = new Map<string, { exact: number; result: number }>();
 
     predictions.forEach((prediction) => {
+      if (!isPaidFor(user.uid, prediction.round)) return;
       const fixture = fixturesById[prediction.fixtureId];
       if (!fixture) return;
 
@@ -740,7 +747,7 @@ const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
     );
 
     return ordered.slice(-6).map(([round, values]) => ({ round, ...values }));
-  }, [fixturesById, predictions]);
+  }, [fixturesById, isPaidFor, predictions, user.uid]);
 
   const weeklyWinners = React.useMemo(() => {
     const userNames = new Map<string, string>();
@@ -760,7 +767,7 @@ const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
     });
 
     const { winCounts, weeksCounted, jointRoundsCount } = getWeeklyWinnerCounts(
-      allPredictions,
+      allPredictions.filter((p) => isPaidFor(p.userId, p.round)),
       fixturesById,
     );
 
@@ -782,7 +789,7 @@ const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
     });
 
     return { rows, weeksCounted, jointRoundsCount };
-  }, [allPredictions, fixturesById, users]);
+  }, [allPredictions, fixturesById, isPaidFor, users]);
 
   const kickoffLabel = firstFixture
     ? `${firstFixture.homeShort} vs ${firstFixture.awayShort} • ${timeUK(
@@ -807,7 +814,10 @@ const DashboardPage: React.FC<Props> = ({ user, hasPaid, paidAt }) => {
 
   const loading = loadingFixtures || predictionsLoading || gameweekLoading;
   const weeklyWinnersLoading =
-    allPredictionsLoading || loadingFixtures || (usersLoading && !usersError);
+    allPredictionsLoading ||
+    loadingFixtures ||
+    paymentsLoading ||
+    (usersLoading && !usersError);
 
   const notificationHelperText = !notificationsSupported
     ? "This browser does not support notifications."

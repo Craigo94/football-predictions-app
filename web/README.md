@@ -107,6 +107,21 @@ only records the current gameweek — clearing straight away would wipe payments
 already taken for the gameweek coming up. The Admin page prints what the reset
 is doing, and **Clear all paid** still clears everyone by hand.
 
+Payments also decide who takes part in each gameweek. Marking a player as paid
+adds that gameweek to `paidGameweeks` on their user document (as
+`"<season>:<matchday>"`, e.g. `"2026:13"`). Until a player is paid for a
+gameweek they don't appear on the gameweek page, and that week's points don't
+count towards the leaderboard, My Stats or weekly winners. Marking them as paid
+part-way through brings in everything they've scored that week so far; never
+paying means the week never counts for them. The end-of-gameweek reset clears
+`hasPaid` but leaves `paidGameweeks` alone, so that history sticks.
+
+Gameweeks before this was switched on still count for everyone. The first time
+an admin opens the Admin page it stores the current gameweek in
+`settings/payments` as `paidGameweeksFrom`, and records anyone already marked
+as paid against that gameweek. If `settings/payments` can't be read, nobody is
+held back.
+
 That marker means Firestore rules have to allow the `settings` collection, or the
 Admin page will report that automatic resets are off:
 

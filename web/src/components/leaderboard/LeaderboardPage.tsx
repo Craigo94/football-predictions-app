@@ -14,6 +14,8 @@ import { isCurrentSeasonPrediction } from "../../utils/season";
 import { formatCurrencyGBP } from "../../utils/currency";
 import { CURRENT_SEASON_LABEL, ENTRY_FEE_GBP } from "../../config/football";
 import PaidStatusPill from "../common/PaidStatusPill";
+import { usePaidGameweeks } from "../../hooks/usePaidGameweeks";
+import { parsePaidGameweeks } from "../../utils/payments";
 
 interface Props {
   user: User;
@@ -27,6 +29,7 @@ interface PredictionDoc {
   predHome: number | null;
   predAway: number | null;
   kickoff: string;
+  round: string;
 }
 
 interface LeaderboardRow {
@@ -45,7 +48,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
   const [loadingPreds, setLoadingPreds] = React.useState(true);
   const [predError, setPredError] = React.useState<string | null>(null);
   const [usersById, setUsersById] = React.useState<
-    Record<string, { name: string; hasPaid: boolean }>
+    Record<string, { name: string; hasPaid: boolean; paidGameweeks: string[] }>
   >({});
   const [usersLoaded, setUsersLoaded] = React.useState(false);
   const [usersError, setUsersError] = React.useState<string | null>(null);
@@ -64,7 +67,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
     const unsub = onSnapshot(
       ref,
       (snap) => {
-        const map: Record<string, { name: string; hasPaid: boolean }> = {};
+        const map: Record<string, { name: string; hasPaid: boolean; paidGameweeks: string[] }> = {};
         snap.forEach((docSnap) => {
           const data = docSnap.data();
           const displayName =
@@ -74,6 +77,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
           map[docSnap.id] = {
             name: displayName ? formatFirstName(displayName) : "",
             hasPaid: Boolean(data.hasPaid),
+            paidGameweeks: parsePaidGameweeks(data.paidGameweeks),
           };
         });
         setUsersById(map);
@@ -109,6 +113,7 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
             predHome: data.predHome ?? null,
             predAway: data.predAway ?? null,
             kickoff: data.kickoff,
+            round: data.round ?? "Unknown",
           });
         });
         setPredictions(list);
@@ -124,6 +129,16 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
     return () => unsub();
   }, [season]);
 
+  const players = React.useMemo(
+    () =>
+      Object.entries(usersById).map(([id, info]) => ({
+        id,
+        paidGameweeks: info.paidGameweeks,
+      })),
+    [usersById]
+  );
+  const { isPaidFor, loading: paymentsLoading } = usePaidGameweeks(players);
+
   /* 2) Compute leaderboard */
   React.useEffect(() => {
     if (!predictions.length) {
@@ -135,6 +150,8 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
 
     for (const p of predictions) {
       if (usersLoaded && !usersById[p.userId]) continue;
+      // A gameweek only adds to someone's total once they've paid for it.
+      if (!isPaidFor(p.userId, p.round)) continue;
       const userInfo = usersById[p.userId];
       const userDisplayName =
         userInfo?.name ||
@@ -185,9 +202,10 @@ const LeaderboardPage: React.FC<Props> = ({ user }) => {
     );
 
     setRows(sorted);
-  }, [predictions, fixturesById, usersById, usersLoaded]);
+  }, [predictions, fixturesById, usersById, usersLoaded, isPaidFor]);
 
-  const loading = loadingPreds || loadingFixtures;
+  const loading =
+    loadingPreds || loadingFixtures || paymentsLoading || (!usersLoaded && !usersError);
   const combinedError = predError || fixturesError || usersError;
 
   const paidCount = React.useMemo(

@@ -3,6 +3,7 @@ import { collection, onSnapshot, type DocumentData } from "firebase/firestore";
 import { db } from "../firebase";
 import { formatFirstName } from "../utils/displayName";
 import { toIsoString } from "../utils/timestamps";
+import { parsePaidGameweeks } from "../utils/payments";
 
 interface UserDocData extends DocumentData {
   firstName?: string;
@@ -12,6 +13,7 @@ interface UserDocData extends DocumentData {
   isAdmin?: boolean;
   hasPaid?: boolean;
   paidAt?: { toDate?: () => Date } | string | null;
+  paidGameweeks?: unknown;
   createdAt?: { toDate?: () => Date } | string | null;
 }
 
@@ -25,6 +27,8 @@ export interface UserRecord {
   hasPaid: boolean;
   /** When the admin last marked this player as paid, if it was recorded. */
   paidAt: string | null;
+  /** Every gameweek they have paid for, as "<season>:<matchday>" keys. */
+  paidGameweeks: string[];
   createdAt: string | null;
 }
 
@@ -60,6 +64,7 @@ export const useUsers = () => {
             isAdmin: Boolean(data.isAdmin),
             hasPaid: Boolean(data.hasPaid),
             paidAt: toIsoString(data.paidAt),
+            paidGameweeks: parsePaidGameweeks(data.paidGameweeks),
             createdAt: toIsoString(data.createdAt),
           });
         });
